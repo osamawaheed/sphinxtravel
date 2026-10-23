@@ -304,7 +304,6 @@ class MockApiDataSource {
           'trip_count': 1,
           'vehicle_model': _mockVehicleModel,
           'vehicle_color': 'Black',
-          'plate_number': 'GG-123-AB',
           'photo_url': '',
           'location_required': true,
         },
@@ -850,7 +849,6 @@ class MockApiDataSource {
         tripCount: 1,
         vehicleModel: _mockVehicleModel,
         vehicleColor: 'Black',
-        plateNumber: 'GG-123-AB',
         photoUrl: _mockProfilePhotoUrl ?? '',
       ),
       locationRequired: true,
@@ -881,7 +879,6 @@ class MockApiDataSource {
     return {
       'name': _mockDriverName,
       'profile_completed': _mockProfileCompleted,
-      'plate_number': _mockProfileCompleted ? 'GG-123-AB' : '',
       'vehicle_model': _mockProfileCompleted ? 'Toyota Camry' : '',
       'personal_photos': _mockProfileCompleted
           ? [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../routes/app_routes.dart';
 import '../../theme/app_theme.dart';
 
@@ -20,30 +21,27 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _slideUp;
   int _currentPage = 0;
 
-  static const List<_OnboardingData> _slides = [
+  static const String _mountainImage =
+      'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1200&q=80';
+
+  List<_OnboardingData> _buildSlides(AppLocalizations l10n) => [
     _OnboardingData(
-      image:
-          'https://images.pexels.com/photos/1624438/pexels-photo-1624438.jpeg?auto=compress&cs=tinysrgb&w=1200',
-      headline: 'Your Journey\nStarts Here',
-      subtitle:
-          'Everything you need for a seamless travel experience, all in one place.',
-      buttonLabel: 'Explore Your Journey',
+      image: _mountainImage,
+      headline: l10n.splashHeadline1,
+      subtitle: l10n.splashBody1,
+      buttonLabel: l10n.splashButton1,
     ),
     _OnboardingData(
-      image:
-          'https://images.pexels.com/photos/2662116/pexels-photo-2662116.jpeg?auto=compress&cs=tinysrgb&w=1200',
-      headline: 'Every Trip.\nPerfectly Managed.',
-      subtitle:
-          'Stay connected, follow your schedule, and deliver every journey with confidence.',
-      buttonLabel: 'Start Driving',
+      image: _mountainImage,
+      headline: l10n.splashHeadline2,
+      subtitle: l10n.splashBody2,
+      buttonLabel: l10n.splashButton2,
     ),
     _OnboardingData(
-      image:
-          'https://images.pexels.com/photos/3225517/pexels-photo-3225517.jpeg?auto=compress&cs=tinysrgb&w=1200',
-      headline: 'Run Travel\nSmarter',
-      subtitle:
-          'Customers, drivers, trips and operations — connected in one powerful platform.',
-      buttonLabel: 'Get Started',
+      image: _mountainImage,
+      headline: l10n.splashHeadline3,
+      subtitle: l10n.splashBody3,
+      buttonLabel: l10n.splashButton3,
     ),
   ];
 
@@ -91,89 +89,80 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Full-screen PageView — no padding, no rounding
-          PageView.builder(
-            controller: _pageController,
-            onPageChanged: _onPageChanged,
-            itemCount: 3,
-            itemBuilder: (context, index) {
-              return _OnboardingPage(
-                data: _slides[index],
-                isActive: index == _currentPage,
-                fadeIn: _fadeIn,
-                slideUp: _slideUp,
-              );
-            },
-          ),
-          // Bottom overlay: page indicator + CTA button
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Page indicator dots
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(3, (i) {
-                        final isActive = i == _currentPage;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: isActive ? 24 : 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? Colors.white
-                                : Colors.white.withAlpha(100),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 20),
-                    // CTA Button
-                    FadeTransition(
-                      opacity: _fadeIn,
-                      child: GestureDetector(
-                        onTap: _onButtonTap,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          decoration: BoxDecoration(
-                            color: AppTheme.brandNavy,
-                            borderRadius: BorderRadius.circular(50),
-                          ),
-                          child: Text(
-                            _slides[_currentPage].buttonLabel,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+      backgroundColor: const Color(0xFFF0EDE8),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+          child: Column(
+            children: [
+              // Rounded full-height image card
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: _onPageChanged,
+                    itemCount: 3,
+                    itemBuilder: (context, index) {
+                      return _OnboardingPage(
+                        data: _buildSlides(l10n)[index],
+                        isActive: index == _currentPage,
+                        fadeIn: _fadeIn,
+                        slideUp: _slideUp,
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 28),
+              // Page indicator
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(3, (i) {
+                  final isActive = i == _currentPage;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: isActive ? 34 : 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? AppTheme.brandNavy
+                          : const Color(0xFFBDBDBD),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 28),
+              // CTA Button
+              GestureDetector(
+                onTap: _onButtonTap,
+                child: Container(
+                  width: double.infinity,
+                  height: 64,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1B2D45),
+                    borderRadius: BorderRadius.circular(32),
+                  ),
+                  child: Text(
+                    _buildSlides(l10n)[_currentPage].buttonLabel,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -211,34 +200,34 @@ class _OnboardingPage extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Full-screen background image — edge to edge, no rounding
         Image.network(
           data.image,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(color: AppTheme.brandNavy),
+          errorBuilder: (_, __, ___) =>
+              Container(color: const Color(0xFF0B0F14)),
         ),
-        // Dark gradient overlay at bottom for text readability
+        // Dark gradient overlay fading to black at the bottom
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
+                Color(0x66000000),
                 Colors.transparent,
-                Colors.transparent,
-                Color(0x44000000),
-                Color(0xBB000000),
-                Color(0xEE000000),
+                Color(0x66000000),
+                Color(0xE6000000),
+                Color(0xFF000000),
               ],
-              stops: [0.0, 0.40, 0.58, 0.75, 1.0],
+              stops: [0.0, 0.25, 0.60, 0.80, 1.0],
             ),
           ),
         ),
-        // Headline + subtitle overlaid on lower portion
+        // Right-aligned headline + subtitle at the bottom of the card
         Positioned(
-          left: 0,
-          right: 0,
-          bottom: 120,
+          left: 28,
+          right: 28,
+          bottom: 28,
           child: FadeTransition(
             opacity: fadeIn,
             child: AnimatedBuilder(
@@ -247,39 +236,35 @@ class _OnboardingPage extends StatelessWidget {
                 offset: Offset(0, slideUp.value),
                 child: child,
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Directionality(
-                  textDirection: TextDirection.ltr,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        data.headline,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          height: 1.15,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        data.subtitle,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: Colors.white.withAlpha(200),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          height: 1.6,
-                        ),
-                      ),
-                    ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    data.headline,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      color: Colors.white,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w500,
+                      height: 1.1,
+                      letterSpacing: -1.0,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  Text(
+                    data.subtitle,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: Colors.white.withAlpha(190),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

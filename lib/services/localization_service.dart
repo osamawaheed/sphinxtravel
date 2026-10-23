@@ -52,6 +52,20 @@ class LocalizationService extends ChangeNotifier {
     _userRole = prefs.getString(_userRoleKey) ?? 'customer';
   }
 
+  /// Languages available per role (code, native label, English label, flag).
+  static const List<Map<String, String>> customerLanguages = [
+    {'code': 'ar', 'label': 'العربية', 'sublabel': 'Arabic', 'flag': '🇸🇦'},
+    {'code': 'en', 'label': 'English', 'sublabel': 'English', 'flag': '🇬🇧'},
+  ];
+  static const List<Map<String, String>> driverLanguages = [
+    {'code': 'en', 'label': 'English', 'sublabel': 'English', 'flag': '🇬🇧'},
+    {'code': 'ru', 'label': 'Русский', 'sublabel': 'Russian', 'flag': '🇷🇺'},
+    {'code': 'ka', 'label': 'ქართული', 'sublabel': 'Georgian', 'flag': '🇬🇪'},
+  ];
+
+  static List<Map<String, String>> languagesForRole(String role) =>
+      role == 'driver' ? driverLanguages : customerLanguages;
+
   Future<void> setLanguage(String language, {String role = 'customer'}) async {
     if (_currentLanguage == language && _userRole == role) return;
     _currentLanguage = language;
@@ -74,7 +88,7 @@ class LocalizationService extends ChangeNotifier {
   // ─── Legacy translations map (kept for backward compatibility) ─────────────
   static const Map<String, Map<String, String>> _translations = {
     'en': {
-      'app_name': 'Travel Operations',
+      'app_name': 'TourOps',
       'welcome': 'Welcome',
       'good_morning': 'Good morning',
       'good_afternoon': 'Good afternoon',
@@ -138,7 +152,7 @@ class LocalizationService extends ChangeNotifier {
       'day_label': 'Day',
     },
     'ar': {
-      'app_name': 'سفينكس للسفر',
+      'app_name': 'TourOps',
       'welcome': 'مرحباً',
       'good_morning': 'صباح الخير',
       'good_afternoon': 'مساء الخير',
@@ -202,7 +216,7 @@ class LocalizationService extends ChangeNotifier {
       'day_label': 'اليوم',
     },
     'ru': {
-      'app_name': 'Travel Operations',
+      'app_name': 'TourOps',
       'welcome': 'Добро пожаловать',
       'good_morning': 'Доброе утро',
       'good_afternoon': 'Добрый день',
@@ -266,7 +280,7 @@ class LocalizationService extends ChangeNotifier {
       'day_label': 'День',
     },
     'ka': {
-      'app_name': 'Travel Operations',
+      'app_name': 'TourOps',
       'welcome': 'კეთილი იყოს თქვენი მობრძანება',
       'good_morning': 'დილა მშვიდობისა',
       'good_afternoon': 'შუადღე მშვიდობისა',

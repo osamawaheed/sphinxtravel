@@ -81,6 +81,26 @@ class ApiClient {
       ? _baseUrl.substring(0, _baseUrl.length - 1)
       : _baseUrl;
 
+  /// True only for the authorized Odoo testing environment.
+  /// The debug OTP is never shown against any other (production) host.
+  static bool get isTestEnvironment {
+    final host = Uri.tryParse(_baseUrl)?.host.toLowerCase() ?? '';
+    return host == 'test.sphinx-travel.com';
+  }
+
+  /// Returns the OTP the Odoo testing API included in a request-otp response
+  /// (`debug_otp` or equivalent), or null when not available / not allowed.
+  static String? debugOtpFrom(dynamic response) {
+    if (!isTestEnvironment || response is! Map) return null;
+    final data = response['data'] is Map ? response['data'] as Map : null;
+    for (final key in const ['debug_otp', 'debugOtp', 'test_otp', 'otp']) {
+      final raw = response[key] ?? data?[key];
+      final value = raw?.toString().trim() ?? '';
+      if (RegExp(r'^\d{4,8}$').hasMatch(value)) return value;
+    }
+    return null;
+  }
+
   /// Resolves a relative path (e.g. "/web/image/...") against the API base URL.
   /// Absolute http(s) URLs are returned unchanged; empty input returns ''.
   static String resolveUrl(String? path) {
@@ -224,6 +244,19 @@ class ApiClient {
 
   Future<Response> get(String path, {Map<String, dynamic>? queryParams}) {
     return _run(() => _dio.get(path, queryParameters: queryParams));
+  }
+
+  /// GET returning raw bytes (used for protected PDF downloads).
+  Future<Response> getBytes(String path) {
+    return _run(
+      () => _dio.get(
+        path,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {'Accept': 'application/pdf'},
+        ),
+      ),
+    );
   }
 
   Future<Response> post(String path, {dynamic data}) {

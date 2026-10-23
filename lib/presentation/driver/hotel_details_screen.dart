@@ -1,304 +1,277 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../models/hotel_model.dart';
+
+import '../../l10n/app_localizations.dart';
+import '../../services/localization_service.dart';
 import '../../theme/app_theme.dart';
 
-class HotelDetailsScreen extends StatelessWidget {
-  final HotelModel hotel;
+/// Popup modal showing a hotel's name and phone, with "Get Directions",
+/// "Call Hotel" and "Close". All values come from the linked hotel record in
+/// Odoo — the map URL is opened exactly as stored and nothing is guessed.
+class HotelDetailsScreen extends StatefulWidget {
+  final String name;
+  final String phone;
+  final String googleMapUrl;
 
-  const HotelDetailsScreen({super.key, required this.hotel});
+  const HotelDetailsScreen({
+    super.key,
+    required this.name,
+    this.phone = '',
+    this.googleMapUrl = '',
+  });
 
-  Future<void> _openInGoogleMaps() async {
-    final address = hotel.address ?? hotel.name;
-    final encoded = Uri.encodeComponent(address);
-    final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$encoded',
+  /// Opens the hotel popup over the current page (no navigation to a new page).
+  static Future<void> show(
+    BuildContext context, {
+    required String name,
+    String phone = '',
+    String googleMapUrl = '',
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => HotelDetailsScreen(
+        name: name,
+        phone: phone,
+        googleMapUrl: googleMapUrl,
+      ),
     );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  State<HotelDetailsScreen> createState() => _HotelDetailsScreenState();
+}
+
+class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    LocalizationService.instance.addListener(_onLocaleChanged);
+  }
+
+  @override
+  void dispose() {
+    LocalizationService.instance.removeListener(_onLocaleChanged);
+    super.dispose();
+  }
+
+  void _onLocaleChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _toast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _getDirections(AppLocalizations l10n) async {
+    final url = widget.googleMapUrl.trim();
+    final uri = Uri.tryParse(url);
+    if (url.isEmpty || uri == null || !uri.hasScheme) {
+      _toast(l10n.hotelMapUnavailable);
+      return;
+    }
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) _toast(l10n.hotelActionFailed);
+    } catch (_) {
+      _toast(l10n.hotelActionFailed);
     }
   }
 
-  Future<void> _callPhone() async {
-    final phone = hotel.phone;
-    if (phone == null || phone.isEmpty) return;
-    final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+  Future<void> _callHotel(AppLocalizations l10n) async {
+    final phone = widget.phone.trim();
+    if (phone.isEmpty) {
+      _toast(l10n.hotelPhoneUnavailable);
+      return;
+    }
+    final dialable = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    try {
+      final ok = await launchUrl(Uri(scheme: 'tel', path: dialable));
+      if (!ok) _toast(l10n.hotelActionFailed);
+    } catch (_) {
+      _toast(l10n.hotelActionFailed);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.fromService(LocalizationService.instance);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppTheme.darkBackground : AppTheme.mainBackground;
-    final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
-    final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
     final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
     final subColor = isDark
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
+    final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+    final hasPhone = widget.phone.trim().isNotEmpty;
+    final hasMap = widget.googleMapUrl.trim().isNotEmpty;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.fromLTRB(8, 12, 20, 12),
-              color: bgColor,
-              child: Row(
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCard : AppTheme.cardWhite,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: textColor,
-                      size: 20,
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.luxuryAccent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.hotel_rounded,
+                      color: AppTheme.luxuryAccent,
+                      size: 22,
                     ),
                   ),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      'Hotel Details',
-                      style: GoogleFonts.inter(
-                        color: textColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              color: isDark ? textColor : AppTheme.brandNavy,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.phone_rounded,
+                                size: 13,
+                                color: subColor,
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  hasPhone
+                                      ? widget.phone.trim()
+                                      : l10n.hotelPhoneUnavailable,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    color: hasPhone ? textColor : subColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.of(context).pop(),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 20,
+                        color: subColor,
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Row(
                   children: [
-                    // Hotel photo
-                    if (hotel.photoUrl != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 200,
-                          child: Image.network(
-                            hotel.photoUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: AppTheme.brandNavy.withAlpha(30),
-                              child: Icon(
-                                Icons.hotel_rounded,
-                                color: AppTheme.brandNavy.withAlpha(80),
-                                size: 56,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: double.infinity,
-                          height: 160,
-                          color: AppTheme.brandNavy.withAlpha(20),
-                          child: Icon(
-                            Icons.hotel_rounded,
-                            color: AppTheme.brandNavy.withAlpha(80),
-                            size: 56,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 20),
-                    // Details card
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: border),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.shadowColor,
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Hotel Name
-                          _DetailRow(
-                            icon: Icons.hotel_rounded,
-                            label: 'Hotel Name',
-                            value: hotel.name,
-                            textColor: textColor,
-                            subColor: subColor,
-                            isDark: isDark,
-                            isFirst: true,
-                          ),
-                          Divider(
-                            color: border,
-                            height: 1,
-                            indent: 16,
-                            endIndent: 16,
-                          ),
-                          // Full Address
-                          _DetailRow(
-                            icon: Icons.location_on_rounded,
-                            label: 'Full Address',
-                            value: hotel.address?.isNotEmpty == true
-                                ? hotel.address!
-                                : hotel.location,
-                            textColor: textColor,
-                            subColor: subColor,
-                            isDark: isDark,
-                          ),
-                          Divider(
-                            color: border,
-                            height: 1,
-                            indent: 16,
-                            endIndent: 16,
-                          ),
-                          // Phone Number
-                          _DetailRow(
-                            icon: Icons.phone_rounded,
-                            label: 'Phone Number',
-                            value: hotel.phone?.isNotEmpty == true
-                                ? hotel.phone!
-                                : 'Not available',
-                            textColor: textColor,
-                            subColor: subColor,
-                            isDark: isDark,
-                            onTap: hotel.phone?.isNotEmpty == true
-                                ? _callPhone
-                                : null,
-                            isActionable: hotel.phone?.isNotEmpty == true,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    // Google Maps button
-                    SizedBox(
-                      width: double.infinity,
+                    Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: _openInGoogleMaps,
-                        icon: const Icon(Icons.map_rounded, size: 20),
+                        onPressed: hasMap ? () => _getDirections(l10n) : null,
+                        icon: const Icon(Icons.directions_rounded, size: 18),
                         label: Text(
-                          'Open in Google Maps',
+                          l10n.getDirections,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.luxuryAccent,
+                          backgroundColor: AppTheme.brandNavy,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
                           elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: hasPhone ? () => _callHotel(l10n) : null,
+                        icon: const Icon(Icons.call_rounded, size: 18),
+                        label: Text(
+                          l10n.callHotel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.luxuryAccent,
+                          side: BorderSide(
+                            color: hasPhone ? AppTheme.luxuryAccent : border,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color textColor;
-  final Color subColor;
-  final bool isDark;
-  final bool isFirst;
-  final bool isActionable;
-  final VoidCallback? onTap;
-
-  const _DetailRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.textColor,
-    required this.subColor,
-    required this.isDark,
-    this.isFirst = false,
-    this.isActionable = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: isFirst
-          ? const BorderRadius.only(
-              topLeft: Radius.circular(18),
-              topRight: Radius.circular(18),
-            )
-          : null,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppTheme.luxuryAccent.withAlpha(20),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 18, color: AppTheme.luxuryAccent),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.inter(
-                      color: subColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    value,
-                    style: GoogleFonts.inter(
-                      color: isActionable ? AppTheme.luxuryAccent : textColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isActionable)
-              Icon(
-                Icons.chevron_right_rounded,
-                color: AppTheme.luxuryAccent,
-                size: 20,
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

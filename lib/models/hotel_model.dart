@@ -10,6 +10,7 @@ class HotelModel {
   final double? rating;
   final String? address;
   final String? phone;
+  final String? googleMapUrl;
   final String? checkInTime;
   final String? checkOutTime;
   final String? guestInfo;
@@ -26,12 +27,21 @@ class HotelModel {
     this.rating,
     this.address,
     this.phone,
+    this.googleMapUrl,
     this.checkInTime,
     this.checkOutTime,
     this.guestInfo,
   });
 
   factory HotelModel.fromJson(Map<String, dynamic> json) {
+    String? firstNonEmpty(List<String> keys) {
+      for (final k in keys) {
+        final v = json[k];
+        if (v is String && v.trim().isNotEmpty) return v.trim();
+      }
+      return null;
+    }
+
     return HotelModel(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
@@ -43,7 +53,19 @@ class HotelModel {
       photoUrl: json['photo_url'] as String?,
       rating: (json['rating'] as num?)?.toDouble(),
       address: json['address'] as String?,
-      phone: json['phone'] as String?,
+      phone: firstNonEmpty(['phone', 'hotel_phone', 'mobile', 'hotel_mobile']),
+      googleMapUrl: firstNonEmpty([
+        'hotel_location_gps',
+        'hotel_location',
+        'location_gps',
+        'gps_url',
+        'google_map_url',
+        'google_map',
+        'google_maps_url',
+        'map_url',
+        'google_map_link',
+        'map_link',
+      ]),
       checkInTime: json['check_in_time'] as String?,
       checkOutTime: json['check_out_time'] as String?,
       guestInfo: json['guest_info'] as String?,
@@ -62,6 +84,7 @@ class HotelModel {
     'rating': rating,
     'address': address,
     'phone': phone,
+    'google_map_url': googleMapUrl,
     'check_in_time': checkInTime,
     'check_out_time': checkOutTime,
     'guest_info': guestInfo,

@@ -14,8 +14,11 @@ import '../presentation/driver/driver_profile_check_screen.dart';
 import '../presentation/driver/driver_profile_completion_screen.dart';
 import '../presentation/driver/driver_trip_details_screen.dart';
 import '../presentation/driver/driver_full_trip_screen.dart';
+import '../presentation/driver/driver_trip_overview_screen.dart';
+import '../presentation/driver/driver_ratings_screen.dart';
 import '../models/trip_model.dart';
 import '../models/driver_bootstrap_model.dart';
+import '../models/driver_profile_model.dart';
 import '../models/transportation_segment_model.dart';
 
 class AppRoutes {
@@ -33,6 +36,8 @@ class AppRoutes {
   static const String driverHome = '/driver/home';
   static const String driverTripDetails = '/driver/trip-details';
   static const String driverFullTrip = '/driver/full-trip';
+  static const String driverTripOverview = '/driver/trip-overview';
+  static const String driverRatings = '/driver/ratings';
 
   // Driver onboarding routes
   static const String driverLocationPermission = '/driver/onboarding/location';
@@ -125,6 +130,7 @@ final GoRouter appRouter = GoRouter(
             phoneNumber: extra['phone'] as String? ?? '',
             requestId: extra['request_id'] as String? ?? '',
             expiresIn: (extra['expires_in'] as num?)?.toInt() ?? 120,
+            debugOtp: extra['debug_otp'] as String?,
           );
         }
         final phone = extra as String? ?? '';
@@ -172,7 +178,20 @@ final GoRouter appRouter = GoRouter(
         return DriverFullTripScreen(trip: trip, bootstrap: bootstrap);
       },
     ),
+    // Driver trip overview (GET /api/v1/driver/trips/{id})
+    GoRoute(
+      path: AppRoutes.driverTripOverview,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final tripId = extra?['tripId'] as int? ?? 0;
+        return DriverTripOverviewScreen(tripId: tripId);
+      },
+    ),
     // ─── Driver Onboarding ────────────────────────────────────────────────────
+    GoRoute(
+      path: AppRoutes.driverRatings,
+      builder: (context, state) => const DriverRatingsScreen(),
+    ),
     GoRoute(
       path: AppRoutes.driverLocationPermission,
       builder: (context, state) => const DriverLocationPermissionScreen(),
@@ -183,7 +202,12 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.driverProfileCompletion,
-      builder: (context, state) => const DriverProfileCompletionScreen(),
+      builder: (context, state) {
+        final extra = state.extra;
+        return DriverProfileCompletionScreen(
+          initialDriver: extra is DriverProfile ? extra : null,
+        );
+      },
     ),
   ],
 );

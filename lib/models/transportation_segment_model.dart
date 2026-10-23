@@ -1,4 +1,5 @@
 import './driver_assignment_model.dart';
+import './customer_bootstrap_model.dart' show HomeDriver;
 
 class TransportationSegmentModel {
   final int id;
@@ -10,7 +11,11 @@ class TransportationSegmentModel {
   final String? description;
   final String status;
   final DriverAssignment? driverAssignment;
+  final HomeDriver? homeDriver;
   final String? notes;
+  final String? endTime;
+  final String? city;
+  final String? title;
 
   // Extended Odoo fields for Driver Home
   final String? tripReference;
@@ -23,6 +28,14 @@ class TransportationSegmentModel {
   final String? customerPhone;
   final int? passengers;
   final String? flightArrivalTime;
+  final String imageUrl;
+  final bool driverAssigned;
+  final String driverName;
+
+  // Optional fields used by the Driver Home Tomorrow card
+  final String? flightAirport;
+  final String? flightDate;
+  final int? tripId;
 
   const TransportationSegmentModel({
     required this.id,
@@ -34,7 +47,11 @@ class TransportationSegmentModel {
     this.description,
     required this.status,
     this.driverAssignment,
+    this.homeDriver,
     this.notes,
+    this.endTime,
+    this.city,
+    this.title,
     this.tripReference,
     this.customerName,
     this.flightNumber,
@@ -45,6 +62,12 @@ class TransportationSegmentModel {
     this.customerPhone,
     this.passengers,
     this.flightArrivalTime,
+    this.imageUrl = '',
+    this.driverAssigned = false,
+    this.driverName = '',
+    this.flightAirport,
+    this.flightDate,
+    this.tripId,
   });
 
   static String? _optStr(dynamic v) {
@@ -117,6 +140,21 @@ class TransportationSegmentModel {
       flightArrivalTime: _optStr(
         flight != null ? flight['arrival_time'] : null,
       ),
+      flightAirport: _optStr(
+        json['flight_airport'] ??
+            (flight != null
+                ? (flight['airport'] ?? flight['arrival_airport'])
+                : null),
+      ),
+      flightDate: _optStr(
+        json['flight_date'] ??
+            (flight != null
+                ? (flight['date'] ?? flight['arrival_date'])
+                : null),
+      ),
+      tripId: json['trip_id'] != null
+          ? _int(json['trip_id'])
+          : (trip != null && trip['id'] != null ? _int(trip['id']) : null),
     );
   }
 

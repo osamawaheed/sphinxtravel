@@ -6,16 +6,29 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../data/mock_api_data_source.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/driver_bootstrap_model.dart';
+import '../../models/customer_bootstrap_model.dart';
 import '../../models/hotel_model.dart';
 import '../../models/transportation_segment_model.dart';
 import '../../models/trip_model.dart';
 import '../../routes/app_routes.dart';
 import '../../services/api_client.dart';
+import '../../services/session_manager.dart';
 import '../../services/driver_auth_service.dart';
+import '../../services/driver_api_service.dart';
 import '../../services/localization_service.dart';
+import '../../services/flight_visibility.dart';
+import '../../services/notification_service.dart';
 import '../../services/theme_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_network_image.dart';
+import '../customer/widgets/flight_card.dart';
+import '../customer/widgets/language_picker_sheet.dart';
+import '../customer/widgets/today_timeline_widget.dart';
+import './widgets/driver_tomorrow_card.dart';
+import './widgets/driver_customer_card.dart';
+import './widgets/driver_corner_ribbon.dart';
+import './widgets/driver_trip_hero_card.dart';
+import './widgets/driver_location_sharing_card.dart';
 
 class DriverHomeScreen extends StatefulWidget {
   const DriverHomeScreen({super.key});
@@ -24,13 +37,29 @@ class DriverHomeScreen extends StatefulWidget {
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
 }
 
-class _DriverHomeScreenState extends State<DriverHomeScreen> {
+class _DriverHomeScreenState extends State<DriverHomeScreen>
+    with WidgetsBindingObserver, FlightVisibilityRefresher {
   int _selectedTab = 0;
   DriverBootstrapModel? _bootstrap;
   bool _isLoading = true;
   String? _errorMessage;
 
   DriverAuthService? _driverAuthService;
+
+  List<DriverTripListItem> _myTrips = const [];
+  bool _tripsLoading = false;
+  String? _tripsError;
+
+  /// Details of the driver's other assigned trips (GET /driver/trips/{id}),
+  /// used only by the Tomorrow card.
+  List<CustomerHomeTrip> _otherTripDetails = const [];
+
+  /// Service ids with a delivery confirmation currently in flight.
+  final Set<int> _confirmingServiceIds = <int>{};
+
+  /// Service ids confirmed by Odoo in this session (guards duplicates until
+  /// the refreshed bootstrap reports the Delivered status).
+  final Set<int> _deliveredServiceIds = <int>{};
 
   @override
   void initState() {
@@ -39,16 +68,76 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       _driverAuthService = DriverAuthService(ApiClient());
     }
     _loadData();
+    NotificationService.instance.refresh();
+    if (!MockApiDataSource.useMock) _loadTrips();
     LocalizationService.instance.addListener(_onLocaleChanged);
+    initFlightVisibility();
   }
 
   @override
   void dispose() {
+    disposeFlightVisibility();
     LocalizationService.instance.removeListener(_onLocaleChanged);
     super.dispose();
   }
 
-  void _onLocaleChanged() => _loadData();
+  void _onLocaleChanged() {
+    _loadData();
+    if (!MockApiDataSource.useMock) _loadTrips();
+  }
+
+  String _currentLanguageLabel() {
+    final code = LocalizationService.instance.currentLanguage;
+    for (final lang in LocalizationService.driverLanguages) {
+      if (lang['code'] == code) return lang['label']!;
+    }
+    return '';
+  }
+
+  bool _signingOut = false;
+
+  Future<void> _confirmSignOut(AppLocalizations l10n) async {
+    if (_signingOut || SessionManager.isSigningOut) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.signOut),
+        content: Text(l10n.signOutMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.cancelAction),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              l10n.signOut,
+              style: const TextStyle(color: AppTheme.errorRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || _signingOut) return;
+
+    setState(() => _signingOut = true);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final router = GoRouter.of(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: const Center(
+          child: CircularProgressIndicator(color: AppTheme.luxuryAccent),
+        ),
+      ),
+    );
+    await SessionManager.signOut(fallbackRole: 'driver');
+    if (navigator.canPop()) navigator.pop();
+    router.go(AppRoutes.driverLogin);
+  }
 
   Future<void> _loadData() async {
     if (mounted) {
@@ -69,6 +158,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           _bootstrap = data;
           _isLoading = false;
         });
+        if (_myTrips.isNotEmpty) _loadOtherTripDetails(_myTrips);
       }
     } catch (e) {
       if (mounted) {
@@ -80,11 +170,201 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
+  Future<void> _loadTrips() async {
+    if (mounted) {
+      setState(() {
+        _tripsLoading = true;
+        _tripsError = null;
+      });
+    }
+    try {
+      final trips = await DriverApiService(ApiClient()).loadTrips();
+      if (mounted) {
+        setState(() {
+          _myTrips = trips;
+          _tripsLoading = false;
+          _tripsError = null;
+        });
+        _loadOtherTripDetails(trips);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _tripsLoading = false;
+          _tripsError = ApiException.messageOf(e) ?? e.toString();
+        });
+      }
+    }
+  }
+
+  /// Loads the detail (flight + transportation) of every assigned trip that
+  /// could contribute to Tomorrow: not the active trip, not already finished.
+  /// Uses the same Odoo endpoints as My Trips / Trip Overview.
+  Future<void> _loadOtherTripDetails(List<DriverTripListItem> trips) async {
+    final activeRef = _bootstrap?.homeTrip?.reference;
+    final today = FlightVisibility.destinationToday();
+    final candidates = trips.where((t) {
+      if (t.id <= 0) return false;
+      if (activeRef != null &&
+          activeRef.isNotEmpty &&
+          t.reference == activeRef) {
+        return false;
+      }
+      final dep = FlightVisibility.parseDate(t.departureDate);
+      return dep == null || !dep.isBefore(today);
+    }).toList();
+    if (candidates.isEmpty) {
+      if (mounted && _otherTripDetails.isNotEmpty) {
+        setState(() => _otherTripDetails = const []);
+      }
+      return;
+    }
+    final api = DriverApiService(ApiClient());
+    final loaded = <CustomerHomeTrip>[];
+    for (final t in candidates) {
+      try {
+        loaded.add(await api.loadTripDetail(t.id));
+      } catch (_) {
+        // Skip a trip whose detail cannot be loaded; Tomorrow stays accurate
+        // for the trips that did load.
+      }
+    }
+    if (mounted) setState(() => _otherTripDetails = loaded);
+  }
+
   String _greeting(AppLocalizations l10n) {
     final hour = DateTime.now().hour;
     if (hour < 12) return l10n.goodMorning;
     if (hour < 17) return l10n.goodAfternoon;
     return l10n.goodEvening;
+  }
+
+  Future<void> _onSimServiceTap(
+    HomeExtraService service,
+    CustomerHomeTrip home,
+  ) async {
+    if (service.isDelivered ||
+        _deliveredServiceIds.contains(service.id) ||
+        _confirmingServiceIds.contains(service.id)) {
+      return;
+    }
+    final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : AppTheme.cardWhite,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.sim_card_outlined, color: AppTheme.luxuryAccent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                service.title,
+                style: GoogleFonts.inter(
+                  color: isDark
+                      ? AppTheme.darkPrimaryText
+                      : AppTheme.primaryText,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          l10n.esimDeliveryQuestion,
+          style: GoogleFonts.inter(
+            color: isDark ? AppTheme.darkSecondaryText : AppTheme.secondaryText,
+            fontSize: 14,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              l10n.cancelAction,
+              style: GoogleFonts.inter(
+                color: isDark
+                    ? AppTheme.darkSecondaryText
+                    : AppTheme.secondaryText,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.brandNavy,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              l10n.confirmDelivery,
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    if (_confirmingServiceIds.contains(service.id)) return;
+
+    setState(() => _confirmingServiceIds.add(service.id));
+    try {
+      if (!MockApiDataSource.useMock) {
+        final payload = <String, dynamic>{
+          'booking_id': home.id,
+          'trip_reference': home.reference,
+          'driver_id': _bootstrap?.driverId,
+          'extra_service_id': service.id,
+          'delivered_quantity': service.qty,
+          'delivery_status': 'delivered',
+          'delivered_at': DateTime.now().toUtc().toIso8601String(),
+        };
+        final result = await DriverApiService(
+          ApiClient(),
+        ).confirmSimDelivery(tripId: home.id, payload: payload);
+        if (result['success'] != true) {
+          throw Exception('Delivery not confirmed by Odoo');
+        }
+      }
+
+      if (!mounted) return;
+      setState(() => _deliveredServiceIds.add(service.id));
+      // Re-sync with Odoo so the status reflects the backend state.
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.esimDeliveredSuccess,
+            style: GoogleFonts.inter(color: Colors.white),
+          ),
+          backgroundColor: AppTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ApiException.messageOf(e) ?? l10n.esimDeliveryFailed,
+            style: GoogleFonts.inter(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _confirmingServiceIds.remove(service.id));
+    }
   }
 
   @override
@@ -119,42 +399,19 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   // ─── Header ────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(AppLocalizations l10n, bool isDark) {
-    final name = (_bootstrap?.driverName.trim().isNotEmpty ?? false)
+    final fullName = (_bootstrap?.driverName.trim().isNotEmpty ?? false)
         ? _bootstrap!.driverName.trim()
         : 'Driver';
-    final vehicleLine = _bootstrap?.vehicleLine ?? '';
+    final firstNameRaw = (_bootstrap?.firstName ?? '').trim();
+    final name = firstNameRaw.isNotEmpty ? firstNameRaw : fullName;
+    final isAr = l10n.isRtlLocale;
     final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
     final subColor = isDark
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
-
-    final now = DateTime.now();
-    final dayNames = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    final monthNames = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    final dayName = dayNames[now.weekday - 1];
-    final monthName = monthNames[now.month - 1];
-    final dateLabel = '$dayName, ${now.day} $monthName';
+    final greetingText = l10n.helloWithName(name);
+    final taglineText = l10n.headerSubtitle(isDriver: true);
+    final dateLabel = l10n.formattedHeaderDate(DateTime.now());
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
@@ -163,30 +420,51 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_greeting(l10n)}, $name',
-                  style: GoogleFonts.inter(
-                    color: textColor,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
+            child: Directionality(
+              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    dateLabel,
+                    textAlign: TextAlign.start,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.luxuryAccent,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  vehicleLine.isNotEmpty ? vehicleLine : dateLabel,
-                  style: GoogleFonts.inter(
-                    color: subColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                  const SizedBox(height: 6),
+                  Text(
+                    greetingText,
+                    textAlign: TextAlign.start,
+                    style: GoogleFonts.inter(
+                      color: textColor,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    taglineText,
+                    textAlign: TextAlign.start,
+                    style: GoogleFonts.inter(
+                      color: subColor,
+                      fontSize: isAr ? 15.64 : 13.6,
+                      fontWeight: FontWeight.w400,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -194,48 +472,64 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkCard : Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(18),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.notifications_outlined,
-                  color: isDark
-                      ? AppTheme.darkPrimaryText
-                      : AppTheme.primaryText,
-                  size: 24,
+              GestureDetector(
+                onTap:
+                    () {}, // (driverNotifications route is not defined in AppRoutes)
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkCard : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(18),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.notifications_outlined,
+                    color: isDark
+                        ? AppTheme.darkPrimaryText
+                        : AppTheme.primaryText,
+                    size: 24,
+                  ),
                 ),
               ),
               Positioned(
                 top: -4,
                 right: -4,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.luxuryAccent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '2',
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                child: AnimatedBuilder(
+                  animation: NotificationService.instance,
+                  builder: (context, _) {
+                    final count = NotificationService.instance.unreadCount;
+                    if (count <= 0) return const SizedBox.shrink();
+                    return IgnorePointer(
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 20,
+                          minHeight: 20,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.luxuryAccent,
+                          borderRadius: BorderRadius.all(Radius.circular(10)),
+                        ),
+                        child: Center(
+                          child: Text(
+                            count > 99 ? '99+' : '$count',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -301,7 +595,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       case 1:
         return _buildMyTripsTab(l10n, isDark);
       case 2:
-        return _buildServicesTab(l10n, isDark);
+        return _buildWalletTab(l10n, isDark);
       case 3:
         return _buildSupportTab(l10n, isDark);
       case 4:
@@ -316,38 +610,155 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Widget _buildTodayTab(AppLocalizations l10n, bool isDark) {
     if (_errorMessage != null) return _buildErrorState(l10n, isDark);
 
-    final trips = _bootstrap?.assignedTrips ?? [];
-    final nextToday = _bootstrap?.nextToday;
-    if (trips.isEmpty && nextToday == null) {
+    final home = _bootstrap?.homeTrip;
+    if (home == null) {
       return _buildEmptyState(l10n, isDark);
     }
+
+    final cust = home.customer;
+    final hasCustomer =
+        cust != null &&
+        (cust.name.trim().isNotEmpty ||
+            cust.phone.trim().isNotEmpty ||
+            cust.whatsapp.trim().isNotEmpty);
 
     return RefreshIndicator(
       color: AppTheme.brandNavy,
       onRefresh: _loadData,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(0, 4, 0, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (nextToday != null) ...[
-              _NextTodayCard(
-                segment: nextToday,
+            // 1. Trip card
+            DriverTripHeroCard(trip: home, l10n: l10n),
+            const SizedBox(height: 20),
+            // 1b. Live location sharing (own pickup segment only)
+            if (_bootstrap?.nextToday != null &&
+                (_bootstrap?.driver.id ?? 0) > 0) ...[
+              DriverLocationSharingCard(
+                segment: _bootstrap!.nextToday!,
+                driverId: _bootstrap!.driver.id,
                 l10n: l10n,
-                isDark: isDark,
-                onViewDetails: () {
-                  context.push(
-                    AppRoutes.driverTripDetails,
-                    extra: {'segmentId': nextToday.id, 'segment': nextToday},
-                  );
-                },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
             ],
-            for (final trip in trips) ...[
-              _buildTripSection(trip, l10n, isDark),
-              const SizedBox(height: 24),
+            // 2. Customer card
+            if (hasCustomer) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: DriverCustomerCard(
+                  customer: cust,
+                  l10n: l10n,
+                  bookingId: home.id,
+                  bookingReference: home.reference,
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+            // 3. Flights
+            if (FlightVisibility.isArrivalVisible(home.arrivalFlight)) ...[
+              FlightCard(
+                title: l10n.arrivalFlight,
+                flight: home.arrivalFlight!,
+                isArrival: true,
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (FlightVisibility.isDepartureVisible(home.departureFlight)) ...[
+              FlightCard(
+                title: l10n.departureFlightTitle,
+                flight: home.departureFlight!,
+                isArrival: false,
+              ),
+              const SizedBox(height: 20),
+            ],
+            // 4. Today's Plan
+            TodayTimelineWidget(
+              items: home.todayPlan,
+              dateText: home.today,
+              l10n: l10n,
+              driverMode: true,
+              mySegmentIds: home.mySegmentIds,
+              isItemTappable: (item) => home.mySegmentIds.contains(item.id),
+              onItemTap: (item) {
+                context.push(
+                  AppRoutes.driverTripDetails,
+                  extra: {'segmentId': item.id},
+                );
+              },
+            ),
+            const SizedBox(height: 28),
+            // 5. Tomorrow (all trips assigned to this driver)
+            Builder(
+              builder: (_) {
+                final destToday = FlightVisibility.destinationToday();
+                final tomorrowDate = DateTime(
+                  destToday.year,
+                  destToday.month,
+                  destToday.day + 1,
+                );
+                final entries = DriverTomorrowBuilder.build(
+                  activeTripTomorrow: home.tomorrow,
+                  assignedSegments: _bootstrap?.assignedSegments ?? const [],
+                  activeTripReference: home.reference,
+                  tomorrow: tomorrowDate,
+                  otherTrips: _otherTripDetails,
+                );
+                return DriverTomorrowCard(
+                  entries: entries,
+                  tomorrow: tomorrowDate,
+                  l10n: l10n,
+                  mySegmentIds: home.mySegmentIds,
+                  onItemTap: (segmentId) {
+                    context.push(
+                      AppRoutes.driverTripDetails,
+                      extra: {'segmentId': segmentId},
+                    );
+                  },
+                );
+              },
+            ),
+            // 6. Services (confirmed SIM/eSIM leaves Today; it stays in My Trip)
+            if (home.extraServices.any(
+              (e) =>
+                  !(e.isSimCard &&
+                      (e.isSimConfirmed ||
+                          _deliveredServiceIds.contains(e.id))),
+            )) ...[
+              const SizedBox(height: 28),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  l10n.services,
+                  style: GoogleFonts.inter(
+                    color: isDark
+                        ? AppTheme.darkPrimaryText
+                        : AppTheme.primaryText,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final e in home.extraServices.where(
+                (e) =>
+                    !(e.isSimCard &&
+                        (e.isSimConfirmed ||
+                            _deliveredServiceIds.contains(e.id))),
+              )) ...[
+                _HomeServiceRow(
+                  service: e,
+                  isDark: isDark,
+                  l10n: l10n,
+                  isDelivered:
+                      e.isDelivered || _deliveredServiceIds.contains(e.id),
+                  isConfirming: _confirmingServiceIds.contains(e.id),
+                  onTap: e.isSimCard ? () => _onSimServiceTap(e, home) : null,
+                ),
+                const SizedBox(height: 10),
+              ],
             ],
           ],
         ),
@@ -420,6 +831,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   }
 
   void _showHotelBottomSheet(HotelModel hotel) {
+    final l10n = AppLocalizations.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
     final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
@@ -489,7 +901,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Hotel Details',
+                            l10n.hotelDetailsTitle,
                             style: GoogleFonts.inter(
                               color: textColor,
                               fontSize: 18,
@@ -527,7 +939,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           // Hotel Name
                           _BottomSheetDetailRow(
                             icon: Icons.hotel_rounded,
-                            label: 'Hotel Name',
+                            label: l10n.hotelName,
                             value: hotel.name,
                             textColor: textColor,
                             subColor: subColor,
@@ -537,8 +949,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           // Full Address
                           _BottomSheetDetailRow(
                             icon: Icons.location_on_rounded,
-                            label: 'Full Address',
-                            value: hotel.address ?? 'Address not available',
+                            label: l10n.fullAddress,
+                            value: hotel.address ?? l10n.addressNotAvailable,
                             textColor: textColor,
                             subColor: subColor,
                             border: border,
@@ -547,11 +959,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           // Phone Number
                           _BottomSheetDetailRow(
                             icon: Icons.phone_rounded,
-                            label: 'Phone Number',
+                            label: l10n.phoneNumber,
                             value:
                                 (hotel.phone != null && hotel.phone!.isNotEmpty)
                                 ? hotel.phone!
-                                : 'Not available',
+                                : l10n.notAvailable,
                             textColor: textColor,
                             subColor: subColor,
                             border: border,
@@ -585,7 +997,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                               },
                               icon: const Icon(Icons.map_rounded, size: 18),
                               label: Text(
-                                'Open in Google Maps',
+                                l10n.openInGoogleMaps,
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 14,
@@ -631,31 +1043,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
 
-    final dayNames = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    final monthNames = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    final dateLabel =
-        '${dayNames[now.weekday - 1]}, ${now.day} ${monthNames[now.month - 1]}';
+    final dateLabel = l10n.weekdayDayMonth(now);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -737,7 +1125,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15),
         ),
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.brandNavy,
+          foregroundColor: AppTheme.navyText,
           side: BorderSide(
             color: isDark ? AppTheme.darkBorderColor : AppTheme.borderColor,
             width: 1.5,
@@ -758,11 +1146,73 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     final subColor = isDark
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
-    final trips = _bootstrap?.assignedTrips ?? [];
+
+    Widget body;
+    if (_tripsLoading && _myTrips.isEmpty) {
+      body = const Padding(
+        padding: EdgeInsets.only(top: 48),
+        child: Center(
+          child: CircularProgressIndicator(
+            color: AppTheme.brandNavy,
+            strokeWidth: 2,
+          ),
+        ),
+      );
+    } else if (_tripsError != null && _myTrips.isEmpty) {
+      body = Padding(
+        padding: const EdgeInsets.only(top: 48),
+        child: Column(
+          children: [
+            Text(
+              _tripsError!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(color: subColor, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadTrips,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.brandNavy,
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
+              child: Text(l10n.retry),
+            ),
+          ],
+        ),
+      );
+    } else if (_myTrips.isEmpty) {
+      body = Center(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 48),
+          child: Text(
+            l10n.noTripsAssigned,
+            style: GoogleFonts.inter(color: subColor, fontSize: 15),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    } else {
+      body = Column(
+        children: [
+          for (final trip in _myTrips) ...[
+            _DriverTripRow(
+              trip: trip,
+              isDark: isDark,
+              onTap: () => context.push(
+                AppRoutes.driverTripOverview,
+                extra: {'tripId': trip.id},
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ],
+      );
+    }
 
     return RefreshIndicator(
       color: AppTheme.brandNavy,
-      onRefresh: _loadData,
+      onRefresh: _loadTrips,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -770,7 +1220,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'My Trips',
+              l10n.myTripsTitle,
               style: GoogleFonts.inter(
                 color: textColor,
                 fontSize: 22,
@@ -778,51 +1228,30 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            if (trips.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 48),
-                  child: Text(
-                    l10n.noTripsAssigned,
-                    style: GoogleFonts.inter(color: subColor, fontSize: 15),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
-            else
-              for (final trip in trips) ...[
-                _TripListCard(
-                  trip: trip,
-                  isDark: isDark,
-                  onTap: () {
-                    context.push(
-                      AppRoutes.driverFullTrip,
-                      extra: {'trip': trip, 'bootstrap': _bootstrap},
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-              ],
+            body,
           ],
         ),
       ),
     );
   }
 
-  // ─── Services Tab ──────────────────────────────────────────────────────────
+  // ─── Wallet Tab (UI only) ──────────────────────────────────────────────────
 
-  Widget _buildServicesTab(AppLocalizations l10n, bool isDark) {
+  Widget _buildWalletTab(AppLocalizations l10n, bool isDark) {
     final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
     final subColor = isDark
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
+    final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
+    final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Services',
+            l10n.wallet,
             style: GoogleFonts.inter(
               color: textColor,
               fontSize: 22,
@@ -830,13 +1259,72 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 48),
-              child: Text(
-                'Services coming soon',
-                style: GoogleFonts.inter(color: subColor, fontSize: 15),
-              ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: AppTheme.brandNavy,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.brandNavy.withAlpha(51),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.walletBalance.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    color: Colors.white.withAlpha(179),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '0.00',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            l10n.transactions,
+            style: GoogleFonts.inter(
+              color: textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: border),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.receipt_long_outlined, color: subColor, size: 32),
+                const SizedBox(height: 10),
+                Text(
+                  l10n.noTransactionsYet,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(color: subColor, fontSize: 15),
+                ),
+              ],
             ),
           ),
         ],
@@ -857,7 +1345,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Support',
+            l10n.support,
             style: GoogleFonts.inter(
               color: textColor,
               fontSize: 22,
@@ -869,7 +1357,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             child: Padding(
               padding: const EdgeInsets.only(top: 48),
               child: Text(
-                'Support coming soon',
+                l10n.supportComingSoon,
                 style: GoogleFonts.inter(color: subColor, fontSize: 15),
               ),
             ),
@@ -1068,151 +1556,241 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          if (driver?.rating != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: border),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.shadowColor,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: IntrinsicHeight(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: AppTheme.luxuryAccent,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          driver!.rating!.toStringAsFixed(1),
-                          style: GoogleFonts.inter(
-                            color: textColor,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Rating',
-                          style: GoogleFonts.inter(
-                            color: subColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: VerticalDivider(
-                        color: border,
-                        thickness: 1,
-                        width: 1,
-                      ),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.directions_car_rounded,
-                          color: AppTheme.brandNavy,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          '${driver.totalTrips ?? 0}',
-                          style: GoogleFonts.inter(
-                            color: textColor,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          l10n.trips,
-                          style: GoogleFonts.inter(
-                            color: subColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+          if (driver != null) ...[
+            GestureDetector(
+              onTap: () => context.push(AppRoutes.driverRatings),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.shadowColor,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ...List.generate(5, (i) {
+                            final r = driver.driver.rating;
+                            return Icon(
+                              r >= i + 1
+                                  ? Icons.star_rounded
+                                  : (r >= i + 0.5
+                                        ? Icons.star_half_rounded
+                                        : Icons.star_outline_rounded),
+                              color: AppTheme.luxuryAccent,
+                              size: 18,
+                            );
+                          }),
+                          const SizedBox(width: 6),
+                          Text(
+                            driver.driver.rating.toStringAsFixed(1),
+                            style: GoogleFonts.inter(
+                              color: textColor,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: subColor,
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: VerticalDivider(
+                          color: border,
+                          thickness: 1,
+                          width: 1,
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.directions_car_rounded,
+                            color: AppTheme.navyText,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            '${driver.driver.tripCount}',
+                            style: GoogleFonts.inter(
+                              color: textColor,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            l10n.trips,
+                            style: GoogleFonts.inter(
+                              color: subColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ],
           const SizedBox(height: 24),
-          if (driver?.driverPhone != null ||
-              driver?.driverUsername != null) ...[
+          if (driver != null &&
+              (driver.driver.phone.isNotEmpty ||
+                  driver.driver.email.isNotEmpty)) ...[
             _InfoCard(
               isDark: isDark,
               children: [
-                if (driver?.driverPhone != null)
+                if (driver.driver.phone.isNotEmpty)
                   _InfoRow(
-                    label: 'Phone',
-                    value: driver!.driverPhone!,
+                    label: l10n.phoneLabel,
+                    value: driver.driver.phone,
                     isDark: isDark,
                   ),
-                if (driver?.driverUsername != null)
+                if (driver.driver.email.isNotEmpty)
                   _InfoRow(
-                    label: 'Username',
-                    value: driver!.driverUsername!,
+                    label: l10n.email,
+                    value: driver.driver.email,
                     isDark: isDark,
                   ),
               ],
             ),
             const SizedBox(height: 16),
           ],
-          if (driver?.vehicle != null &&
-              (driver!.vehicle!.make.isNotEmpty ||
-                  driver.vehicle!.model.isNotEmpty)) ...[
+          if (driver != null &&
+              (driver.driver.vehicleModel.isNotEmpty ||
+                  driver.driver.vehicleYear.isNotEmpty ||
+                  driver.driver.vehicleColor.isNotEmpty)) ...[
             _InfoCard(
               isDark: isDark,
               children: [
-                if (driver.vehicle!.make.isNotEmpty)
+                if (driver.driver.vehicleModel.isNotEmpty)
                   _InfoRow(
-                    label: 'Vehicle Type',
-                    value: driver.vehicle!.make,
+                    label: l10n.vehicleModelLabel,
+                    value: driver.driver.vehicleModel,
                     isDark: isDark,
                   ),
-                if (driver.vehicle!.model.isNotEmpty)
+                if (driver.driver.vehicleYear.isNotEmpty)
                   _InfoRow(
-                    label: 'Vehicle Model',
-                    value: driver.vehicle!.model,
+                    label: l10n.modelYear,
+                    value: driver.driver.vehicleYear,
                     isDark: isDark,
                   ),
-                if (driver.vehicle!.manufacturingYear.isNotEmpty)
+                if (driver.driver.vehicleColor.isNotEmpty)
                   _InfoRow(
-                    label: 'Manufacturing Year',
-                    value: driver.vehicle!.manufacturingYear,
+                    label: l10n.color,
+                    value: driver.driver.vehicleColor,
                     isDark: isDark,
                   ),
               ],
             ),
+            const SizedBox(height: 16),
+          ],
+          if (driver != null &&
+              driver.driver.personalPhotos.any((u) => u.isNotEmpty)) ...[
+            _PhotoThumbRow(
+              title: l10n.personalPhotosLabel,
+              urls: driver.driver.personalPhotos,
+              isDark: isDark,
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (driver != null &&
+              driver.driver.vehiclePhotos.any((u) => u.isNotEmpty)) ...[
+            _PhotoThumbRow(
+              title: l10n.vehiclePhotosLabel,
+              urls: driver.driver.vehiclePhotos,
+              isDark: isDark,
+            ),
             const SizedBox(height: 24),
           ] else
             const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () => LanguagePickerSheet.show(
+              context,
+              role: 'driver',
+              isDark: isDark,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppTheme.darkBackground
+                          : AppTheme.mainBackground,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.language_outlined,
+                      color: isDark
+                          ? AppTheme.luxuryAccent
+                          : AppTheme.brandNavy,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.chooseYourLanguage,
+                          style: GoogleFonts.inter(
+                            color: textColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          _currentLanguageLabel(),
+                          style: GoogleFonts.inter(
+                            color: subColor,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: subColor, size: 20),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           _DriverThemeSelector(),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => context.go(AppRoutes.userTypeSelection),
+              onPressed: _signingOut ? null : () => _confirmSignOut(l10n),
               icon: const Icon(Icons.logout_rounded, size: 18),
               label: Text(
                 l10n.logout,
@@ -1261,22 +1839,22 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       {
         'icon': Icons.today_outlined,
         'activeIcon': Icons.today_rounded,
-        'label': 'Today',
+        'label': l10n.navToday,
       },
       {
         'icon': Icons.map_outlined,
         'activeIcon': Icons.map_rounded,
-        'label': 'My Trips',
+        'label': l10n.navMyTrips,
       },
       {
-        'icon': Icons.room_service_outlined,
-        'activeIcon': Icons.room_service_rounded,
-        'label': 'Services',
+        'icon': Icons.account_balance_wallet_outlined,
+        'activeIcon': Icons.account_balance_wallet_rounded,
+        'label': l10n.wallet,
       },
       {
         'icon': Icons.headset_mic_outlined,
         'activeIcon': Icons.headset_mic_rounded,
-        'label': 'Support',
+        'label': l10n.support,
       },
       {
         'icon': Icons.person_outline_rounded,
@@ -1363,6 +1941,319 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   }
 }
 
+// ─── Driver Trip Row (GET /api/v1/driver/trips item) ──────────────────────────
+
+class _DriverTripRow extends StatelessWidget {
+  final DriverTripListItem trip;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _DriverTripRow({
+    required this.trip,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  /// True from the calendar day after the departure date, in Georgia
+  /// local time (Asia/Tbilisi, UTC+4, no DST).
+  bool get _isEnded {
+    final raw = trip.departureDate.trim();
+    if (raw.isEmpty) return false;
+    final m = RegExp(r'(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(raw);
+    if (m == null) return false;
+    final y = int.parse(m.group(1)!);
+    final mo = int.parse(m.group(2)!);
+    final d = int.parse(m.group(3)!);
+    final nowTbilisi = DateTime.now().toUtc().add(const Duration(hours: 4));
+    final today = DateTime.utc(
+      nowTbilisi.year,
+      nowTbilisi.month,
+      nowTbilisi.day,
+    );
+    final endDay = DateTime.utc(y, mo, d).add(const Duration(days: 1));
+    return !today.isBefore(endDay);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
+    final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+    final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
+    final subColor = isDark
+        ? AppTheme.darkSecondaryText
+        : AppTheme.secondaryText;
+    final place = [
+      trip.city,
+      trip.destination,
+    ].where((e) => e.trim().isNotEmpty).join(', ');
+    final dates = [
+      trip.arrivalDate,
+      trip.departureDate,
+    ].where((e) => e.trim().isNotEmpty).join(' – ');
+
+    final thumbFallback = Container(
+      color: AppTheme.softGoldBg,
+      child: Icon(Icons.image_outlined, color: AppTheme.secondaryText),
+    );
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: border),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.brandNavy.withAlpha(10),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      width: 84,
+                      height: 84,
+                      child: AuthNetworkImage(
+                        photoUrl: trip.imageUrl,
+                        width: 84,
+                        height: 84,
+                        fit: BoxFit.cover,
+                        fallback: thumbFallback,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (trip.reference.isNotEmpty)
+                          Text(
+                            trip.reference,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              color: AppTheme.luxuryAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        if (place.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            place,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              color: textColor,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                        if (dates.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            dates,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              color: subColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                        if (trip.customerName.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            trip.customerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              color: subColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: subColor),
+                ],
+              ),
+            ),
+            if (_isEnded)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: DriverCornerRibbon(label: l10n.tripEndedRibbon),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Driver Trip Row (GET /api/v1/driver/trips item) ──────────────────────────
+
+class _HomeServiceRow extends StatelessWidget {
+  final HomeExtraService service;
+  final bool isDark;
+  final AppLocalizations l10n;
+  final bool isDelivered;
+  final bool isConfirming;
+  final VoidCallback? onTap;
+
+  const _HomeServiceRow({
+    required this.service,
+    required this.isDark,
+    required this.l10n,
+    this.isDelivered = false,
+    this.isConfirming = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
+    final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+    final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
+    final subColor = isDark
+        ? AppTheme.darkSecondaryText
+        : AppTheme.secondaryText;
+    final tappable = onTap != null && !isDelivered && !isConfirming;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: tappable ? onTap : null,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.softGoldBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    service.isSimCard
+                        ? Icons.sim_card_outlined
+                        : Icons.star_outline_rounded,
+                    color: AppTheme.luxuryAccent,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        service.title,
+                        style: GoogleFonts.inter(
+                          color: textColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (service.date.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            service.date,
+                            style: GoogleFonts.inter(
+                              color: subColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      if (tappable)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            l10n.tapToConfirmDelivery,
+                            style: GoogleFonts.inter(
+                              color: AppTheme.luxuryAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (isConfirming)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (isDelivered && service.isSimCard)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.successGreen.withAlpha(30),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      l10n.deliveredLabel,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.successGreen,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                else if (service.qty > 0)
+                  Text(
+                    'x${service.qty}',
+                    style: GoogleFonts.inter(
+                      color: textColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Trip Summary Card (Large Image Card — Reference Style) ───────────────────
 
 class _TripSummaryCard extends StatelessWidget {
@@ -1386,13 +2277,11 @@ class _TripSummaryCard extends StatelessWidget {
     final parts = trip.destination.split(',');
     final cityPart = parts.isNotEmpty ? parts[0].trim() : trip.destination;
     final countryPart = parts.length > 1 ? parts[1].trim() : '';
-    // Main display: country (e.g. "Georgia"), city below (e.g. "Tbilisi")
+    // Main display: country (e.g. "Georgia"), no city row
     final mainCountry = countryPart.isNotEmpty ? countryPart : cityPart;
-    final cityLabel = countryPart.isNotEmpty ? cityPart : '';
 
     final passengerCount = trip.passengerCount ?? 1;
-    final guestLabel =
-        '$passengerCount ${passengerCount == 1 ? 'Guest' : 'Guests'}';
+    final guestLabel = l10n.guestCount(passengerCount);
     final daysLabel =
         '${trip.totalDays} ${trip.totalDays == 1 ? l10n.day : l10n.days}';
 
@@ -1460,73 +2349,6 @@ class _TripSummaryCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
-                  if (cityLabel.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    // City row below country
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_rounded,
-                          color: Colors.white70,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            cityLabel,
-                            style: GoogleFonts.inter(
-                              color: Colors.white70,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  // Arrival & Departure dates
-                  if (trip.arrivalDate != null ||
-                      trip.startDate.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today_rounded,
-                          color: AppTheme.luxuryAccent,
-                          size: 13,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Arrival: ${trip.arrivalDate ?? trip.startDate}',
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today_rounded,
-                          color: AppTheme.luxuryAccent,
-                          size: 13,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Departure: ${trip.departureDate ?? trip.endDate}',
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                   const Spacer(),
                   // Divider
                   Container(
@@ -1558,7 +2380,7 @@ class _TripSummaryCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                'Trip Duration',
+                                l10n.tripDuration,
                                 style: GoogleFonts.inter(
                                   color: Colors.white54,
                                   fontSize: 11,
@@ -1597,7 +2419,7 @@ class _TripSummaryCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                'Passengers',
+                                l10n.passengersLabel,
                                 style: GoogleFonts.inter(
                                   color: Colors.white54,
                                   fontSize: 11,
@@ -1734,7 +2556,7 @@ class _CustomerProfileCard extends StatelessWidget {
                         const Icon(Icons.phone, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          'Call',
+                          l10n.call,
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 15,
@@ -1772,7 +2594,7 @@ class _CustomerProfileCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'WhatsApp',
+                          l10n.whatsapp,
                           style: GoogleFonts.inter(
                             color: const Color(0xFF25D366),
                             fontSize: 15,
@@ -1825,21 +2647,7 @@ class _ArrivalFlightCard extends StatelessWidget {
     if (dateStr == null || dateStr.isEmpty) return '';
     try {
       final d = DateTime.parse(dateStr);
-      final months = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      return '${d.day} ${months[d.month - 1]} ${d.year}';
+      return l10n.dayMonthYear(d);
     } catch (_) {
       return dateStr;
     }
@@ -1909,7 +2717,7 @@ class _ArrivalFlightCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Arrival flight details not available',
+                      l10n.arrivalFlightUnavailable,
                       style: GoogleFonts.inter(color: subColor, fontSize: 14),
                     ),
                   ),
@@ -2054,21 +2862,7 @@ class _HotelCard extends StatelessWidget {
   String _formatDate(String dateStr) {
     try {
       final d = DateTime.parse(dateStr);
-      final months = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      return '${d.day} ${months[d.month - 1]}';
+      return l10n.dayMonth(d);
     } catch (_) {
       return dateStr;
     }
@@ -2156,7 +2950,9 @@ class _HotelCard extends StatelessWidget {
                         Text(
                           nightBadge,
                           style: GoogleFonts.inter(
-                            color: const Color(0xFF6B5B3E),
+                            color: AppTheme.isDarkActive
+                                ? AppTheme.darkSecondaryText
+                                : const Color(0xFF6B5B3E),
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -2251,7 +3047,7 @@ class _HotelCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Check-in',
+                            l10n.checkInLabel,
                             style: GoogleFonts.inter(
                               color: subColor,
                               fontSize: 11,
@@ -2289,7 +3085,7 @@ class _HotelCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Check-out',
+                              l10n.checkOutLabel,
                               style: GoogleFonts.inter(
                                 color: subColor,
                                 fontSize: 11,
@@ -2873,7 +3669,7 @@ class _TimelineItem extends StatelessWidget {
                   child: Row(
                     children: [
                       Text(
-                        'View Details',
+                        AppLocalizations.of(context).viewDetails,
                         style: GoogleFonts.inter(
                           color: textColor,
                           fontSize: 14,
@@ -3070,21 +3866,7 @@ class _TomorrowPreviewCard extends StatelessWidget {
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
 
-    final monthNames = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final tomorrowDateStr = '${monthNames[tomorrow.month - 1]} ${tomorrow.day}';
+    final tomorrowDateStr = l10n.shortMonthDay(tomorrow);
     final firstSegment = segments.isNotEmpty ? segments.first : null;
 
     return Container(
@@ -3176,7 +3958,7 @@ class _TomorrowPreviewCard extends StatelessWidget {
                           children: [
                             Text(
                               hotel!.isCheckInDate(tomorrow)
-                                  ? 'Check-in: ${hotel!.name}'
+                                  ? l10n.checkInWithName(hotel!.name)
                                   : hotel!.name,
                               style: GoogleFonts.inter(
                                 color: textColor,
@@ -3215,7 +3997,7 @@ class _TomorrowPreviewCard extends StatelessWidget {
                         child: Text(
                           firstSegment.pickupTime,
                           style: GoogleFonts.inter(
-                            color: AppTheme.brandNavy,
+                            color: AppTheme.navyText,
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
@@ -3271,7 +4053,7 @@ class _TomorrowPreviewCard extends StatelessWidget {
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.brandNavy,
+                      foregroundColor: AppTheme.navyText,
                       side: BorderSide(
                         color: isDark
                             ? AppTheme.darkBorderColor
@@ -3646,7 +4428,7 @@ class _TripListCard extends StatelessWidget {
                 Text(
                   '${trip.totalDays}d',
                   style: GoogleFonts.inter(
-                    color: AppTheme.brandNavy,
+                    color: AppTheme.navyText,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
@@ -3710,7 +4492,7 @@ class _DriverThemeSelectorState extends State<_DriverThemeSelector> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Appearance',
+                AppLocalizations.of(context).appearance,
                 style: GoogleFonts.inter(
                   color: textColor,
                   fontSize: 15,
@@ -3724,7 +4506,7 @@ class _DriverThemeSelectorState extends State<_DriverThemeSelector> {
             children: [
               _ThemeOptionBtn(
                 icon: Icons.brightness_auto_rounded,
-                label: 'System',
+                label: AppLocalizations.of(context).themeSystem,
                 selected: current == AppThemeMode.system,
                 isDark: isDark,
                 onTap: () =>
@@ -3733,7 +4515,7 @@ class _DriverThemeSelectorState extends State<_DriverThemeSelector> {
               const SizedBox(width: 8),
               _ThemeOptionBtn(
                 icon: Icons.wb_sunny_rounded,
-                label: 'Light',
+                label: AppLocalizations.of(context).themeLight,
                 selected: current == AppThemeMode.light,
                 isDark: isDark,
                 onTap: () =>
@@ -3742,7 +4524,7 @@ class _DriverThemeSelectorState extends State<_DriverThemeSelector> {
               const SizedBox(width: 8),
               _ThemeOptionBtn(
                 icon: Icons.nightlight_round,
-                label: 'Dark',
+                label: AppLocalizations.of(context).themeDark,
                 selected: current == AppThemeMode.dark,
                 isDark: isDark,
                 onTap: () =>
@@ -3847,6 +4629,74 @@ class _InfoCard extends StatelessWidget {
             ],
           );
         }).toList(),
+      ),
+    );
+  }
+}
+
+class _PhotoThumbRow extends StatelessWidget {
+  final String title;
+  final List<String> urls;
+  final bool isDark;
+
+  const _PhotoThumbRow({
+    required this.title,
+    required this.urls,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
+    final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
+    final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+    final visible = urls.where((u) => u.trim().isNotEmpty).toList();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              color: textColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: visible
+                .map(
+                  (u) => ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: AuthNetworkImage(
+                      photoUrl: u,
+                      width: 72,
+                      height: 72,
+                      fallback: Container(
+                        width: 72,
+                        height: 72,
+                        color: border,
+                        child: Icon(
+                          Icons.image_outlined,
+                          color: AppTheme.secondaryText,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
       ),
     );
   }

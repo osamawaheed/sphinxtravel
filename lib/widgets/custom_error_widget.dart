@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../core/app_export.dart';
+import '../l10n/app_localizations.dart';
 
 // custom_error_widget.dart
 
@@ -31,7 +32,7 @@ class CustomErrorWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Something went wrong",
+                  AppLocalizations.of(context).errorOccurredTitle,
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w500,
@@ -40,10 +41,10 @@ class CustomErrorWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 SizedBox(
-                  child: const Text(
-                    'We encountered an unexpected error while processing your request.',
+                  child: Text(
+                    AppLocalizations.of(context).errorOccurredBody,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       color: Color(0xFF525252), // neutral-600
                     ),
@@ -64,7 +65,7 @@ class CustomErrorWidget extends StatelessWidget {
                     size: 18,
                     color: Colors.white,
                   ),
-                  label: const Text('Back'),
+                  label: Text(AppLocalizations.of(context).back),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primaryColor,
                     foregroundColor: Colors.white,

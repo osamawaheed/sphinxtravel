@@ -1,3 +1,4 @@
+import './customer_bootstrap_model.dart' show CustomerHomeTrip;
 import './driver_profile_model.dart';
 import './transportation_segment_model.dart';
 import './vehicle_model.dart';
@@ -16,6 +17,10 @@ class DriverBootstrapModel {
   final TransportationSegmentModel? nextToday;
   final List<TransportationSegmentModel> assignedSegments;
 
+  /// `active_trip` from the bootstrap (customer trip shape + `customer` and
+  /// `my_segment_ids`). Null when no trip is assigned.
+  final CustomerHomeTrip? homeTrip;
+
   /// Not part of the bootstrap response; kept for screens that still render
   /// full trip data (empty for the real API).
   final List<TripModel> assignedTrips;
@@ -25,6 +30,7 @@ class DriverBootstrapModel {
     required this.locationRequired,
     this.nextToday,
     this.assignedSegments = const [],
+    this.homeTrip,
     this.assignedTrips = const [],
   });
 
@@ -32,6 +38,7 @@ class DriverBootstrapModel {
     final driverJson = json['driver'];
     final nextTodayJson = json['next_today'];
     final segmentsJson = json['assigned_segments'];
+    final activeTripJson = json['active_trip'];
 
     return DriverBootstrapModel(
       driver: driverJson is Map<String, dynamic>
@@ -49,6 +56,9 @@ class DriverBootstrapModel {
                 .map(TransportationSegmentModel.fromJson)
                 .toList()
           : const [],
+      homeTrip: activeTripJson is Map
+          ? CustomerHomeTrip.fromJson(Map<String, dynamic>.from(activeTripJson))
+          : null,
     );
   }
 
@@ -66,14 +76,15 @@ class DriverBootstrapModel {
   String get vehicleLine => driver.vehicleLine;
 
   VehicleModel? get vehicle {
-    if (driver.vehicleModel.isEmpty && driver.plateNumber.isEmpty) return null;
+    if (driver.vehicleModel.isEmpty && driver.vehicleYear.isEmpty) return null;
     return VehicleModel(
       id: 0,
       make: '',
       model: driver.vehicleModel,
       color: driver.vehicleColor,
-      plateNumber: driver.plateNumber,
+      plateNumber: '',
       vehicleType: '',
+      manufacturingYear: driver.vehicleYear,
     );
   }
 

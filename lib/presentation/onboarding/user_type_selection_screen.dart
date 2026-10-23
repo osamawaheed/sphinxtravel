@@ -78,10 +78,10 @@ class _UserTypeSelectionScreenState extends State<UserTypeSelectionScreen>
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        'Travel Operations',
+                        l10n.travelOperations,
                         style: AppTheme.appFont(
                           context,
-                          color: AppTheme.brandNavy,
+                          color: AppTheme.navyText,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.5,
@@ -276,7 +276,7 @@ class _RoleCardState extends State<_RoleCard> {
                     widget.icon,
                     color: widget.isPrimary
                         ? AppTheme.luxuryAccent
-                        : AppTheme.brandNavy,
+                        : AppTheme.navyText,
                     size: 28,
                   ),
                 ),
@@ -294,7 +294,7 @@ class _RoleCardState extends State<_RoleCard> {
                     widget.icon,
                     color: widget.isPrimary
                         ? AppTheme.luxuryAccent
-                        : AppTheme.brandNavy,
+                        : AppTheme.navyText,
                     size: 28,
                   ),
                 ),

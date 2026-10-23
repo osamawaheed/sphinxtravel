@@ -1,18 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../data/mock_api_data_source.dart';
+import '../../routes/app_routes.dart';
+import '../../services/session_manager.dart';
 import '../../services/api_client.dart';
 import '../../services/customer_auth_service.dart';
 import '../../models/customer_bootstrap_model.dart';
+import '../../models/flight_model.dart';
+import '../../models/hotel_model.dart';
+import '../../models/extra_service_model.dart';
+import '../../models/transportation_segment_model.dart';
 import '../../theme/app_theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/localization_service.dart';
-import './widgets/today_timeline_widget.dart';
+import '../../services/flight_visibility.dart';
+import '../../services/notification_service.dart';
+import './widgets/todays_plan_card.dart';
+import './widgets/customer_sim_card.dart';
 import './widgets/tomorrow_preview_card.dart';
 import './widgets/trip_hero_card.dart';
 import './widgets/next_up_card.dart';
+import './widgets/track_your_driver_card.dart';
+import './widgets/flight_card.dart';
+import './widgets/current_hotel_card.dart';
+import './widgets/rating_sheet.dart';
+import './widgets/driver_review_dialog.dart';
+import './widgets/customer_trip_details_widget.dart';
+import './widgets/language_picker_sheet.dart';
+import '../driver/hotel_details_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -21,8 +39,10 @@ class CustomerHomeScreen extends StatefulWidget {
   State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
-class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
+class _CustomerHomeScreenState extends State<CustomerHomeScreen>
+    with WidgetsBindingObserver, FlightVisibilityRefresher {
   int _selectedTab = 0;
+  final Set<int> _simBusyIds = <int>{};
   CustomerBootstrapModel? _bootstrap;
   bool _isLoading = true;
   String? _error;
@@ -31,17 +51,73 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   void initState() {
     super.initState();
     _loadData();
+    NotificationService.instance.refresh();
     LocalizationService.instance.addListener(_onLocaleChanged);
+    initFlightVisibility();
   }
 
   @override
   void dispose() {
+    disposeFlightVisibility();
     LocalizationService.instance.removeListener(_onLocaleChanged);
     super.dispose();
   }
 
   void _onLocaleChanged() {
     _loadData();
+  }
+
+  String _currentLanguageLabel() {
+    final code = LocalizationService.instance.currentLanguage;
+    for (final lang in LocalizationService.customerLanguages) {
+      if (lang['code'] == code) return lang['label']!;
+    }
+    return '';
+  }
+
+  bool _signingOut = false;
+
+  Future<void> _confirmSignOut(AppLocalizations l10n) async {
+    if (_signingOut || SessionManager.isSigningOut) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.signOut),
+        content: Text(l10n.signOutMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.cancelAction),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              l10n.signOut,
+              style: const TextStyle(color: AppTheme.errorRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || _signingOut) return;
+
+    _signingOut = true;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final router = GoRouter.of(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: const Center(
+          child: CircularProgressIndicator(color: AppTheme.luxuryAccent),
+        ),
+      ),
+    );
+    await SessionManager.signOut(fallbackRole: 'customer');
+    if (navigator.canPop()) navigator.pop();
+    router.go(AppRoutes.customerLogin);
   }
 
   Future<void> _loadData() async {
@@ -65,6 +141,156 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         });
       }
     }
+  }
+
+  Future<void> _afterRated(AppLocalizations l10n) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.thanksForRating),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    await _loadData();
+  }
+
+  /// Runs a customer SIM action against Odoo. Success is only shown when the
+  /// API call succeeds; errors are surfaced and nothing is faked.
+  Future<void> _runSimAction(
+    HomeExtraService service,
+    AppLocalizations l10n, {
+    required bool received,
+  }) async {
+    if (_simBusyIds.contains(service.id)) return;
+    final trip = _bootstrap?.homeTrip;
+    final tripId = trip?.id ?? 0;
+    final customerId = _bootstrap?.customerId ?? 0;
+    if (tripId <= 0 || customerId <= 0 || service.id <= 0) return;
+    // Duplicate guards (Odoo remains the source of truth on reload).
+    if (service.isCustomerReceived) return;
+    if (!received && service.isNotReceivedReported) return;
+
+    setState(() => _simBusyIds.add(service.id));
+    try {
+      final api = CustomerAuthService(ApiClient());
+      if (received) {
+        await api.confirmSimReceived(
+          tripId: tripId,
+          customerId: customerId,
+          extraServiceId: service.id,
+        );
+      } else {
+        await api.reportSimNotReceived(
+          tripId: tripId,
+          customerId: customerId,
+          extraServiceId: service.id,
+        );
+      }
+      await _loadData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            received ? l10n.simReceiptSaved : l10n.simReportSaved,
+            style: GoogleFonts.inter(color: Colors.white),
+          ),
+          backgroundColor: AppTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ApiException.messageOf(e) ?? l10n.simActionFailed,
+            style: GoogleFonts.inter(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _simBusyIds.remove(service.id));
+    }
+  }
+
+  Widget _buildSimSection(CustomerHomeTrip trip, AppLocalizations l10n) {
+    final sims = trip.extraServices.where((e) => e.isSimCard).toList();
+    if (sims.isEmpty) return const SizedBox.shrink();
+    // Once the customer or driver has confirmed delivery in Odoo, the eSIM
+    // card leaves Today (it stays visible in My Trip).
+    if (sims.every((e) => e.isSimConfirmed)) return const SizedBox.shrink();
+    final service = sims.firstWhere(
+      (e) => !e.isSimConfirmed,
+      orElse: () => sims.first,
+    );
+    final totalQty = sims.fold<int>(0, (sum, e) => sum + e.qty);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: CustomerSimCard(
+        service: service,
+        totalQty: totalQty,
+        l10n: l10n,
+        busy: _simBusyIds.contains(service.id),
+        onConfirmReceived: () => _runSimAction(service, l10n, received: true),
+        onReportNotReceived: () =>
+            _runSimAction(service, l10n, received: false),
+      ),
+    );
+  }
+
+  Future<void> _rateDriver(HomeDriver driver, AppLocalizations l10n) async {
+    final tripId = _bootstrap?.homeTrip?.id ?? 0;
+    if (tripId <= 0 || driver.id <= 0) return;
+    final transportationId =
+        _bootstrap?.homeTrip?.nextPickup?.transportationId ?? 0;
+    final ok = await DriverReviewDialog.show(
+      context,
+      driverName: driver.name,
+      l10n: l10n,
+      onSubmit: (rating, comment) =>
+          CustomerAuthService(ApiClient()).rateDriver(
+            tripId: tripId,
+            driverId: driver.id,
+            rating: rating,
+            comment: comment,
+            transportationId: transportationId,
+          ),
+    );
+    if (ok == true) await _afterRated(l10n);
+  }
+
+  Future<void> _rateHotel(HomeHotel hotel, AppLocalizations l10n) async {
+    final tripId = _bootstrap?.homeTrip?.id ?? 0;
+    if (tripId <= 0 || hotel.id <= 0) return;
+    final ok = await RatingSheet.show(
+      context,
+      title: l10n.rateHotelTitle,
+      subjectName: hotel.name,
+      initial: hotel.myRating,
+      l10n: l10n,
+      onSubmit: (rating, comment) => CustomerAuthService(ApiClient()).rateHotel(
+        tripId: tripId,
+        hotelId: hotel.id,
+        rating: rating,
+        comment: comment,
+      ),
+    );
+    if (ok == true) await _afterRated(l10n);
+  }
+
+  void _openHotelDetails({
+    required String name,
+    String phone = '',
+    String googleMapUrl = '',
+  }) {
+    HotelDetailsScreen.show(
+      context,
+      name: name,
+      phone: phone,
+      googleMapUrl: googleMapUrl,
+    );
   }
 
   String _formattedDate(AppLocalizations l10n) {
@@ -154,11 +380,16 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   Widget _buildHeader(AppLocalizations l10n) {
     final fullName = (_bootstrap?.customerName ?? '').trim();
-    final name = fullName.isNotEmpty ? fullName : 'Traveler';
+    final name = fullName.isNotEmpty ? fullName : l10n.traveler;
     final avatarUrl = (_bootstrap?.avatarUrl?.isNotEmpty ?? false)
         ? _bootstrap?.avatarUrl
         : null;
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'T';
+    final isAr = l10n.isRtlLocale;
+    final firstName = (_bootstrap?.firstName ?? '').trim();
+    final displayName = firstName.isNotEmpty ? firstName : name;
+    final greetingText = l10n.helloWithName(displayName);
+    final taglineText = l10n.headerSubtitle(isDriver: false);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
@@ -166,35 +397,57 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${l10n.greeting()}, $name',
-                  style: GoogleFonts.inter(
-                    color: AppTheme.primaryText,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
+            child: Directionality(
+              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.formattedHeaderDate(DateTime.now()),
+                    textAlign: TextAlign.start,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.luxuryAccent,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formattedDate(l10n),
-                  style: GoogleFonts.inter(
-                    color: AppTheme.secondaryText,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                  const SizedBox(height: 6),
+                  Text(
+                    greetingText,
+                    textAlign: TextAlign.start,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.primaryText,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    taglineText,
+                    textAlign: TextAlign.start,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.secondaryText,
+                      fontSize: isAr ? 15.64 : 13.6,
+                      fontWeight: FontWeight.w400,
+                      height: 1.3,
+                    ),
+                    maxLines: isAr ? 2 : 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 12),
           // Notification button
           GestureDetector(
-            onTap: () {},
+            onTap: () => context.push('/customer/notifications'),
             child: Container(
               width: 44,
               height: 44,
@@ -211,8 +464,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ],
               ),
               child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  const Center(
+                  Center(
                     child: Icon(
                       Icons.notifications_outlined,
                       color: AppTheme.primaryText,
@@ -220,15 +474,35 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     ),
                   ),
                   Positioned(
-                    top: 9,
-                    right: 9,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.luxuryAccent,
-                        shape: BoxShape.circle,
-                      ),
+                    top: -5,
+                    right: -5,
+                    child: AnimatedBuilder(
+                      animation: NotificationService.instance,
+                      builder: (context, _) {
+                        final count = NotificationService.instance.unreadCount;
+                        if (count <= 0) return const SizedBox.shrink();
+                        return Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.luxuryAccent,
+                            borderRadius: BorderRadius.all(Radius.circular(9)),
+                          ),
+                          child: Center(
+                            child: Text(
+                              count > 99 ? '99+' : '$count',
+                              style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -303,7 +577,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Widget _buildTodayTab(AppLocalizations l10n) {
-    final trip = _bootstrap?.activeTrip;
+    final trip = _bootstrap?.homeTrip;
 
     if (trip == null) {
       return Center(
@@ -312,7 +586,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.flight_takeoff_rounded,
                 color: AppTheme.secondaryText,
                 size: 48,
@@ -354,127 +628,185 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             TripHeroCard(trip: trip, l10n: l10n),
             const SizedBox(height: 20),
             // Next up card
-            if (trip.nextSegment != null) ...[
-              NextUpCard(segment: trip.nextSegment!, l10n: l10n),
-              const SizedBox(height: 28),
-            ],
-            // Today's Plan section
-            TodayTimelineWidget(items: trip.todayItinerary, l10n: l10n),
-            const SizedBox(height: 28),
-            // Tomorrow card
-            if (trip.tomorrowItinerary.isNotEmpty) ...[
-              TomorrowPreviewCard(
-                items: trip.tomorrowItinerary,
-                tomorrowDate: _tomorrowDateString(),
+            if (trip.nextPickup != null) ...[
+              NextUpCard(
+                pickup: trip.nextPickup!,
                 l10n: l10n,
+                onRateDriver: (d) => _rateDriver(d, l10n),
+              ),
+              if (trip.nextPickup!.driver != null) ...[
+                const SizedBox(height: 14),
+                TrackYourDriverCard(pickup: trip.nextPickup!, l10n: l10n),
+              ],
+              const SizedBox(height: 20),
+            ],
+            // Arrival flight
+            if (FlightVisibility.isArrivalVisible(trip.arrivalFlight)) ...[
+              FlightCard(
+                title: l10n.arrivalFlight,
+                flight: trip.arrivalFlight!,
+                isArrival: true,
+              ),
+              const SizedBox(height: 14),
+            ],
+            // Departure flight
+            if (FlightVisibility.isDepartureVisible(trip.departureFlight)) ...[
+              FlightCard(
+                title: l10n.departureFlightTitle,
+                flight: trip.departureFlight!,
+                isArrival: false,
+              ),
+              const SizedBox(height: 20),
+            ],
+            // Current hotel
+            if (trip.currentHotel != null) ...[
+              CurrentHotelCard(
+                hotel: trip.currentHotel!,
+                l10n: l10n,
+                onRate: () => _rateHotel(trip.currentHotel!, l10n),
+                onOpenDetails: () => _openHotelDetails(
+                  name: trip.currentHotel!.name,
+                  phone: trip.currentHotel!.phone,
+                  googleMapUrl: trip.currentHotel!.googleMapUrl,
+                ),
               ),
               const SizedBox(height: 28),
             ],
+            // Today's Plan section
+            TodaysPlanCard(
+              trip: trip,
+              dateText: trip.today.isNotEmpty
+                  ? trip.today
+                  : _formattedDate(l10n),
+              l10n: l10n,
+              onHotelTap: trip.currentHotel == null
+                  ? null
+                  : () => _openHotelDetails(
+                      name: trip.currentHotel!.name,
+                      phone: trip.currentHotel!.phone,
+                      googleMapUrl: trip.currentHotel!.googleMapUrl,
+                    ),
+            ),
+            const SizedBox(height: 20),
+            // Customer SIM delivery (only when booking has SIM/eSIM)
+            _buildSimSection(trip, l10n),
+            // Tomorrow card
+            if (trip.tomorrow.isNotEmpty) ...[
+              TomorrowPreviewCard(
+                items: trip.tomorrow,
+                tomorrowDate: trip.tomorrowDate,
+                l10n: l10n,
+              ),
+            ],
+            const SizedBox(height: 96),
           ],
         ),
       ),
     );
   }
 
-  String _tomorrowDateString() {
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    const days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${days[tomorrow.weekday - 1]}, ${tomorrow.day} ${months[tomorrow.month - 1]}';
-  }
-
   Widget _buildMyTripTab(AppLocalizations l10n) {
-    final trip = _bootstrap?.activeTrip;
+    final trip = _bootstrap?.homeTrip;
     if (trip == null) {
       return _buildEmptyState(l10n.noActiveTrips);
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionTitle(title: l10n.tripOverview),
-          const SizedBox(height: 12),
-          _InfoCard(
-            children: [
-              _InfoRow(label: l10n.reference, value: trip.reference),
-              _InfoRow(label: l10n.destinationLabel, value: trip.destination),
-              _InfoRow(label: l10n.checkIn, value: trip.startDate),
-              _InfoRow(label: l10n.checkOut, value: trip.endDate),
-              _InfoRow(
-                label: l10n.duration,
-                value: '${trip.totalDays} ${l10n.daysLabel}',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _SectionTitle(title: '${l10n.flightsLabel} (${trip.flights.length})'),
-          const SizedBox(height: 12),
-          ...trip.flights.map(
-            (f) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _InfoCard(
-                children: [
-                  _InfoRow(label: l10n.flightLabel, value: f.flightNumber),
-                  _InfoRow(label: l10n.airline, value: f.airline),
-                  _InfoRow(
-                    label: l10n.route,
-                    value: '${f.origin} → ${f.destination}',
-                  ),
-                  _InfoRow(
-                    label: l10n.departure,
-                    value: '${f.departureDate} ${f.departureTime}',
-                  ),
-                  _InfoRow(label: l10n.arrival, value: f.arrivalTime),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          _SectionTitle(title: '${l10n.hotelsLabel} (${trip.hotels.length})'),
-          const SizedBox(height: 12),
-          ...trip.hotels.map(
-            (h) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _InfoCard(
-                children: [
-                  _InfoRow(label: l10n.hotel, value: h.name),
-                  _InfoRow(label: l10n.location, value: h.location),
-                  _InfoRow(label: l10n.checkIn, value: h.checkIn),
-                  _InfoRow(label: l10n.checkOut, value: h.checkOut),
-                  _InfoRow(label: l10n.nights, value: '${h.nights}'),
-                  if (h.roomType != null)
-                    _InfoRow(label: l10n.room, value: h.roomType!),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
+    return RefreshIndicator(
+      color: AppTheme.brandNavy,
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: CustomerTripDetailsWidget(trip: trip, l10n: l10n),
       ),
     );
+  }
+
+  Widget _buildTripFlightCard(FlightModel f, AppLocalizations l10n) {
+    final isArrival = f.direction == 'arrival';
+    final isDeparture = f.direction == 'departure';
+    final dirLabel = isArrival
+        ? l10n.arrivalLabel
+        : (isDeparture ? l10n.departureLabel : l10n.flightLabel);
+    final dateTime = [
+      if ((f.date ?? '').isNotEmpty) f.date!,
+      if ((f.time ?? '').isNotEmpty) f.time!,
+    ].join(' ');
+    return _InfoCard(
+      children: [
+        _InfoRow(label: l10n.flightLabel, value: dirLabel),
+        if (f.airline.isNotEmpty)
+          _InfoRow(label: l10n.airline, value: f.airline),
+        if (f.flightNumber.isNotEmpty)
+          _InfoRow(label: l10n.flightLabel, value: f.flightNumber),
+        if (dateTime.isNotEmpty)
+          _InfoRow(
+            label: isArrival ? l10n.arrival : l10n.departure,
+            value: dateTime,
+          ),
+        if ((f.airport ?? '').isNotEmpty)
+          _InfoRow(label: l10n.airport, value: f.airport!),
+      ],
+    );
+  }
+
+  Widget _buildTripHotelCard(HotelModel h, AppLocalizations l10n) {
+    return _InfoCard(
+      children: [
+        _InfoRow(
+          label: l10n.hotel,
+          value: h.name,
+          onTap: () => _openHotelDetails(
+            name: h.name,
+            phone: h.phone ?? '',
+            googleMapUrl: h.googleMapUrl ?? '',
+          ),
+        ),
+        if (h.location.isNotEmpty)
+          _InfoRow(label: l10n.location, value: h.location),
+        if (h.checkIn.isNotEmpty)
+          _InfoRow(label: l10n.checkIn, value: h.checkIn),
+        if (h.checkOut.isNotEmpty)
+          _InfoRow(label: l10n.checkOut, value: h.checkOut),
+        if (h.nights > 0) _InfoRow(label: l10n.nights, value: '${h.nights}'),
+        if (h.roomType != null) _InfoRow(label: l10n.room, value: h.roomType!),
+      ],
+    );
+  }
+
+  Widget _buildTripTransportCard(
+    TransportationSegmentModel s,
+    AppLocalizations l10n,
+  ) {
+    final timeRange = [
+      if (s.pickupTime.isNotEmpty) s.pickupTime,
+      if ((s.endTime ?? '').isNotEmpty) s.endTime!,
+    ].join(' – ');
+    final title = (s.title ?? s.notes ?? '');
+    return _InfoCard(
+      children: [
+        if (title.isNotEmpty)
+          _InfoRow(label: l10n.transportationLabel, value: title),
+        if (s.date.isNotEmpty)
+          _InfoRow(label: l10n.transportDateLabel, value: s.date),
+        if (timeRange.isNotEmpty)
+          _InfoRow(label: l10n.transportTimeLabel, value: timeRange),
+        if ((s.city ?? '').isNotEmpty)
+          _InfoRow(label: l10n.transportCityLabel, value: s.city!),
+        if (s.pickupLocation.isNotEmpty)
+          _InfoRow(label: l10n.pickup, value: s.pickupLocation),
+        if (s.dropoffLocation.isNotEmpty)
+          _InfoRow(label: l10n.destination, value: s.dropoffLocation),
+        if (s.status.isNotEmpty)
+          _InfoRow(label: l10n.transportStatusLabel, value: s.status),
+      ],
+    );
+  }
+
+  String _serviceQtyText(ExtraServiceModel s) {
+    final qty = s.quantity;
+    if (qty <= 0) return '';
+    if (qty == 1 && !s.isSimCard) return '';
+    return 'x$qty';
   }
 
   Widget _buildServicesTab(AppLocalizations l10n) {
@@ -531,6 +863,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                            if (s.deliveryDate != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  s.deliveryDate!,
+                                  style: GoogleFonts.inter(
+                                    color: AppTheme.secondaryText,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
                             if (s.description != null)
                               Text(
                                 s.description!,
@@ -542,28 +885,25 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: s.status == 'active'
-                              ? AppTheme.successGreen.withAlpha(26)
-                              : AppTheme.mainBackground,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          s.status == 'active' ? l10n.active : l10n.pending,
-                          style: GoogleFonts.inter(
-                            color: s.status == 'active'
-                                ? AppTheme.successGreen
-                                : AppTheme.secondaryText,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                      if (_serviceQtyText(s).isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.softGoldBg,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _serviceQtyText(s),
+                            style: GoogleFonts.inter(
+                              color: AppTheme.luxuryAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -646,7 +986,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           Text(
             (customer?.customerName.isNotEmpty ?? false)
                 ? customer!.customerName
-                : 'Traveler',
+                : l10n.traveler,
             style: GoogleFonts.inter(
               color: AppTheme.primaryText,
               fontSize: 20,
@@ -675,16 +1015,16 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           const SizedBox(height: 32),
           _SupportItem(
             icon: Icons.language_outlined,
-            title: l10n.selectLanguage,
-            subtitle: l10n.selectLanguageSubtitle,
-            onTap: () {},
+            title: l10n.chooseYourLanguage,
+            subtitle: _currentLanguageLabel(),
+            onTap: () => LanguagePickerSheet.show(context, role: 'customer'),
           ),
           const SizedBox(height: 12),
           _SupportItem(
             icon: Icons.logout_rounded,
             title: l10n.signOut,
             subtitle: '',
-            onTap: () {},
+            onTap: () => _confirmSignOut(l10n),
           ),
         ],
       ),
@@ -873,7 +1213,8 @@ class _InfoCard extends StatelessWidget {
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
-  const _InfoRow({required this.label, required this.value});
+  final VoidCallback? onTap;
+  const _InfoRow({required this.label, required this.value, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -893,12 +1234,18 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.inter(
-                color: AppTheme.primaryText,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              child: Text(
+                value,
+                style: GoogleFonts.inter(
+                  color: onTap != null
+                      ? AppTheme.luxuryAccent
+                      : AppTheme.primaryText,
+                  fontSize: 13,
+                  fontWeight: onTap != null ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
             ),
           ),
@@ -940,7 +1287,7 @@ class _SupportItem extends StatelessWidget {
                 color: AppTheme.mainBackground,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: AppTheme.brandNavy, size: 22),
+              child: Icon(icon, color: AppTheme.navyText, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -966,7 +1313,7 @@ class _SupportItem extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
               color: AppTheme.secondaryText,
               size: 20,

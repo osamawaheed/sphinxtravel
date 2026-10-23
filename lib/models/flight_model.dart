@@ -10,6 +10,10 @@ class FlightModel {
   final String? terminal;
   final String? gate;
   final String status;
+  final String? direction;
+  final String? date;
+  final String? time;
+  final String? airport;
 
   const FlightModel({
     required this.id,
@@ -23,12 +27,19 @@ class FlightModel {
     this.terminal,
     this.gate,
     required this.status,
+    this.direction,
+    this.date,
+    this.time,
+    this.airport,
   });
 
   factory FlightModel.fromJson(Map<String, dynamic> json) {
     return FlightModel(
-      id: json['id'] as int,
-      flightNumber: json['flight_number'] as String? ?? '',
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      flightNumber:
+          json['flight_number'] as String? ??
+          json['flight_no'] as String? ??
+          '',
       airline: json['airline'] as String? ?? '',
       origin: json['origin'] as String? ?? '',
       destination: json['destination'] as String? ?? '',
@@ -38,6 +49,10 @@ class FlightModel {
       terminal: json['terminal'] as String?,
       gate: json['gate'] as String?,
       status: json['status'] as String? ?? 'scheduled',
+      direction: json['direction'] as String?,
+      date: json['date'] as String?,
+      time: json['time'] as String?,
+      airport: json['airport'] as String?,
     );
   }
 
@@ -53,5 +68,9 @@ class FlightModel {
     'terminal': terminal,
     'gate': gate,
     'status': status,
+    'direction': direction,
+    'date': date,
+    'time': time,
+    'airport': airport,
   };
 }

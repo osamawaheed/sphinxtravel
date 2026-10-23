@@ -29,17 +29,34 @@ void main() async {
   };
 
   // 🚨 CRITICAL: Device orientation lock - DO NOT REMOVE
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  try {
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  } catch (e) {
+    debugPrint('[MAIN] orientation lock failed: $e');
+  }
   GoRouter.optionURLReflectsImperativeAPIs = true;
 
-  // Initialize LocalizationService (loads persisted language)
-  await LocalizationService.create();
+  // Initialize services — a failure here must never prevent runApp (blank screen)
+  try {
+    // Initialize LocalizationService (loads persisted language)
+    await LocalizationService.create();
+  } catch (e) {
+    debugPrint('[MAIN] LocalizationService init failed: $e');
+  }
 
-  // Initialize ThemeService (loads persisted theme)
-  await ThemeService.create();
+  try {
+    // Initialize ThemeService (loads persisted theme)
+    await ThemeService.create();
+  } catch (e) {
+    debugPrint('[MAIN] ThemeService init failed: $e');
+  }
 
-  // Pre-load session state so GoRouter redirect is synchronous (prevents blank screen)
-  await AppRoutes.preloadSessionState();
+  try {
+    // Pre-load session state so GoRouter redirect is synchronous (prevents blank screen)
+    await AppRoutes.preloadSessionState();
+  } catch (e) {
+    debugPrint('[MAIN] Session preload failed: $e');
+  }
 
   runApp(const SphinxTravelApp());
 }
@@ -80,7 +97,7 @@ class _SphinxTravelAppState extends State<SphinxTravelApp> {
       child: Sizer(
         builder: (context, orientation, screenType) {
           return MaterialApp.router(
-            title: 'Travel Operations',
+            title: 'TourOps',
             theme: isArabic
                 ? AppTheme.lightThemeForLocale(locale)
                 : AppTheme.lightTheme,

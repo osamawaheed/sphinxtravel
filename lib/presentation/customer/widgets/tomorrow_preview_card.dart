@@ -1,23 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../theme/app_theme.dart';
-import '../../../models/trip_model.dart';
+import '../../../models/customer_bootstrap_model.dart';
 import '../../../l10n/app_localizations.dart';
 
 class TomorrowPreviewCard extends StatelessWidget {
-  final List<ItineraryItem> items;
+  final List<HomePlanItem> items;
   final String tomorrowDate;
   final AppLocalizations l10n;
+  final bool driverMode;
+  final List<int> mySegmentIds;
+  final void Function(HomePlanItem item)? onItemTap;
 
   const TomorrowPreviewCard({
     super.key,
     required this.items,
     required this.tomorrowDate,
     required this.l10n,
+    this.driverMode = false,
+    this.mySegmentIds = const [],
+    this.onItemTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
@@ -36,7 +44,6 @@ class TomorrowPreviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row: "Tomorrow" + date
           Row(
             children: [
               Text(
@@ -54,37 +61,21 @@ class TomorrowPreviewCard extends StatelessWidget {
                   style: GoogleFonts.inter(
                     color: AppTheme.secondaryText,
                     fontSize: 14,
-                    fontWeight: FontWeight.w400,
                   ),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
-          // Items list
-          ...items.take(3).map((item) => _TomorrowItem(item: item)),
-          const SizedBox(height: 14),
-          // View Tomorrow CTA
-          GestureDetector(
-            onTap: () {},
-            child: Row(
-              children: [
-                Text(
-                  l10n.viewTomorrow,
-                  style: GoogleFonts.inter(
-                    color: AppTheme.brandNavy,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 16,
-                  color: AppTheme.brandNavy,
-                ),
-              ],
+          ...items.map(
+            (item) => _TomorrowItem(
+              item: item,
+              l10n: l10n,
+              driverMode: driverMode,
+              isMine: mySegmentIds.contains(item.id),
+              onTap: onItemTap == null ? null : () => onItemTap!(item),
             ),
           ),
         ],
@@ -94,37 +85,119 @@ class TomorrowPreviewCard extends StatelessWidget {
 }
 
 class _TomorrowItem extends StatelessWidget {
-  final ItineraryItem item;
-  const _TomorrowItem({required this.item});
+  final HomePlanItem item;
+  final AppLocalizations l10n;
+  final bool driverMode;
+  final bool isMine;
+  final VoidCallback? onTap;
+  const _TomorrowItem({
+    required this.item,
+    required this.l10n,
+    this.driverMode = false,
+    this.isMine = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 6,
             height: 6,
-            margin: const EdgeInsets.only(right: 10, top: 1),
+            margin: const EdgeInsetsDirectional.only(end: 10, top: 7),
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: AppTheme.secondaryText,
+              color: AppTheme.luxuryAccent,
             ),
           ),
           Expanded(
-            child: Text(
-              item.time.isNotEmpty
-                  ? '${item.title} • ${item.time}'
-                  : item.title,
-              style: GoogleFonts.inter(
-                color: AppTheme.primaryText,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: GoogleFonts.inter(
+                    color: AppTheme.primaryText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (item.subtitle.isNotEmpty)
+                  Text(
+                    item.subtitle,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.secondaryText,
+                      fontSize: 12,
+                    ),
+                  ),
+                if (driverMode && item.type == 'transport') ...[
+                  if (isMine) ...[
+                    if (item.status.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        item.status,
+                        style: GoogleFonts.inter(
+                          color: AppTheme.secondaryText,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    if (onTap != null) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: onTap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.brandNavy,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            l10n.viewUpdateStatus,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.driverAssigned && item.driverName.isNotEmpty
+                          ? '${l10n.driverNoColon}: ${item.driverName}'
+                          : l10n.noDriverAssigned,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.secondaryText,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ],
             ),
           ),
+          if (item.time.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(
+              item.time,
+              style: GoogleFonts.inter(
+                color: AppTheme.secondaryText,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ],
       ),
     );

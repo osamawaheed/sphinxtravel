@@ -17,11 +17,13 @@ class CustomerOtpScreen extends StatefulWidget {
   final String phoneNumber;
   final String requestId;
   final int expiresIn;
+  final String? debugOtp;
   const CustomerOtpScreen({
     super.key,
     required this.phoneNumber,
     this.requestId = '',
     this.expiresIn = 120,
+    this.debugOtp,
   });
 
   @override
@@ -43,6 +45,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
   Timer? _timer;
   int _attempts = 0;
   late String _requestId;
+  String? _debugOtp;
 
   @override
   void initState() {
@@ -55,6 +58,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
     _controller.forward();
 
     _requestId = widget.requestId;
+    _debugOtp = widget.debugOtp;
     _controllers = List.generate(_length, (_) => TextEditingController());
     _focusNodes = List.generate(_length, (_) => FocusNode());
 
@@ -101,12 +105,15 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
       return;
     }
 
-    // Single digit entered — keep only the last character
+    // Single digit entered — keep only the last character, without touching
+    // the controller when it already holds exactly one digit.
     final digit = value[value.length - 1];
-    _controllers[index].text = digit;
-    _controllers[index].selection = TextSelection.fromPosition(
-      TextPosition(offset: 1),
-    );
+    if (value != digit) {
+      _controllers[index].value = TextEditingValue(
+        text: digit,
+        selection: const TextSelection.collapsed(offset: 1),
+      );
+    }
     setState(() {});
 
     if (index < _length - 1) {
@@ -117,19 +124,16 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
     }
   }
 
-  /// Handle key events directly on the TextField via onKeyEvent.
-  /// This avoids the competing FocusNode that RawKeyboardListener introduced.
+  /// Only intercept Backspace when the current box is already empty (to jump
+  /// back to the previous box). Otherwise let the TextField delete natively.
   KeyEventResult _handleKeyEvent(int index, KeyEvent event) {
-    if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.backspace) {
-      if (_controllers[index].text.isEmpty && index > 0) {
-        _controllers[index - 1].clear();
-        _focusNodes[index - 1].requestFocus();
-        setState(() {});
-      } else {
-        _controllers[index].clear();
-        setState(() {});
-      }
+    if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+        event.logicalKey == LogicalKeyboardKey.backspace &&
+        _controllers[index].text.isEmpty &&
+        index > 0) {
+      _controllers[index - 1].clear();
+      _focusNodes[index - 1].requestFocus();
+      setState(() {});
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -238,6 +242,9 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
       final newId = res['request_id']?.toString();
       if (newId != null && newId.isNotEmpty) _requestId = newId;
       newExpiresIn = (res['expires_in'] as num?)?.toInt();
+      if (mounted && !MockApiDataSource.useMock) {
+        setState(() => _debugOtp = ApiClient.debugOtpFrom(res));
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _apiErrorMessage = ApiException.messageOf(e));
@@ -292,7 +299,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppTheme.borderColor),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 16,
                       color: AppTheme.primaryText,
@@ -355,6 +362,49 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                   ),
                 ),
                 const SizedBox(height: 40),
+                // TEST MODE only: shows the OTP actually returned by the
+                // Odoo testing API. Hidden when the backend sends none.
+                if (_debugOtp != null && _debugOtp!.isNotEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8E1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE0B84C)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context).testMode,
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF8A6D00),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            'Your verification code: $_debugOtp',
+                            style: GoogleFonts.inter(
+                              color: AppTheme.primaryText,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 // OTP boxes — always LTR regardless of locale
                 Row(
                   textDirection: TextDirection.ltr,
@@ -369,6 +419,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                           controller: _controllers[i],
                           focusNode: _focusNodes[i],
                           keyboardType: TextInputType.number,
+                          textCapitalization: TextCapitalization.none,
                           textAlign: TextAlign.center,
                           textAlignVertical: TextAlignVertical.center,
                           maxLength: 2,
@@ -484,7 +535,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                             l10n.resendCode,
                             style: AppTheme.appFont(
                               context,
-                              color: AppTheme.brandNavy,
+                              color: AppTheme.navyText,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),

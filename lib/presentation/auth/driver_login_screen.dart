@@ -86,7 +86,7 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
           debugPrint(
             '[DRIVER ROUTE] DriverLoginScreen: profile_completed=false → driverProfileCompletion',
           );
-          context.go(AppRoutes.driverProfileCompletion);
+          context.go(AppRoutes.driverProfileCompletion, extra: user);
         } else {
           debugPrint(
             '[DRIVER ROUTE] DriverLoginScreen: profile_completed=true → driverLocationPermission',
@@ -128,13 +128,14 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppTheme.borderColor),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 16,
                       color: AppTheme.primaryText,
                     ),
                   ),
                 ),
+                const SizedBox(height: 24),
                 const SizedBox(height: 40),
                 Container(
                   height: 160,
@@ -207,14 +208,16 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                 TextField(
                   controller: _usernameController,
                   keyboardType: TextInputType.text,
-                  autocorrect: false,
+                  // Native keyboard hint only; the entered text is never
+                  // rewritten, so the exact username is sent to Odoo.
+                  textCapitalization: TextCapitalization.sentences,
                   style: GoogleFonts.inter(
                     color: AppTheme.primaryText,
                     fontSize: 15,
                   ),
                   decoration: InputDecoration(
                     hintText: l10n.enterUsername,
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.person_outline_rounded,
                       color: AppTheme.secondaryText,
                       size: 20,
@@ -223,22 +226,22 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                     fillColor: AppTheme.cardWhite,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
+                      borderSide: BorderSide(
                         color: AppTheme.borderColor,
                         width: 1.5,
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
+                      borderSide: BorderSide(
                         color: AppTheme.borderColor,
                         width: 1.5,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: AppTheme.brandNavy,
+                      borderSide: BorderSide(
+                        color: AppTheme.navyText,
                         width: 1.5,
                       ),
                     ),
@@ -254,13 +257,14 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                 TextField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
+                  textCapitalization: TextCapitalization.none,
                   style: GoogleFonts.inter(
                     color: AppTheme.primaryText,
                     fontSize: 15,
                   ),
                   decoration: InputDecoration(
                     hintText: l10n.enterPassword,
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.lock_outline_rounded,
                       color: AppTheme.secondaryText,
                       size: 20,
@@ -280,22 +284,22 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                     fillColor: AppTheme.cardWhite,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
+                      borderSide: BorderSide(
                         color: AppTheme.borderColor,
                         width: 1.5,
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
+                      borderSide: BorderSide(
                         color: AppTheme.borderColor,
                         width: 1.5,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: AppTheme.brandNavy,
+                      borderSide: BorderSide(
+                        color: AppTheme.navyText,
                         width: 1.5,
                       ),
                     ),

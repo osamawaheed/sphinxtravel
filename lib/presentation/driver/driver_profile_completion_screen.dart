@@ -15,13 +15,22 @@ import '../../services/driver_api_service.dart';
 import '../../services/api_client.dart';
 import '../../data/mock_api_data_source.dart';
 import '../../models/driver_bootstrap_model.dart';
+import '../../models/driver_profile_model.dart';
+import '../../widgets/first_letter_capitalize_formatter.dart';
 
 class DriverProfileCompletionScreen extends StatefulWidget {
   /// Bootstrap data passed from the profile check screen so we can
   /// pre-fill phone / username from Odoo without an extra network call.
   final DriverBootstrapModel? bootstrap;
 
-  const DriverProfileCompletionScreen({super.key, this.bootstrap});
+  /// Driver returned by login (used to pre-fill vehicle fields).
+  final DriverProfile? initialDriver;
+
+  const DriverProfileCompletionScreen({
+    super.key,
+    this.bootstrap,
+    this.initialDriver,
+  });
 
   @override
   State<DriverProfileCompletionScreen> createState() =>
@@ -36,6 +45,7 @@ class _DriverProfileCompletionScreenState
 
   final _driverNameController = TextEditingController();
   final _vehicleModelController = TextEditingController();
+  final _vehicleColorController = TextEditingController();
   final _manufacturingYearController = TextEditingController();
 
   String? _selectedVehicleType;
@@ -84,9 +94,12 @@ class _DriverProfileCompletionScreenState
     return RegExp(r"^[A-Za-z0-9][A-Za-z0-9 ]*$").hasMatch(text);
   }
 
+  bool get _isVehicleColorValid =>
+      _vehicleColorController.text.trim().isNotEmpty;
+
   bool get _isManufacturingYearValid {
     final text = _manufacturingYearController.text.trim();
-    if (text.isEmpty) return false;
+    if (text.length != 4) return false;
     final year = int.tryParse(text);
     if (year == null) return false;
     final currentYear = DateTime.now().year;
@@ -103,6 +116,31 @@ class _DriverProfileCompletionScreenState
     _fadeIn = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _animController.forward();
     LocalizationService.instance.addListener(_onLocaleChanged);
+    _prefillVehicleFields();
+  }
+
+  void _applyDriverPrefill(DriverProfile? d) {
+    if (d == null) return;
+    if (_vehicleModelController.text.isEmpty && d.vehicleModel.isNotEmpty) {
+      _vehicleModelController.text = d.vehicleModel;
+    }
+    if (_vehicleColorController.text.isEmpty && d.vehicleColor.isNotEmpty) {
+      _vehicleColorController.text = d.vehicleColor;
+    }
+    if (_manufacturingYearController.text.isEmpty && d.vehicleYear.isNotEmpty) {
+      _manufacturingYearController.text = d.vehicleYear;
+    }
+  }
+
+  Future<void> _prefillVehicleFields() async {
+    _applyDriverPrefill(widget.bootstrap?.driver ?? widget.initialDriver);
+    if (widget.bootstrap != null || widget.initialDriver != null) return;
+    if (MockApiDataSource.useMock) return;
+    try {
+      final b = await DriverApiService(ApiClient()).refreshBootstrap();
+      if (!mounted) return;
+      setState(() => _applyDriverPrefill(b.driver));
+    } catch (_) {}
   }
 
   @override
@@ -110,6 +148,7 @@ class _DriverProfileCompletionScreenState
     _animController.dispose();
     _driverNameController.dispose();
     _vehicleModelController.dispose();
+    _vehicleColorController.dispose();
     _manufacturingYearController.dispose();
     LocalizationService.instance.removeListener(_onLocaleChanged);
     super.dispose();
@@ -126,6 +165,7 @@ class _DriverProfileCompletionScreenState
       _isDriverNameValid &&
       _selectedVehicleType != null &&
       _isVehicleModelValid &&
+      _isVehicleColorValid &&
       _isManufacturingYearValid &&
       _uploadingSlots.isEmpty;
 
@@ -142,6 +182,7 @@ class _DriverProfileCompletionScreenState
   }
 
   Future<Uint8List> _compress(Uint8List bytes) async {
+    if (kIsWeb) return bytes;
     try {
       final result = await FlutterImageCompress.compressWithList(
         bytes,
@@ -213,9 +254,9 @@ class _DriverProfileCompletionScreenState
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.cardWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         child: Column(
@@ -312,22 +353,10 @@ class _DriverProfileCompletionScreenState
       } else {
         final apiService = DriverApiService(ApiClient());
 
-        // plate_number / vehicle_color are not editable on this screen;
-        // use the values the backend already returned for this driver.
-        var plate = widget.bootstrap?.driver.plateNumber ?? '';
-        var color = widget.bootstrap?.driver.vehicleColor ?? '';
-        if (widget.bootstrap == null) {
-          try {
-            final b = await apiService.refreshBootstrap();
-            plate = b.driver.plateNumber;
-            color = b.driver.vehicleColor;
-          } catch (_) {}
-        }
-
         final result = await apiService.submitProfile(
-          plateNumber: plate,
           vehicleModel: _vehicleModelController.text.trim(),
-          vehicleColor: color,
+          vehicleYear: _manufacturingYearController.text.trim(),
+          vehicleColor: _vehicleColorController.text.trim(),
         );
         profileCompleted = result['profile_completed'] == true;
       }
@@ -468,12 +497,13 @@ class _DriverProfileCompletionScreenState
   }
 
   Widget _buildProgressBar() {
-    // 4 text/dropdown fields + photos
-    final totalRequired = _maxPersonalPhotos + _maxVehiclePhotos + 4;
+    // 6 text/dropdown fields + photos
+    final totalRequired = _maxPersonalPhotos + _maxVehiclePhotos + 6;
     int completed = _personalPhotoCount + _vehiclePhotoCount;
     if (_isDriverNameValid) completed++;
     if (_selectedVehicleType != null) completed++;
     if (_isVehicleModelValid) completed++;
+    if (_isVehicleColorValid) completed++;
     if (_isManufacturingYearValid) completed++;
     final progress = completed / totalRequired;
 
@@ -486,7 +516,7 @@ class _DriverProfileCompletionScreenState
             Text(
               '${(progress * 100).round()}%',
               style: GoogleFonts.inter(
-                color: AppTheme.brandNavy,
+                color: AppTheme.navyText,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -601,7 +631,7 @@ class _DriverProfileCompletionScreenState
           // ── Read-only Odoo fields ──────────────────────────────────────
           if (hasPhone) ...[
             _buildReadOnlyField(
-              label: 'Phone Number',
+              label: l10n.phoneNumber,
               value: bootstrap.driverPhone!,
               icon: Icons.phone_outlined,
             ),
@@ -609,7 +639,7 @@ class _DriverProfileCompletionScreenState
           ],
           if (hasUsername) ...[
             _buildReadOnlyField(
-              label: 'Username',
+              label: l10n.username,
               value: bootstrap.driverUsername!,
               icon: Icons.account_circle_outlined,
             ),
@@ -620,9 +650,10 @@ class _DriverProfileCompletionScreenState
           // 1. Driver Name
           _buildTextField(
             controller: _driverNameController,
-            label: 'Driver Name',
-            hint: 'e.g. John Smith',
+            label: l10n.driverNameLabel,
+            hint: l10n.driverNameHint,
             icon: Icons.person_outline_rounded,
+            textCapitalization: TextCapitalization.words,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
               _TitleCaseFormatter(),
@@ -630,30 +661,44 @@ class _DriverProfileCompletionScreenState
           ),
           const SizedBox(height: 16),
           // 2. Vehicle Type dropdown
-          _buildVehicleTypeDropdown(),
+          _buildVehicleTypeDropdown(l10n),
           const SizedBox(height: 16),
           // 3. Vehicle Model
           _buildTextField(
             controller: _vehicleModelController,
-            label: 'Vehicle Model',
-            hint: 'e.g. Toyota Camry 2020',
+            label: l10n.vehicleModelLabel,
+            hint: l10n.vehicleModelHintLong,
             icon: Icons.directions_car_outlined,
+            textCapitalization: TextCapitalization.words,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9 ]')),
               _TitleCaseFormatter(),
             ],
           ),
           const SizedBox(height: 16),
-          // 4. Manufacturing Year
+          // 3b. Model Year (required, 4 digits) — right under Vehicle Model
           _buildTextField(
             controller: _manufacturingYearController,
-            label: 'Manufacturing Year',
-            hint: 'e.g. ${DateTime.now().year - 3}',
+            label: l10n.modelYear,
+            hint: '${l10n.exampleAbbrev} ${DateTime.now().year - 3}',
             icon: Icons.calendar_today_outlined,
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(4),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 3c. Vehicle Color
+          _buildTextField(
+            controller: _vehicleColorController,
+            label: l10n.vehicleColorLabel,
+            hint: l10n.vehicleColorHint,
+            icon: Icons.palette_outlined,
+            textCapitalization: TextCapitalization.words,
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(30),
+              const FirstLetterCapitalizeFormatter(),
             ],
           ),
         ],
@@ -705,7 +750,7 @@ class _DriverProfileCompletionScreenState
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  'From Odoo',
+                  AppLocalizations.of(context).driverNameFromOdoo,
                   style: GoogleFonts.inter(
                     color: AppTheme.luxuryAccent,
                     fontSize: 10,
@@ -720,12 +765,12 @@ class _DriverProfileCompletionScreenState
     );
   }
 
-  Widget _buildVehicleTypeDropdown() {
+  Widget _buildVehicleTypeDropdown(AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Vehicle Type',
+          l10n.vehicleType,
           style: GoogleFonts.inter(
             color: AppTheme.primaryText,
             fontSize: 13,
@@ -739,7 +784,7 @@ class _DriverProfileCompletionScreenState
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _selectedVehicleType != null
-                  ? AppTheme.brandNavy
+                  ? AppTheme.navyText
                   : AppTheme.borderColor,
               width: 1.5,
             ),
@@ -751,15 +796,15 @@ class _DriverProfileCompletionScreenState
               hint: Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Text(
-                  'Select vehicle type',
+                  l10n.selectVehicleType,
                   style: GoogleFonts.inter(
                     color: AppTheme.secondaryText,
                     fontSize: 15,
                   ),
                 ),
               ),
-              icon: const Padding(
-                padding: EdgeInsets.only(right: 12),
+              icon: Padding(
+                padding: const EdgeInsets.only(right: 12),
                 child: Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: AppTheme.secondaryText,
@@ -778,14 +823,14 @@ class _DriverProfileCompletionScreenState
                   value: type,
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.directions_car_outlined,
                         color: AppTheme.secondaryText,
                         size: 18,
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        type,
+                        l10n.vehicleTypeName(type),
                         style: GoogleFonts.inter(
                           color: AppTheme.primaryText,
                           fontSize: 15,
@@ -811,6 +856,7 @@ class _DriverProfileCompletionScreenState
     required String hint,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
+    TextCapitalization textCapitalization = TextCapitalization.none,
     List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
@@ -828,6 +874,7 @@ class _DriverProfileCompletionScreenState
         TextField(
           controller: controller,
           keyboardType: keyboardType,
+          textCapitalization: textCapitalization,
           inputFormatters: inputFormatters,
           onChanged: (_) => setState(() {}),
           style: GoogleFonts.inter(color: AppTheme.primaryText, fontSize: 15),
@@ -838,24 +885,15 @@ class _DriverProfileCompletionScreenState
             fillColor: AppTheme.mainBackground,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppTheme.borderColor,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppTheme.borderColor, width: 1.5),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppTheme.borderColor,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppTheme.borderColor, width: 1.5),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppTheme.brandNavy,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppTheme.navyText, width: 1.5),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -900,7 +938,7 @@ class _DriverProfileCompletionScreenState
         _statusMessage?.contains('success') == true ||
         _statusMessage?.contains('успешно') == true ||
         _statusMessage?.contains('წარმატებით') == true;
-    final color = isSuccess ? AppTheme.successGreen : AppTheme.brandNavy;
+    final color = isSuccess ? AppTheme.successGreen : AppTheme.navyText;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -996,7 +1034,15 @@ class _TitleCaseFormatter extends TextInputFormatter {
     }
 
     final formatted = buffer.toString();
-    return newValue.copyWith(text: formatted, selection: newValue.selection);
+    if (formatted == text) return newValue;
+    // Same length (case-only change): keep selection; clear composing range.
+    final base = newValue.selection.baseOffset.clamp(0, formatted.length);
+    final extent = newValue.selection.extentOffset.clamp(0, formatted.length);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection(baseOffset: base, extentOffset: extent),
+      composing: TextRange.empty,
+    );
   }
 }
 
@@ -1199,7 +1245,7 @@ class _PhotoSlot extends StatelessWidget {
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
                 color: AppTheme.softGoldBg,
-                child: const Icon(
+                child: Icon(
                   Icons.image_not_supported_outlined,
                   color: AppTheme.secondaryText,
                 ),
@@ -1240,7 +1286,7 @@ class _PhotoSlot extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
+          Icon(
             Icons.add_photo_alternate_outlined,
             color: AppTheme.secondaryText,
             size: 24,

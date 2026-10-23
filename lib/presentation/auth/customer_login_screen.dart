@@ -8,6 +8,7 @@ import '../../data/mock_api_data_source.dart';
 import '../../services/api_client.dart';
 import '../../services/customer_auth_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/first_letter_capitalize_formatter.dart';
 
 // Country code data
 class CountryCode {
@@ -399,6 +400,9 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
             'phone': normalized,
             'request_id': otpResponse['request_id']?.toString() ?? '',
             'expires_in': (otpResponse['expires_in'] as num?)?.toInt() ?? 120,
+            'debug_otp': MockApiDataSource.useMock
+                ? null
+                : ApiClient.debugOtpFrom(otpResponse),
           },
         );
       }
@@ -452,7 +456,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppTheme.borderColor),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 16,
                       color: AppTheme.primaryText,
@@ -590,7 +594,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(
+                                Icon(
                                   Icons.keyboard_arrow_down_rounded,
                                   size: 18,
                                   color: AppTheme.secondaryText,
@@ -604,6 +608,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                           child: TextField(
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
+                            textCapitalization: TextCapitalization.none,
                             textDirection: TextDirection.ltr,
                             textAlign: TextAlign.left,
                             inputFormatters: [
@@ -681,7 +686,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                'Send OTP via WhatsApp',
+                                AppLocalizations.of(context).sendOtpWhatsapp,
                                 style: AppTheme.appFont(
                                   context,
                                   fontSize: 16,
@@ -713,10 +718,10 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Your account is linked to your booking. Use the phone number provided during booking.',
+                          AppLocalizations.of(context).accountLinkedToBooking,
                           style: AppTheme.appFont(
                             context,
-                            color: AppTheme.brandNavy,
+                            color: AppTheme.navyText,
                             fontSize: 12,
                             height: 1.5,
                           ),
@@ -753,7 +758,17 @@ class _CountryPickerSheet extends StatefulWidget {
 }
 
 class _CountryPickerSheetState extends State<_CountryPickerSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
   List<CountryCode> get _filtered => _countryCodes
       .where(
         (c) =>
@@ -766,9 +781,9 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.mainBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
@@ -797,6 +812,12 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                 ),
                 const SizedBox(height: 16),
                 TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  keyboardType: TextInputType.text,
+                  textCapitalization: TextCapitalization.sentences,
+                  inputFormatters: const [FirstLetterCapitalizeFormatter()],
+                  textInputAction: TextInputAction.search,
                   onChanged: (v) => setState(() => _query = v),
                   decoration: InputDecoration(
                     hintText: widget.searchHint,
@@ -806,19 +827,30 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                       fontSize: 16,
                     ),
                     prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                            color: AppTheme.secondaryText,
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _query = '');
+                              _searchFocusNode.requestFocus();
+                            },
+                          )
+                        : null,
                     filled: true,
                     fillColor: AppTheme.cardWhite,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                      borderSide: BorderSide(color: AppTheme.borderColor),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                      borderSide: BorderSide(color: AppTheme.borderColor),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppTheme.brandNavy),
+                      borderSide: BorderSide(color: AppTheme.navyText),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,

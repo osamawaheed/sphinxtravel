@@ -22,12 +22,8 @@ class AppLocalizations {
 
   // ─── Generic ───────────────────────────────────────────────────────────────
 
-  String get appName => _t({
-    'en': 'Travel Operations',
-    'ar': 'Travel Operations',
-    'ru': 'Travel Operations',
-    'ka': 'Travel Operations',
-  });
+  String get appName =>
+      _t({'en': 'TourOps', 'ar': 'TourOps', 'ru': 'TourOps', 'ka': 'TourOps'});
   String get loading => _t({
     'en': 'Loading...',
     'ar': 'جار التحميل...',
@@ -59,6 +55,12 @@ class AppLocalizations {
     'ka': 'გასვლა',
   });
   String get signOut => logout;
+  String get signOutMessage => _t({
+    'en': 'Are you sure you want to sign out?',
+    'ar': 'هل أنت متأكد أنك تريد تسجيل الخروج؟',
+    'ru': 'Вы уверены, что хотите выйти?',
+    'ka': 'დარწმუნებული ხართ, რომ გსურთ გასვლა?',
+  });
   String get noTrips => _t({
     'en': 'No trips assigned yet.',
     'ar': 'لا توجد رحلات مخصصة بعد.',
@@ -158,10 +160,10 @@ class AppLocalizations {
     'ka': 'ნახეთ და მართეთ\nმინიჭებული მოგზაურობები.',
   });
   String get copyright => _t({
-    'en': '© 2026 Sphinx Travel. جميع الحقوق محفوظة.',
-    'ar': '© 2026 Sphinx Travel. جميع الحقوق محفوظة.',
-    'ru': '© 2026 Sphinx Travel. جميع الحقوق محفوظة.',
-    'ka': '© 2026 Sphinx Travel. جميع الحقوق محفوظة.',
+    'en': '© 2026 Tour Operations. All rights reserved.',
+    'ar': '© 2026 Tour Operations. جميع الحقوق محفوظة.',
+    'ru': '© 2026 Tour Operations. Все права защищены.',
+    'ka': '© 2026 Tour Operations. ყველა უფლება დაცულია.',
   });
 
   // ─── Language Selection ────────────────────────────────────────────────────
@@ -171,6 +173,12 @@ class AppLocalizations {
     'ar': 'اختر\nلغتك',
     'ru': 'Выберите\nязык',
     'ka': 'აირჩიეთ\nენა',
+  });
+  String get chooseYourLanguage => _t({
+    'en': 'Choose Your Language',
+    'ar': 'اختر لغتك',
+    'ru': 'Выберите язык',
+    'ka': 'აირჩიეთ ენა',
   });
   String get selectLanguageSubtitle => _t({
     'en': 'Choose your preferred language to continue',
@@ -321,10 +329,10 @@ class AppLocalizations {
     'ka': 'შესვლა',
   });
   String get driverAccountSubtitle => _t({
-    'en': 'Use your Travel Operations driver account',
-    'ar': 'استخدم حساب سائق Travel Operations',
-    'ru': 'Используйте аккаунт водителя Travel Operations',
-    'ka': 'გამოიყენეთ Travel Operations-ის მძღოლის ანგარიში',
+    'en': 'Use your Tour Operations driver account',
+    'ar': 'استخدم حساب سائق Tour Operations',
+    'ru': 'Используйте аккаунт водителя Tour Operations',
+    'ka': 'გამოიყენეთ Tour Operations-ის მძღოლის ანგარიში',
   });
   String get username => _t({
     'en': 'Username',
@@ -398,6 +406,92 @@ class AppLocalizations {
     'ru': 'Услуги',
     'ka': 'სერვისები',
   });
+  String get esimDeliveryQuestion => _t({
+    'en': 'Have you delivered the eSIM cards to the customer?',
+    'ar': 'هل قمت بتسليم شرائح eSIM إلى العميل؟',
+    'ru': 'Вы передали eSIM-карты клиенту?',
+    'ka': 'მიაწოდეთ თუ არა eSIM ბარათები მომხმარებელს?',
+  });
+  String get cancelAction =>
+      _t({'en': 'Cancel', 'ar': 'إلغاء', 'ru': 'Отмена', 'ka': 'გაუქმება'});
+  String get confirmDelivery => _t({
+    'en': 'Confirm Delivery',
+    'ar': 'تأكيد التسليم',
+    'ru': 'Подтвердить доставку',
+    'ka': 'მიწოდების დადასტურება',
+  });
+  String get deliveredLabel => _t({
+    'en': 'Delivered',
+    'ar': 'تم التسليم',
+    'ru': 'Доставлено',
+    'ka': 'მიწოდებულია',
+  });
+  String get tapToConfirmDelivery => _t({
+    'en': 'Tap to confirm delivery',
+    'ar': 'اضغط لتأكيد التسليم',
+    'ru': 'Нажмите для подтверждения',
+    'ka': 'დააჭირეთ დასადასტურებლად',
+  });
+  String get esimDeliveredSuccess => _t({
+    'en': 'eSIM delivery confirmed',
+    'ar': 'تم تأكيد تسليم eSIM',
+    'ru': 'Доставка eSIM подтверждена',
+    'ka': 'eSIM-ის მიწოდება დადასტურდა',
+  });
+  String get esimDeliveryFailed => _t({
+    'en': 'Could not confirm delivery. Please try again.',
+    'ar': 'تعذر تأكيد التسليم. يرجى المحاولة مرة أخرى.',
+    'ru': 'Не удалось подтвердить доставку. Попробуйте снова.',
+    'ka': 'მიწოდების დადასტურება ვერ მოხერხდა. სცადეთ ხელახლა.',
+  });
+  String get wallet =>
+      _t({'en': 'Wallet', 'ar': 'المحفظة', 'ru': 'Кошелёк', 'ka': 'საფულე'});
+  String get walletBalance =>
+      _t({'en': 'Balance', 'ar': 'الرصيد', 'ru': 'Баланс', 'ka': 'ბალანსი'});
+  String get transactions => _t({
+    'en': 'Transactions',
+    'ar': 'المعاملات',
+    'ru': 'Транзакции',
+    'ka': 'ტრანზაქციები',
+  });
+  String get noTransactionsYet => _t({
+    'en': 'No transactions yet',
+    'ar': 'لا توجد معاملات بعد',
+    'ru': 'Транзакций пока нет',
+    'ka': 'ტრანზაქციები ჯერ არ არის',
+  });
+  String get viewUpdateStatus => _t({
+    'en': 'View / Update status',
+    'ar': 'عرض / تحديث الحالة',
+    'ru': 'Просмотр / обновление статуса',
+    'ka': 'სტატუსის ნახვა / განახლება',
+  });
+  String get driverNoColon =>
+      _t({'en': 'Driver', 'ar': 'السائق', 'ru': 'Водитель', 'ka': 'მძღოლი'});
+  String get noDriverAssigned => _t({
+    'en': 'No driver assigned',
+    'ar': 'لم يتم تعيين سائق',
+    'ru': 'Водитель не назначен',
+    'ka': 'მძღოლი არ არის მინიჭებული',
+  });
+  String get myTripsTitle => _t({
+    'en': 'My Trips',
+    'ar': 'رحلاتي',
+    'ru': 'Мои поездки',
+    'ka': 'ჩემი მოგზაურობები',
+  });
+  String get tripEndedRibbon => _t({
+    'en': 'Ended',
+    'ar': 'Ended',
+    'ru': 'Завершено',
+    'ka': 'დასრულებულია',
+  });
+  String get tripDetails => _t({
+    'en': 'Trip Details',
+    'ar': 'تفاصيل الرحلة',
+    'ru': 'Детали поездки',
+    'ka': 'მოგზაურობის დეტალები',
+  });
   String get support => _t({
     'en': 'Support',
     'ar': 'الدعم',
@@ -432,6 +526,70 @@ class AppLocalizations {
   });
   String get nextUp =>
       _t({'en': 'NEXT UP', 'ar': 'التالي', 'ru': 'СЛЕДУЮЩЕЕ', 'ka': 'შემდეგი'});
+  String get driverWillBeAssignedSoon => _t({
+    'en': 'Your driver will be assigned soon',
+    'ar': 'سيتم تعيين سائقك قريباً',
+    'ru': 'Водитель скоро будет назначен',
+    'ka': 'თქვენი მძღოლი მალე დაინიშნება',
+  });
+  String get driverIsOnTheWay => _t({
+    'en': 'Driver is on the way',
+    'ar': 'السائق في الطريق إليك',
+    'ru': 'Водитель в пути',
+    'ka': 'მძღოლი გზაშია',
+  });
+  String driverArrivesInMin(int min) => _t({
+    'en': 'Your driver arrives in $min min',
+    'ar': 'سائقك يصل خلال $min دقيقة',
+    'ru': 'Водитель прибудет через $min мин',
+    'ka': 'მძღოლი ჩამოვა $min წუთში',
+  });
+  String get tripStatusAssigned => _t({
+    'en': 'Assigned',
+    'ar': 'تم التعيين',
+    'ru': 'Назначен',
+    'ka': 'დანიშნულია',
+  });
+  String get tripStatusOnTheWay => _t({
+    'en': 'On The Way',
+    'ar': 'في الطريق',
+    'ru': 'В пути',
+    'ka': 'გზაშია',
+  });
+  String get tripStatusPickedUp => _t({
+    'en': 'Picked Up',
+    'ar': 'تم الاستقبال',
+    'ru': 'Пассажир забран',
+    'ka': 'აყვანილია',
+  });
+  String get tripStatusInTour =>
+      _t({'en': 'In Tour', 'ar': 'في الجولة', 'ru': 'В туре', 'ka': 'ტურშია'});
+  String get tripStatusCompleted => _t({
+    'en': 'Completed',
+    'ar': 'مكتمل',
+    'ru': 'Завершено',
+    'ka': 'დასრულებულია',
+  });
+  String get whatsapp => _t({
+    'en': 'WhatsApp',
+    'ar': 'واتساب',
+    'ru': 'WhatsApp',
+    'ka': 'WhatsApp',
+  });
+  String get driverAndVehiclePhotos => _t({
+    'en': 'Driver & Vehicle',
+    'ar': 'السائق والمركبة',
+    'ru': 'Водитель и автомобиль',
+    'ka': 'მძღოლი და ავტომობილი',
+  });
+  String get driverPhotoLabel =>
+      _t({'en': 'Driver', 'ar': 'السائق', 'ru': 'Водитель', 'ka': 'მძღოლი'});
+  String get vehiclePhotoLabel => _t({
+    'en': 'Vehicle',
+    'ar': 'المركبة',
+    'ru': 'Автомобиль',
+    'ka': 'ავტომობილი',
+  });
   String get yourDriverArrives => _t({
     'en': 'Your driver arrives in 25 min',
     'ar': 'سائقك يصل خلال 25 دقيقة',
@@ -444,6 +602,64 @@ class AppLocalizations {
     'ru': 'Место подачи',
     'ka': 'გამგზავრების ადგილი',
   });
+  String get transportDateLabel =>
+      _t({'en': 'Date', 'ar': 'التاريخ', 'ru': 'Дата', 'ka': 'თარიღი'});
+  String get transportTimeLabel =>
+      _t({'en': 'Time', 'ar': 'الوقت', 'ru': 'Время', 'ka': 'დრო'});
+  String get transportCityLabel =>
+      _t({'en': 'City', 'ar': 'المدينة', 'ru': 'Город', 'ka': 'ქალაქი'});
+  String get transportStatusLabel =>
+      _t({'en': 'Status', 'ar': 'الحالة', 'ru': 'Статус', 'ka': 'სტატუსი'});
+  String get rateDriverTitle => _t({
+    'en': 'Rate your driver',
+    'ar': 'قيّم السائق',
+    'ru': 'Оцените водителя',
+    'ka': 'შეაფასეთ მძღოლი',
+  });
+  String get rateDriverButton => _t({
+    'en': 'Rate Driver',
+    'ar': 'قيّم السائق',
+    'ru': 'Оценить водителя',
+    'ka': 'მძღოლის შეფასება',
+  });
+  String get submitReview =>
+      _t({'en': 'Submit', 'ar': 'إرسال', 'ru': 'Отправить', 'ka': 'გაგზავნა'});
+  String get rateHotelTitle => _t({
+    'en': 'Rate your hotel',
+    'ar': 'قيّم الفندق',
+    'ru': 'Оцените отель',
+    'ka': 'შეაფასეთ სასტუმრო',
+  });
+  String get submitRating => _t({
+    'en': 'Submit rating',
+    'ar': 'إرسال التقييم',
+    'ru': 'Отправить оценку',
+    'ka': 'შეფასების გაგზავნა',
+  });
+  String get updateRating => _t({
+    'en': 'Update rating',
+    'ar': 'تحديث التقييم',
+    'ru': 'Обновить оценку',
+    'ka': 'შეფასების განახლება',
+  });
+  String get ratingCommentHint => _t({
+    'en': 'Add a comment (optional)',
+    'ar': 'أضف تعليقاً (اختياري)',
+    'ru': 'Добавьте комментарий (необязательно)',
+    'ka': 'დაამატეთ კომენტარი (არასავალდებულო)',
+  });
+  String get ratingRequired => _t({
+    'en': 'Please select a rating from 1 to 5',
+    'ar': 'يرجى اختيار تقييم من 1 إلى 5',
+    'ru': 'Выберите оценку от 1 до 5',
+    'ka': 'აირჩიეთ შეფასება 1-დან 5-მდე',
+  });
+  String get thanksForRating => _t({
+    'en': 'Thanks for your rating',
+    'ar': 'شكراً على تقييمك',
+    'ru': 'Спасибо за вашу оценку',
+    'ka': 'გმადლობთ შეფასებისთვის',
+  });
   String get destination => _t({
     'en': 'Destination',
     'ar': 'الوجهة',
@@ -452,6 +668,50 @@ class AppLocalizations {
   });
   String get call =>
       _t({'en': 'Call', 'ar': 'اتصال', 'ru': 'Позвонить', 'ka': 'დარეკვა'});
+  String get printCustomerName => _t({
+    'en': 'Print Customer Name',
+    'ar': 'طباعة اسم العميل',
+    'ru': 'Печать имени клиента',
+    'ka': 'მომხმარებლის სახელის ბეჭდვა',
+  });
+  String get customerNameReport => _t({
+    'en': 'Customer Name Report',
+    'ar': 'تقرير اسم العميل',
+    'ru': 'Отчёт с именем клиента',
+    'ka': 'მომხმარებლის სახელის ანგარიში',
+  });
+  String get shareViaWhatsapp => _t({
+    'en': 'Share via WhatsApp',
+    'ar': 'مشاركة عبر واتساب',
+    'ru': 'Поделиться в WhatsApp',
+    'ka': 'გაზიარება WhatsApp-ით',
+  });
+  String get downloadPdf => _t({
+    'en': 'Download',
+    'ar': 'تنزيل',
+    'ru': 'Скачать',
+    'ka': 'ჩამოტვირთვა',
+  });
+  String get printPdf =>
+      _t({'en': 'Print', 'ar': 'طباعة', 'ru': 'Печать', 'ka': 'ბეჭდვა'});
+  String get openPdf => _t({
+    'en': 'Open PDF',
+    'ar': 'فتح PDF',
+    'ru': 'Открыть PDF',
+    'ka': 'PDF-ის გახსნა',
+  });
+  String get reportNotAvailable => _t({
+    'en': 'The report is not available yet. Please try again later.',
+    'ar': 'التقرير غير متاح حاليًا. يرجى المحاولة لاحقًا.',
+    'ru': 'Отчёт пока недоступен. Попробуйте позже.',
+    'ka': 'ანგარიში ჯერ მიუწვდომელია. სცადეთ მოგვიანებით.',
+  });
+  String get reportAccessDenied => _t({
+    'en': 'Only the assigned driver can access this report.',
+    'ar': 'يمكن للسائق المعيّن فقط الوصول إلى هذا التقرير.',
+    'ru': 'Доступ к отчёту есть только у назначенного водителя.',
+    'ka': 'ანგარიშზე წვდომა მხოლოდ დანიშნულ მძღოლს აქვს.',
+  });
   String get message => _t({
     'en': 'Message',
     'ar': 'رسالة',
@@ -509,6 +769,170 @@ class AppLocalizations {
     'ar': 'خطة اليوم',
     'ru': 'План на сегодня',
     'ka': 'დღის გეგმა',
+  });
+  String get planViewMore => _t({
+    'en': 'View More',
+    'ar': 'عرض المزيد',
+    'ru': 'Показать больше',
+    'ka': 'მეტის ნახვა',
+  });
+  String get planViewLess => _t({
+    'en': 'View Less',
+    'ar': 'عرض أقل',
+    'ru': 'Показать меньше',
+    'ka': 'ნაკლების ნახვა',
+  });
+  String get planNoActivities => _t({
+    'en': 'No activities scheduled for today',
+    'ar': 'لا توجد أنشطة مجدولة لهذا اليوم',
+    'ru': 'На сегодня нет запланированных мероприятий',
+    'ka': 'დღეისთვის აქტივობები დაგეგმილი არ არის',
+  });
+  String get planStayingTonight => _t({
+    'en': 'Staying tonight',
+    'ar': 'إقامتك الليلة',
+    'ru': 'Проживание сегодня',
+    'ka': 'დღეს ღამით',
+  });
+  String get planMoreActivities => _t({
+    'en': 'more activities',
+    'ar': 'أنشطة أخرى',
+    'ru': 'ещё мероприятий',
+    'ka': 'კიდევ აქტივობა',
+  });
+  String get simCardTitle => _t({
+    'en': 'SIM Card',
+    'ar': 'شريحة SIM',
+    'ru': 'SIM-карта',
+    'ka': 'SIM ბარათი',
+  });
+  String get eSimCardTitle => _t({
+    'en': 'eSIM Card',
+    'ar': 'شريحة eSIM',
+    'ru': 'eSIM-карта',
+    'ka': 'eSIM ბარათი',
+  });
+  String get simCardsCount => _t({
+    'en': 'SIM cards',
+    'ar': 'شرائح',
+    'ru': 'SIM-карт',
+    'ka': 'SIM ბარათი',
+  });
+  String get simStatusPending => _t({
+    'en': 'Awaiting delivery',
+    'ar': 'بانتظار التسليم',
+    'ru': 'Ожидает доставки',
+    'ka': 'მიწოდების მოლოდინში',
+  });
+  String get simStatusDelivered => _t({
+    'en': 'Delivered by driver',
+    'ar': 'تم التسليم من السائق',
+    'ru': 'Доставлено водителем',
+    'ka': 'მძღოლმა მიაწოდა',
+  });
+  String get simAwaitingDeliveryStatus => _t({
+    'en': 'Awaiting Delivery',
+    'ar': 'بانتظار التسليم',
+    'ru': 'Ожидает доставки',
+    'ka': 'მიწოდების მოლოდინში',
+  });
+  String get simDeliveryConfirmedStatus => _t({
+    'en': 'Delivery Confirmed',
+    'ar': 'تم تأكيد التسليم',
+    'ru': 'Доставка подтверждена',
+    'ka': 'მიწოდება დადასტურებულია',
+  });
+  String get simConfirmedByLabel => _t({
+    'en': 'Confirmed by',
+    'ar': 'تم التأكيد بواسطة',
+    'ru': 'Подтвердил',
+    'ka': 'დაადასტურა',
+  });
+  String get simConfirmedByCustomer => _t({
+    'en': 'Customer',
+    'ar': 'العميل',
+    'ru': 'Клиент',
+    'ka': 'მომხმარებელი',
+  });
+  String get simConfirmedByDriver =>
+      _t({'en': 'Driver', 'ar': 'السائق', 'ru': 'Водитель', 'ka': 'მძღოლი'});
+  String get simConfirmedAtLabel => _t({
+    'en': 'Confirmed on',
+    'ar': 'تاريخ التأكيد',
+    'ru': 'Дата подтверждения',
+    'ka': 'დადასტურების დრო',
+  });
+  String get simQuantityLabel => _t({
+    'en': 'SIM quantity',
+    'ar': 'عدد الشرائح',
+    'ru': 'Количество SIM',
+    'ka': 'SIM-ების რაოდენობა',
+  });
+  String get simReceivedLabel => _t({
+    'en': 'SIM Received',
+    'ar': 'تم استلام الشريحة',
+    'ru': 'SIM получена',
+    'ka': 'SIM მიღებულია',
+  });
+  String get simNotReceivedReported => _t({
+    'en': 'Not Received — Reported',
+    'ar': 'لم تُستلم — تم الإبلاغ',
+    'ru': 'Не получена — сообщено',
+    'ka': 'არ მიღებულა — გაგზავნილია',
+  });
+  String get confirmSimReceived => _t({
+    'en': 'Confirm SIM Received',
+    'ar': 'تأكيد استلام الشريحة',
+    'ru': 'Подтвердить получение SIM',
+    'ka': 'SIM-ის მიღების დადასტურება',
+  });
+  String get simNotReceivedYet => _t({
+    'en': 'SIM Not Received Yet',
+    'ar': 'لم أستلم الشريحة بعد',
+    'ru': 'SIM ещё не получена',
+    'ka': 'SIM ჯერ არ მიმიღია',
+  });
+  String get simReceivedQuestion => _t({
+    'en': 'Have you received your SIM cards?',
+    'ar': 'هل استلمت شرائح SIM الخاصة بك؟',
+    'ru': 'Вы получили свои SIM-карты?',
+    'ka': 'მიიღეთ თქვენი SIM ბარათები?',
+  });
+  String get simNotReceivedQuestion => _t({
+    'en': 'Have you not received your SIM cards yet?',
+    'ar': 'هل لم تستلم شرائح SIM الخاصة بك بعد؟',
+    'ru': 'Вы ещё не получили свои SIM-карты?',
+    'ka': 'ჯერ არ მიგიღიათ თქვენი SIM ბარათები?',
+  });
+  String get confirmReceipt => _t({
+    'en': 'Confirm Receipt',
+    'ar': 'تأكيد الاستلام',
+    'ru': 'Подтвердить получение',
+    'ka': 'მიღების დადასტურება',
+  });
+  String get reportNotReceived => _t({
+    'en': 'Report Not Received',
+    'ar': 'الإبلاغ عن عدم الاستلام',
+    'ru': 'Сообщить о неполучении',
+    'ka': 'არმიღების შეტყობინება',
+  });
+  String get simReceiptSaved => _t({
+    'en': 'SIM receipt confirmed',
+    'ar': 'تم تأكيد استلام الشريحة',
+    'ru': 'Получение SIM подтверждено',
+    'ka': 'SIM-ის მიღება დადასტურებულია',
+  });
+  String get simReportSaved => _t({
+    'en': 'Your report was sent. We will follow up shortly.',
+    'ar': 'تم إرسال بلاغك. سنتابع الأمر قريباً.',
+    'ru': 'Ваше сообщение отправлено. Мы скоро свяжемся с вами.',
+    'ka': 'თქვენი შეტყობინება გაიგზავნა. მალე დაგიკავშირდებით.',
+  });
+  String get simActionFailed => _t({
+    'en': 'Could not update SIM status. Please try again.',
+    'ar': 'تعذر تحديث حالة الشريحة. يرجى المحاولة مرة أخرى.',
+    'ru': 'Не удалось обновить статус SIM. Попробуйте снова.',
+    'ka': 'SIM-ის სტატუსის განახლება ვერ მოხერხდა. სცადეთ ხელახლა.',
   });
   String get tomorrow =>
       _t({'en': 'Tomorrow', 'ar': 'غداً', 'ru': 'Завтра', 'ka': 'ხვალ'});
@@ -603,6 +1027,50 @@ class AppLocalizations {
       _t({'en': 'Arrival', 'ar': 'الوصول', 'ru': 'Прибытие', 'ka': 'ჩამოსვლა'});
   String get hotel =>
       _t({'en': 'Hotel', 'ar': 'الفندق', 'ru': 'Отель', 'ka': 'სასტუმრო'});
+  String get hotelDetailsTitle => _t({
+    'en': 'Hotel Details',
+    'ar': 'تفاصيل الفندق',
+    'ru': 'Информация об отеле',
+    'ka': 'სასტუმროს დეტალები',
+  });
+  String get hotelPhoneLabel => _t({
+    'en': 'Hotel Phone',
+    'ar': 'هاتف الفندق',
+    'ru': 'Телефон отеля',
+    'ka': 'სასტუმროს ტელეფონი',
+  });
+  String get closeAction =>
+      _t({'en': 'Close', 'ar': 'إغلاق', 'ru': 'Закрыть', 'ka': 'დახურვა'});
+  String get getDirections => _t({
+    'en': 'Get Directions',
+    'ar': 'احصل على الاتجاهات',
+    'ru': 'Проложить маршрут',
+    'ka': 'მარშრუტის მიღება',
+  });
+  String get callHotel => _t({
+    'en': 'Call Hotel',
+    'ar': 'اتصل بالفندق',
+    'ru': 'Позвонить в отель',
+    'ka': 'სასტუმროში დარეკვა',
+  });
+  String get hotelPhoneUnavailable => _t({
+    'en': 'Phone number not available',
+    'ar': 'رقم الهاتف غير متوفر',
+    'ru': 'Номер телефона недоступен',
+    'ka': 'ტელეფონის ნომერი მიუწვდომელია',
+  });
+  String get hotelMapUnavailable => _t({
+    'en': 'Map location not available',
+    'ar': 'موقع الخريطة غير متوفر',
+    'ru': 'Местоположение на карте недоступно',
+    'ka': 'რუკის მდებარეობა მიუწვდომელია',
+  });
+  String get hotelActionFailed => _t({
+    'en': 'Unable to open. Please try again.',
+    'ar': 'تعذر الفتح. حاول مرة أخرى.',
+    'ru': 'Не удалось открыть. Повторите попытку.',
+    'ka': 'გახსნა ვერ მოხერხდა. სცადეთ ხელახლა.',
+  });
   String get location => _t({
     'en': 'Location',
     'ar': 'الموقع',
@@ -650,12 +1118,6 @@ class AppLocalizations {
     'ar': 'اتصل بنا',
     'ru': 'Позвонить нам',
     'ka': 'დაგვიკავშირდით',
-  });
-  String get whatsapp => _t({
-    'en': 'WhatsApp',
-    'ar': 'واتساب',
-    'ru': 'WhatsApp',
-    'ka': 'WhatsApp',
   });
   String get chatWithTeam => _t({
     'en': 'Chat with our team',
@@ -759,6 +1221,8 @@ class AppLocalizations {
     'ru': 'Начать поездку',
     'ka': 'მოგზაურობის დაწყება',
   });
+  String get arrivedAction =>
+      _t({'en': 'Arrived', 'ar': 'وصلت', 'ru': 'Прибыл', 'ka': 'მოვედი'});
   String get nextAssignedTrip => _t({
     'en': 'Next Assigned Trip',
     'ar': 'الرحلة المخصصة التالية',
@@ -1081,17 +1545,41 @@ class AppLocalizations {
     'ru': 'Информация об автомобиле',
     'ka': 'მანქანის ინფორმაცია',
   });
-  String get plateNumber => _t({
-    'en': 'Plate Number',
-    'ar': 'رقم اللوحة',
-    'ru': 'Номерной знак',
-    'ka': 'სანომრე ნიშანი',
+  String get ratings => _t({
+    'en': 'Ratings',
+    'ar': 'التقييمات',
+    'ru': 'Оценки',
+    'ka': 'შეფასებები',
   });
-  String get plateNumberHint => _t({
-    'en': 'e.g. GG-123-AB',
-    'ar': 'مثال: GG-123-AB',
-    'ru': 'напр. GG-123-AB',
-    'ka': 'მაგ. GG-123-AB',
+  String get noRatingsYet => _t({
+    'en': 'No ratings yet',
+    'ar': 'لا توجد تقييمات بعد',
+    'ru': 'Оценок пока нет',
+    'ka': 'შეფასებები ჯერ არ არის',
+  });
+  String get modelYear => _t({
+    'en': 'Model Year',
+    'ar': 'سنة الصنع',
+    'ru': 'Год выпуска',
+    'ka': 'გამოშვების წელი',
+  });
+  String get personalPhotosLabel => _t({
+    'en': 'Personal photos',
+    'ar': 'الصور الشخصية',
+    'ru': 'Личные фото',
+    'ka': 'პირადი ფოტოები',
+  });
+  String get vehiclePhotosLabel => _t({
+    'en': 'Vehicle photos',
+    'ar': 'صور المركبة',
+    'ru': 'Фото автомобиля',
+    'ka': 'მანქანის ფოტოები',
+  });
+  String ratingsCountLabel(int n) => _t({
+    'en': '$n ${n == 1 ? 'rating' : 'ratings'}',
+    'ar': '$n تقييم',
+    'ru': '$n оценок',
+    'ka': '$n შეფასება',
   });
   String get vehicleModelLabel => _t({
     'en': 'Vehicle Model',
@@ -1213,6 +1701,1132 @@ class AppLocalizations {
     if (hour < 17) return goodAfternoon;
     return goodEvening;
   }
+
+  // ─── Greeting header (localized) ───────────────────────────────────────────
+
+  /// Right-to-left only for Arabic. English, Russian and Georgian are LTR.
+  bool get isRtlLocale => locale == 'ar';
+
+  String get helloLabel => _t({
+    'en': 'Hello',
+    'ar': 'مرحباً',
+    'ru': 'Здравствуйте',
+    'ka': 'გამარჯობა',
+  });
+
+  String helloWithName(String name) {
+    final sep = locale == 'ar' ? '،' : ',';
+    return '$helloLabel$sep $name';
+  }
+
+  String headerSubtitle({required bool isDriver}) {
+    if (isDriver) {
+      return _t({
+        'en': 'Every Trip Your Excellence.',
+        'ru': 'Каждая поездка Ваше мастерство.',
+        'ka': 'ყოველი მგზავრობა თქვენი პროფესიონალიზმი.',
+      });
+    }
+    return _t({'en': 'Your Journey Our Care.', 'ar': 'رحلتك تهمنا'});
+  }
+
+  String formattedHeaderDate(DateTime now) {
+    const weekdays = {
+      'en': [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ],
+      'ar': [
+        'الاثنين',
+        'الثلاثاء',
+        'الأربعاء',
+        'الخميس',
+        'الجمعة',
+        'السبت',
+        'الأحد',
+      ],
+      'ru': [
+        'Понедельник',
+        'Вторник',
+        'Среда',
+        'Четверг',
+        'Пятница',
+        'Суббота',
+        'Воскресенье',
+      ],
+      'ka': [
+        'ორშაბათი',
+        'სამშაბათი',
+        'ოთხშაბათი',
+        'ხუთშაბათი',
+        'პარასკევი',
+        'შაბათი',
+        'კვირა',
+      ],
+    };
+    const months = {
+      'en': [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
+      ],
+      'ar': [
+        'يناير',
+        'فبراير',
+        'مارس',
+        'أبريل',
+        'مايو',
+        'يونيو',
+        'يوليو',
+        'أغسطس',
+        'سبتمبر',
+        'أكتوبر',
+        'نوفمبر',
+        'ديسمبر',
+      ],
+      // Genitive forms (used after the day number)
+      'ru': [
+        'января',
+        'февраля',
+        'марта',
+        'апреля',
+        'мая',
+        'июня',
+        'июля',
+        'августа',
+        'сентября',
+        'октября',
+        'ноября',
+        'декабря',
+      ],
+      'ka': [
+        'იანვარი',
+        'თებერვალი',
+        'მარტი',
+        'აპრილი',
+        'მაისი',
+        'ივნისი',
+        'ივლისი',
+        'აგვისტო',
+        'სექტემბერი',
+        'ოქტომბერი',
+        'ნოემბერი',
+        'დეკემბერი',
+      ],
+    };
+    final lang = weekdays.containsKey(locale) ? locale : 'en';
+    final day = weekdays[lang]![now.weekday - 1];
+    final month = months[lang]![now.month - 1];
+    final sep = lang == 'ar' ? '،' : ',';
+    return '$day$sep ${now.day} $month';
+  }
+
+  // ─── Customer Home (new design) ────────────────────────────────────────────
+
+  String get guestsLabel =>
+      _t({'en': 'guests', 'ar': 'ضيوف', 'ru': 'гостей', 'ka': 'სტუმარი'});
+
+  String get departureFlightTitle => _t({
+    'en': 'DEPARTURE FLIGHT',
+    'ar': 'رحلة المغادرة',
+    'ru': 'РЕЙС ВЫЛЕТА',
+    'ka': 'გამგზავრების ფრენა',
+  });
+
+  String get arrivalLabel =>
+      _t({'en': 'Arrival', 'ar': 'الوصول', 'ru': 'Прибытие', 'ka': 'ჩამოსვლა'});
+
+  String get departureLabel => _t({
+    'en': 'Departure',
+    'ar': 'المغادرة',
+    'ru': 'Отправление',
+    'ka': 'გამგზავრება',
+  });
+
+  // ─── Driver Tomorrow card ──────────────────────────────────────────────────
+
+  String get newTripLabel => _t({
+    'en': 'NEW TRIP',
+    'ar': 'رحلة جديدة',
+    'ru': 'НОВАЯ ПОЕЗДКА',
+    'ka': 'ახალი მოგზაურობა',
+  });
+
+  String get airportPickupLabel => _t({
+    'en': 'AIRPORT PICKUP',
+    'ar': 'الاستقبال من المطار',
+    'ru': 'ВСТРЕЧА В АЭРОПОРТУ',
+    'ka': 'აეროპორტიდან მიყვანა',
+  });
+
+  String get tomorrowAirportPickupMessage => _t({
+    'en': 'You have an airport pickup scheduled tomorrow for a new trip.',
+    'ar': 'لديك استقبال من المطار غداً لرحلة جديدة.',
+    'ru': 'У вас завтра запланирована встреча в аэропорту для новой поездки.',
+    'ka': 'ხვალ დაგეგმილი გაქვთ აეროპორტიდან მიყვანა ახალი მოგზაურობისთვის.',
+  });
+
+  String get tomorrowNewTripMessage => _t({
+    'en': 'You have an assignment tomorrow for a new trip.',
+    'ar': 'لديك مهمة غداً لرحلة جديدة.',
+    'ru': 'У вас завтра задание для новой поездки.',
+    'ka': 'ხვალ გაქვთ დავალება ახალი მოგზაურობისთვის.',
+  });
+
+  String get bookingLabel => _t({
+    'en': 'Booking',
+    'ar': 'الحجز',
+    'ru': 'Бронирование',
+    'ka': 'დაჯავშნა',
+  });
+
+  String get arrivalTimeLabel => _t({
+    'en': 'Arrival Time',
+    'ar': 'وقت الوصول',
+    'ru': 'Время прибытия',
+    'ka': 'ჩამოსვლის დრო',
+  });
+
+  // ─── Localized date helpers ────────────────────────────────────────────────
+
+  static const Map<String, List<String>> _weekdayNames = {
+    'en': [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ],
+    'ar': [
+      'الاثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت',
+      'الأحد',
+    ],
+    'ru': [
+      'Понедельник',
+      'Вторник',
+      'Среда',
+      'Четверг',
+      'Пятница',
+      'Суббота',
+      'Воскресенье',
+    ],
+    'ka': [
+      'ორშაბათი',
+      'სამშაბათი',
+      'ოთხშაბათი',
+      'ხუთშაბათი',
+      'პარასკევი',
+      'შაბათი',
+      'კვირა',
+    ],
+  };
+
+  static const Map<String, List<String>> _monthNames = {
+    'en': [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ],
+    'ar': [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ],
+    // Genitive forms (used after the day number)
+    'ru': [
+      'января',
+      'февраля',
+      'марта',
+      'апреля',
+      'мая',
+      'июня',
+      'июля',
+      'августа',
+      'сентября',
+      'октября',
+      'ноября',
+      'декабря',
+    ],
+    'ka': [
+      'იანვარი',
+      'თებერვალი',
+      'მარტი',
+      'აპრილი',
+      'მაისი',
+      'ივნისი',
+      'ივლისი',
+      'აგვისტო',
+      'სექტემბერი',
+      'ოქტომბერი',
+      'ნოემბერი',
+      'დეკემბერი',
+    ],
+  };
+
+  static const Map<String, List<String>> _shortMonthNames = {
+    'en': [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ],
+    'ar': [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ],
+    'ru': [
+      'янв.',
+      'февр.',
+      'мар.',
+      'апр.',
+      'мая',
+      'июн.',
+      'июл.',
+      'авг.',
+      'сент.',
+      'окт.',
+      'нояб.',
+      'дек.',
+    ],
+    'ka': [
+      'იან',
+      'თებ',
+      'მარ',
+      'აპრ',
+      'მაი',
+      'ივნ',
+      'ივლ',
+      'აგვ',
+      'სექ',
+      'ოქტ',
+      'ნოე',
+      'დეკ',
+    ],
+  };
+
+  String get _dateLang => _monthNames.containsKey(locale) ? locale : 'en';
+
+  /// Localized weekday name (1 = Monday ... 7 = Sunday).
+  String weekdayName(int weekday) => _weekdayNames[_dateLang]![weekday - 1];
+
+  /// Localized month name (1..12). Russian uses the genitive form.
+  String monthName(int month) => _monthNames[_dateLang]![month - 1];
+
+  /// Localized abbreviated month name (1..12).
+  String shortMonthName(int month) => _shortMonthNames[_dateLang]![month - 1];
+
+  /// e.g. "Monday, 5 June" in the selected language.
+  String weekdayDayMonth(DateTime d) {
+    final sep = _dateLang == 'ar' ? '،' : ',';
+    return '${weekdayName(d.weekday)}$sep ${d.day} ${monthName(d.month)}';
+  }
+
+  /// e.g. "5 June" in the selected language.
+  String dayMonth(DateTime d) => '${d.day} ${monthName(d.month)}';
+
+  /// e.g. "5 June 2026" in the selected language.
+  String dayMonthYear(DateTime d) => '${d.day} ${monthName(d.month)} ${d.year}';
+
+  /// e.g. "Jun 5" in the selected language.
+  String shortMonthDay(DateTime d) => '${shortMonthName(d.month)} ${d.day}';
+
+  // ─── Driver bottom navigation & tabs ───────────────────────────────────────
+
+  String get navToday =>
+      _t({'en': 'Today', 'ar': 'اليوم', 'ru': 'Сегодня', 'ka': 'დღეს'});
+  String get navMyTrips => _t({
+    'en': 'My Trips',
+    'ar': 'رحلاتي',
+    'ru': 'Мои поездки',
+    'ka': 'ჩემი მოგზაურობები',
+  });
+  String get supportComingSoon => _t({
+    'en': 'Support coming soon',
+    'ar': 'الدعم قريباً',
+    'ru': 'Поддержка скоро появится',
+    'ka': 'მხარდაჭერა მალე იქნება ხელმისაწვდომი',
+  });
+  String get appearance => _t({
+    'en': 'Appearance',
+    'ar': 'المظهر',
+    'ru': 'Оформление',
+    'ka': 'გარეგნობა',
+  });
+  String get themeSystem => _t({
+    'en': 'System',
+    'ar': 'النظام',
+    'ru': 'Системная',
+    'ka': 'სისტემური',
+  });
+  String get themeLight =>
+      _t({'en': 'Light', 'ar': 'فاتح', 'ru': 'Светлая', 'ka': 'ნათელი'});
+  String get themeDark =>
+      _t({'en': 'Dark', 'ar': 'داكن', 'ru': 'Тёмная', 'ka': 'მუქი'});
+
+  // ─── Driver trip / hotel details ───────────────────────────────────────────
+
+  String get hotelName => _t({
+    'en': 'Hotel Name',
+    'ar': 'اسم الفندق',
+    'ru': 'Название отеля',
+    'ka': 'სასტუმროს სახელი',
+  });
+  String get fullAddress => _t({
+    'en': 'Full Address',
+    'ar': 'العنوان الكامل',
+    'ru': 'Полный адрес',
+    'ka': 'სრული მისამართი',
+  });
+  String get addressNotAvailable => _t({
+    'en': 'Address not available',
+    'ar': 'العنوان غير متوفر',
+    'ru': 'Адрес недоступен',
+    'ka': 'მისამართი მიუწვდომელია',
+  });
+  String get phoneNumber => _t({
+    'en': 'Phone Number',
+    'ar': 'رقم الهاتف',
+    'ru': 'Номер телефона',
+    'ka': 'ტელეფონის ნომერი',
+  });
+  String get phoneLabel =>
+      _t({'en': 'Phone', 'ar': 'الهاتف', 'ru': 'Телефон', 'ka': 'ტელეფონი'});
+  String get notAvailable => _t({
+    'en': 'Not available',
+    'ar': 'غير متوفر',
+    'ru': 'Недоступно',
+    'ka': 'მიუწვდომელია',
+  });
+  String get openInGoogleMaps => _t({
+    'en': 'Open in Google Maps',
+    'ar': 'فتح في خرائط جوجل',
+    'ru': 'Открыть в Google Картах',
+    'ka': 'Google Maps-ში გახსნა',
+  });
+  String get tripDuration => _t({
+    'en': 'Trip Duration',
+    'ar': 'مدة الرحلة',
+    'ru': 'Длительность поездки',
+    'ka': 'მოგზაურობის ხანგრძლივობა',
+  });
+  String get passengersLabel => _t({
+    'en': 'Passengers',
+    'ar': 'الركاب',
+    'ru': 'Пассажиры',
+    'ka': 'მგზავრები',
+  });
+  String guestCount(int n) => _t({
+    'en': '$n ${n == 1 ? 'Guest' : 'Guests'}',
+    'ar': '$n ${n == 1 ? 'ضيف' : 'ضيوف'}',
+    'ru': '$n ${n == 1 ? 'гость' : (n >= 2 && n <= 4 ? 'гостя' : 'гостей')}',
+    'ka': '$n ${n == 1 ? 'სტუმარი' : 'სტუმარი'}',
+  });
+  String get arrivalFlightUnavailable => _t({
+    'en': 'Arrival flight details not available',
+    'ar': 'تفاصيل رحلة الوصول غير متوفرة',
+    'ru': 'Данные рейса прибытия недоступны',
+    'ka': 'ჩამოსვლის ფრენის დეტალები მიუწვდომელია',
+  });
+  String get checkInLabel => _t({
+    'en': 'Check-in',
+    'ar': 'تسجيل الوصول',
+    'ru': 'Заезд',
+    'ka': 'ჩასვლა',
+  });
+  String get checkOutLabel => _t({
+    'en': 'Check-out',
+    'ar': 'تسجيل المغادرة',
+    'ru': 'Выезд',
+    'ka': 'გასვლა',
+  });
+  String checkInWithName(String name) => '$checkInLabel: $name';
+  String get viewDetailsAction => viewDetails;
+  String get tripInformation => _t({
+    'en': 'Trip Information',
+    'ar': 'معلومات الرحلة',
+    'ru': 'Информация о поездке',
+    'ka': 'მოგზაურობის ინფორმაცია',
+  });
+  String get flightInfo => _t({
+    'en': 'Flight Info',
+    'ar': 'معلومات الرحلة الجوية',
+    'ru': 'Информация о рейсе',
+    'ka': 'ფრენის ინფორმაცია',
+  });
+  String get flightNumber => _t({
+    'en': 'Flight Number',
+    'ar': 'رقم الرحلة الجوية',
+    'ru': 'Номер рейса',
+    'ka': 'ფრენის ნომერი',
+  });
+  String get notes => _t({
+    'en': 'Notes',
+    'ar': 'ملاحظات',
+    'ru': 'Примечания',
+    'ka': 'შენიშვნები',
+  });
+  String get dateLabel =>
+      _t({'en': 'Date', 'ar': 'التاريخ', 'ru': 'Дата', 'ka': 'თარიღი'});
+  String get tripProgress => _t({
+    'en': 'Trip Progress',
+    'ar': 'تقدم الرحلة',
+    'ru': 'Ход поездки',
+    'ka': 'მოგზაურობის პროგრესი',
+  });
+  String get tripCompleted => _t({
+    'en': 'Trip Completed!',
+    'ar': 'اكتملت الرحلة!',
+    'ru': 'Поездка завершена!',
+    'ka': 'მოგზაურობა დასრულდა!',
+  });
+  String get tripReference => _t({
+    'en': 'Trip Reference',
+    'ar': 'مرجع الرحلة',
+    'ru': 'Номер поездки',
+    'ka': 'მოგზაურობის ნომერი',
+  });
+  String get customerName => _t({
+    'en': 'Customer Name',
+    'ar': 'اسم العميل',
+    'ru': 'Имя клиента',
+    'ka': 'კლიენტის სახელი',
+  });
+  String get simQuantity => _t({
+    'en': 'SIM Quantity',
+    'ar': 'عدد شرائح SIM',
+    'ru': 'Количество SIM-карт',
+    'ka': 'SIM ბარათების რაოდენობა',
+  });
+  String get currentStatus => _t({
+    'en': 'Current Status',
+    'ar': 'الحالة الحالية',
+    'ru': 'Текущий статус',
+    'ka': 'მიმდინარე სტატუსი',
+  });
+  String get confirmSimDeliveredTitle => _t({
+    'en': 'Confirm SIM Cards Delivered?',
+    'ar': 'تأكيد تسليم شرائح SIM؟',
+    'ru': 'Подтвердить доставку SIM-карт?',
+    'ka': 'დაადასტურეთ SIM ბარათების მიწოდება?',
+  });
+  String get simMarkedDelivered => _t({
+    'en': 'SIM cards marked as Delivered',
+    'ar': 'تم تحديد شرائح SIM كمُسلَّمة',
+    'ru': 'SIM-карты отмечены как доставленные',
+    'ka': 'SIM ბარათები მონიშნულია როგორც მიწოდებული',
+  });
+  String get confirmDeliveryFailed => _t({
+    'en': 'Failed to confirm delivery. Please try again.',
+    'ar': 'فشل تأكيد التسليم. يرجى المحاولة مرة أخرى.',
+    'ru': 'Не удалось подтвердить доставку. Попробуйте ещё раз.',
+    'ka': 'მიწოდების დადასტურება ვერ მოხერხდა. სცადეთ ხელახლა.',
+  });
+  String get tripDetailsTitle => tripDetails;
+
+  // ─── Driver profile completion extras ──────────────────────────────────────
+
+  String get usernameLabel => username;
+  String get driverNameLabel => _t({
+    'en': 'Driver Name',
+    'ar': 'اسم السائق',
+    'ru': 'Имя водителя',
+    'ka': 'მძღოლის სახელი',
+  });
+  String get driverNameHint => _t({
+    'en': 'e.g. John Smith',
+    'ar': 'مثال: أحمد محمد',
+    'ru': 'напр. Иван Иванов',
+    'ka': 'მაგ. გიორგი გიორგაძე',
+  });
+  String get vehicleModelHintLong => _t({
+    'en': 'e.g. Toyota Camry 2020',
+    'ar': 'مثال: تويوتا كامري 2020',
+    'ru': 'напр. Toyota Camry 2020',
+    'ka': 'მაგ. Toyota Camry 2020',
+  });
+  String get vehicleColorLabel => _t({
+    'en': 'Vehicle Color',
+    'ar': 'لون المركبة',
+    'ru': 'Цвет автомобиля',
+    'ka': 'მანქანის ფერი',
+  });
+  String get vehicleColorHint => _t({
+    'en': 'e.g. Black',
+    'ar': 'مثال: أسود',
+    'ru': 'напр. Чёрный',
+    'ka': 'მაგ. შავი',
+  });
+  String get driverNameFromOdoo => _t({
+    'en': 'From Odoo',
+    'ar': 'من أودو',
+    'ru': 'Из Odoo',
+    'ka': 'Odoo-დან',
+  });
+  String get vehicleType => _t({
+    'en': 'Vehicle Type',
+    'ar': 'نوع المركبة',
+    'ru': 'Тип автомобиля',
+    'ka': 'მანქანის ტიპი',
+  });
+  String get selectVehicleType => _t({
+    'en': 'Select vehicle type',
+    'ar': 'اختر نوع المركبة',
+    'ru': 'Выберите тип автомобиля',
+    'ka': 'აირჩიეთ მანქანის ტიპი',
+  });
+  String vehicleTypeName(String type) {
+    switch (type) {
+      case 'Sedan':
+        return _t({
+          'en': 'Sedan',
+          'ar': 'سيدان',
+          'ru': 'Седан',
+          'ka': 'სედანი',
+        });
+      case 'Minivan':
+        return _t({
+          'en': 'Minivan',
+          'ar': 'ميني فان',
+          'ru': 'Минивэн',
+          'ka': 'მინივენი',
+        });
+      case 'Sprinter':
+        return _t({
+          'en': 'Sprinter',
+          'ar': 'سبرينتر',
+          'ru': 'Спринтер',
+          'ka': 'სპრინტერი',
+        });
+      case 'Minibus':
+        return _t({
+          'en': 'Minibus',
+          'ar': 'ميني باص',
+          'ru': 'Микроавтобус',
+          'ka': 'მიკროავტობუსი',
+        });
+      default:
+        return type;
+    }
+  }
+
+  // ─── Generic UI ────────────────────────────────────────────────────────────
+
+  String get errorOccurredTitle => _t({
+    'en': 'Something went wrong',
+    'ar': 'حدث خطأ ما',
+    'ru': 'Что-то пошло не так',
+    'ka': 'რაღაც შეცდომა მოხდა',
+  });
+  String get errorOccurredBody => _t({
+    'en': 'We encountered an unexpected error while processing your request.',
+    'ar': 'واجهنا خطأ غير متوقع أثناء معالجة طلبك.',
+    'ru': 'При обработке запроса произошла непредвиденная ошибка.',
+    'ka': 'თქვენი მოთხოვნის დამუშავებისას მოხდა გაუთვალისწინებელი შეცდომა.',
+  });
+  String get travelOperations => _t({
+    'en': 'Travel Operations',
+    'ar': 'عمليات السفر',
+    'ru': 'Туристические операции',
+    'ka': 'ტურისტული ოპერაციები',
+  });
+  String get testMode => _t({
+    'en': 'TEST MODE',
+    'ar': 'وضع الاختبار',
+    'ru': 'ТЕСТОВЫЙ РЕЖИМ',
+    'ka': 'სატესტო რეჟიმი',
+  });
+  String get accountLinkedToBooking => _t({
+    'en':
+        'Your account is linked to your booking. Use the phone number provided during booking.',
+    'ar': 'حسابك مرتبط بحجزك. استخدم رقم الهاتف المقدم أثناء الحجز.',
+    'ru':
+        'Ваш аккаунт связан с бронированием. Используйте номер телефона, указанный при бронировании.',
+    'ka':
+        'თქვენი ანგარიში დაკავშირებულია დაჯავშნასთან. გამოიყენეთ დაჯავშნისას მითითებული ტელეფონის ნომერი.',
+  });
+  String get splashButton1 => _t({
+    'en': 'Explore Your Journey',
+    'ar': 'استكشف رحلتك',
+    'ru': 'Исследуйте путешествие',
+    'ka': 'აღმოაჩინეთ თქვენი მოგზაურობა',
+  });
+  String get splashButton2 => _t({
+    'en': 'Start Driving',
+    'ar': 'ابدأ القيادة',
+    'ru': 'Начать работу',
+    'ka': 'მართვის დაწყება',
+  });
+  String get splashButton3 => _t({
+    'en': 'Get Started',
+    'ar': 'ابدأ الآن',
+    'ru': 'Начать',
+    'ka': 'დაწყება',
+  });
+  String get splashHeadline1 => _t({
+    'en': 'Your Journey\nStarts Here',
+    'ar': 'رحلتك\nتبدأ هنا',
+    'ru': 'Ваше путешествие\nначинается здесь',
+    'ka': 'თქვენი მოგზაურობა\nიწყება აქ',
+  });
+  String get splashHeadline2 => _t({
+    'en': 'Every Trip.\nPerfectly Managed.',
+    'ar': 'كل رحلة.\nبإدارة مثالية.',
+    'ru': 'Каждая поездка.\nИдеально организована.',
+    'ka': 'ყოველი მგზავრობა.\nიდეალურად მართული.',
+  });
+  String get splashHeadline3 => _t({
+    'en': 'Run Travel\nSmarter',
+    'ar': 'أدر السفر\nبذكاء أكبر',
+    'ru': 'Управляйте\nпутешествиями умнее',
+    'ka': 'მართეთ მოგზაურობა\nუფრო ჭკვიანურად',
+  });
+  String get splashBody1 => _t({
+    'en':
+        'Everything you need for a seamless travel experience, all in one place.',
+    'ar': 'كل ما تحتاجه لتجربة سفر سلسة، في مكان واحد.',
+    'ru': 'Всё необходимое для комфортного путешествия в одном месте.',
+    'ka': 'ყველაფერი, რაც გჭირდებათ შეუფერხებელი მოგზაურობისთვის, ერთ ადგილას.',
+  });
+  String get splashBody2 => _t({
+    'en':
+        'Stay connected, follow your schedule, and deliver every journey with confidence.',
+    'ar': 'ابقَ على اتصال، وتابع جدولك، وأنجز كل رحلة بثقة.',
+    'ru':
+        'Оставайтесь на связи, следуйте расписанию и выполняйте каждую поездку уверенно.',
+    'ka':
+        'დარჩით კავშირზე, მიჰყევით გრაფიკს და შეასრულეთ ყოველი მგზაურობა თავდაჯერებით.',
+  });
+  String get splashBody3 => _t({
+    'en':
+        'Customers, drivers, trips and operations — connected in one powerful platform.',
+    'ar': 'العملاء والسائقون والرحلات والعمليات — متصلة في منصة واحدة قوية.',
+    'ru': 'Клиенты, водители, поездки и операции — в одной мощной платформе.',
+    'ka':
+        'კლიენტები, მძღოლები, მოგზაურობები და ოპერაციები — ერთ მძლავრ პლატფორმაში.',
+  });
+
+  // ─── Driver trip status labels ─────────────────────────────────────────────
+
+  String get statusAssigned => _t({
+    'en': 'Assigned',
+    'ar': 'مُعيَّنة',
+    'ru': 'Назначена',
+    'ka': 'მინიჭებულია',
+  });
+  String get statusOnTheWay => _t({
+    'en': 'On The Way',
+    'ar': 'في الطريق',
+    'ru': 'В пути',
+    'ka': 'გზაში',
+  });
+  String get statusArrived =>
+      _t({'en': 'Arrived', 'ar': 'وصل', 'ru': 'Прибыл', 'ka': 'მივიდა'});
+  String get statusPassengerPickedUp => _t({
+    'en': 'Passenger Picked Up',
+    'ar': 'تم استقبال الراكب',
+    'ru': 'Пассажир забран',
+    'ka': 'მგზავრი აყვანილია',
+  });
+  String get statusPickedUpShort => _t({
+    'en': 'Picked Up',
+    'ar': 'تم الاستقبال',
+    'ru': 'Забран',
+    'ka': 'აყვანილია',
+  });
+  String get statusInTour =>
+      _t({'en': 'In Tour', 'ar': 'في الجولة', 'ru': 'В туре', 'ka': 'ტურზე'});
+  String get statusCompleted => _t({
+    'en': 'Completed',
+    'ar': 'مكتملة',
+    'ru': 'Завершена',
+    'ka': 'დასრულებულია',
+  });
+  String get startDriving => _t({
+    'en': 'Start Driving',
+    'ar': 'ابدأ القيادة',
+    'ru': 'Начать движение',
+    'ka': 'მართვის დაწყება',
+  });
+  String get completeTrip => _t({
+    'en': 'Complete Trip',
+    'ar': 'إنهاء الرحلة',
+    'ru': 'Завершить поездку',
+    'ka': 'მოგზაურობის დასრულება',
+  });
+
+  /// Localizes a raw backend status code (e.g. "in_progress", "delivered").
+  /// Unknown values are returned as-is (backend data is never invented).
+  String backendStatus(String raw) {
+    final key = raw.trim().toLowerCase().replaceAll(RegExp(r'[\s\-]+'), '_');
+    switch (key) {
+      case 'pending':
+        return pending;
+      case 'active':
+        return active;
+      case 'assigned':
+        return statusAssigned;
+      case 'on_the_way':
+        return statusOnTheWay;
+      case 'arrived':
+        return statusArrived;
+      case 'passenger_picked_up':
+      case 'picked_up':
+        return statusPassengerPickedUp;
+      case 'in_progress':
+      case 'in_tour':
+        return statusInTour;
+      case 'completed':
+      case 'done':
+        return statusCompleted;
+      case 'delivered':
+        return deliveredLabel;
+      case 'scheduled':
+        return _t({
+          'en': 'Scheduled',
+          'ar': 'مجدولة',
+          'ru': 'Запланирована',
+          'ka': 'დაგეგმილია',
+        });
+      case 'confirmed':
+        return _t({
+          'en': 'Confirmed',
+          'ar': 'مؤكدة',
+          'ru': 'Подтверждена',
+          'ka': 'დადასტურებულია',
+        });
+      case 'cancelled':
+      case 'canceled':
+        return _t({
+          'en': 'Cancelled',
+          'ar': 'ملغاة',
+          'ru': 'Отменена',
+          'ka': 'გაუქმებულია',
+        });
+      default:
+        return raw.replaceAll('_', ' ');
+    }
+  }
+
+  String get exampleAbbrev =>
+      _t({'en': 'e.g.', 'ar': 'مثال:', 'ru': 'напр.', 'ka': 'მაგ.'});
+  String get traveler => _t({
+    'en': 'Traveler',
+    'ar': 'مسافر',
+    'ru': 'Путешественник',
+    'ka': 'მოგზაური',
+  });
+
+  /// e.g. "Jun 5, 2026" in the selected language.
+  String shortDateWithYear(DateTime d) =>
+      '${shortMonthName(d.month)} ${d.day}, ${d.year}';
+
+  // ─── Notifications ─────────────────────────────────────────────────────────
+
+  String get notificationsTitle => _t({
+    'en': 'Notifications',
+    'ar': 'الإشعارات',
+    'ru': 'Уведомления',
+    'ka': 'შეტყობინებები',
+  });
+  String get notificationsEmptyTitle => _t({
+    'en': 'No notifications yet',
+    'ar': 'لا توجد إشعارات بعد',
+    'ru': 'Уведомлений пока нет',
+    'ka': 'შეტყობინებები ჯერ არ არის',
+  });
+  String get notificationsEmptyMessage => _t({
+    'en': 'New updates about your trips will appear here.',
+    'ar': 'ستظهر هنا التحديثات الجديدة حول رحلاتك.',
+    'ru': 'Здесь появятся новые обновления по вашим поездкам.',
+    'ka': 'აქ გამოჩნდება ახალი განახლებები თქვენი მოგზაურობების შესახებ.',
+  });
+  String get notificationsDemoLabel => _t({
+    'en': 'Demo mode: notifications are not connected to the server yet.',
+    'ar': 'وضع تجريبي: الإشعارات غير متصلة بالخادم بعد.',
+    'ru': 'Демо-режим: уведомления ещё не подключены к серверу.',
+    'ka': 'დემო რეჟიმი: შეტყობინებები სერვერთან ჯერ არ არის დაკავშირებული.',
+  });
+  String get notificationsLoadError => _t({
+    'en': 'Could not load notifications.',
+    'ar': 'تعذر تحميل الإشعارات.',
+    'ru': 'Не удалось загрузить уведомления.',
+    'ka': 'შეტყობინებების ჩატვირთვა ვერ მოხერხდა.',
+  });
+  String get markAllAsRead => _t({
+    'en': 'Mark all as read',
+    'ar': 'تحديد الكل كمقروء',
+    'ru': 'Отметить все как прочитанные',
+    'ka': 'ყველას წაკითხულად მონიშვნა',
+  });
+  String get markAsRead => _t({
+    'en': 'Mark as read',
+    'ar': 'تحديد كمقروء',
+    'ru': 'Отметить как прочитанное',
+    'ka': 'წაკითხულად მონიშვნა',
+  });
+  String get unreadLabel =>
+      _t({'en': 'Unread', 'ar': 'غير مقروء', 'ru': 'Новое', 'ka': 'ახალი'});
+  String get readLabel =>
+      _t({'en': 'Read', 'ar': 'مقروء', 'ru': 'Прочитано', 'ka': 'წაკითხული'});
+  String get yesterday =>
+      _t({'en': 'Yesterday', 'ar': 'أمس', 'ru': 'Вчера', 'ka': 'გუშინ'});
+
+  /// "Today, 14:05" / "Yesterday, 14:05" / "Jun 5, 2026, 14:05".
+  String notificationDateTime(DateTime d) {
+    final now = DateTime.now();
+    final hh = d.hour.toString().padLeft(2, '0');
+    final mm = d.minute.toString().padLeft(2, '0');
+    final time = '$hh:$mm';
+    bool sameDay(DateTime a, DateTime b) =>
+        a.year == b.year && a.month == b.month && a.day == b.day;
+    if (sameDay(d, now)) return '$today, $time';
+    if (sameDay(d, now.subtract(const Duration(days: 1)))) {
+      return '$yesterday, $time';
+    }
+    return '${shortDateWithYear(d)}, $time';
+  }
+
+  // ─── Internal ──────────────────────────────────────────────────────────────
+
+  // ─── Live Driver Tracking ─────────────────────────────────────────────────
+  String get trackYourDriver => _t({
+    'en': 'Track Your Driver',
+    'ar': 'تتبع سائقك',
+    'ru': 'Отследить водителя',
+    'ka': 'მძღოლის თვალყურის დევნება',
+  });
+  String get trackingAirportPickup => _t({
+    'en': 'Airport pickup',
+    'ar': 'الاستقبال من المطار',
+    'ru': 'Встреча в аэропорту',
+    'ka': 'აეროპორტში შეხვედრა',
+  });
+  String get trackingHotelPickup => _t({
+    'en': 'Hotel pickup',
+    'ar': 'الاستقبال من الفندق',
+    'ru': 'Трансфер из отеля',
+    'ka': 'სასტუმროდან აყვანა',
+  });
+  String get trackingStatusNotStarted => _t({
+    'en': 'Tracking opens 30 minutes before pickup',
+    'ar': 'يبدأ التتبع قبل 30 دقيقة من موعد الاستقبال',
+    'ru': 'Отслеживание откроется за 30 минут до встречи',
+    'ka': 'თვალყურის დევნება იწყება აყვანამდე 30 წუთით ადრე',
+  });
+  String get trackingStatusWaiting => _t({
+    'en': 'Waiting for your driver to share location',
+    'ar': 'بانتظار مشاركة السائق لموقعه',
+    'ru': 'Ожидаем, пока водитель включит геолокацию',
+    'ka': 'ველოდებით მძღოლის მდებარეობის გაზიარებას',
+  });
+  String get trackingStatusLive => _t({
+    'en': 'Live tracking active',
+    'ar': 'التتبع المباشر مفعّل',
+    'ru': 'Отслеживание активно',
+    'ka': 'პირდაპირი თვალყურის დევნება აქტიურია',
+  });
+  String get trackingStatusEnded => _t({
+    'en': 'Tracking ended',
+    'ar': 'انتهى التتبع',
+    'ru': 'Отслеживание завершено',
+    'ka': 'თვალყურის დევნება დასრულდა',
+  });
+  String get locationUnavailable => _t({
+    'en': 'Location Unavailable',
+    'ar': 'الموقع غير متاح',
+    'ru': 'Местоположение недоступно',
+    'ka': 'მდებარეობა მიუწვდომელია',
+  });
+  String get trackingOpenInMaps => _t({
+    'en': 'Open in Google Maps',
+    'ar': 'فتح في خرائط جوجل',
+    'ru': 'Открыть в Google Maps',
+    'ka': 'გახსნა Google Maps-ში',
+  });
+  String get trackingLastUpdate => _t({
+    'en': 'Last update',
+    'ar': 'آخر تحديث',
+    'ru': 'Последнее обновление',
+    'ka': 'ბოლო განახლება',
+  });
+  String get trackingEta => _t({
+    'en': 'Estimated arrival',
+    'ar': 'الوصول المتوقع',
+    'ru': 'Ориентировочное прибытие',
+    'ka': 'სავარაუდო ჩამოსვლა',
+  });
+  String trackingEtaMinutes(int m) =>
+      _t({'en': '$m min', 'ar': '$m دقيقة', 'ru': '$m мин', 'ka': '$m წთ'});
+  String get trackingJustNow =>
+      _t({'en': 'Just now', 'ar': 'الآن', 'ru': 'Только что', 'ka': 'ახლახან'});
+  String trackingSecondsAgo(int s) => _t({
+    'en': '$s sec ago',
+    'ar': 'منذ $s ثانية',
+    'ru': '$s сек назад',
+    'ka': '$s წმ-ის წინ',
+  });
+  String trackingMinutesAgo(int m) => _t({
+    'en': '$m min ago',
+    'ar': 'منذ $m دقيقة',
+    'ru': '$m мин назад',
+    'ka': '$m წთ-ის წინ',
+  });
+  String get trackingNoDriverYet => _t({
+    'en': 'Your driver will be assigned soon',
+    'ar': 'سيتم تعيين السائق قريباً',
+    'ru': 'Водитель будет назначен в ближайшее время',
+    'ka': 'მძღოლი მალე დაინიშნება',
+  });
+  String get trackingDriverChanged => _t({
+    'en': 'Your driver was updated. Tracking now follows the new driver.',
+    'ar': 'تم تغيير السائق. يتم الآن تتبع السائق الجديد.',
+    'ru': 'Водитель изменён. Отслеживание переключено на нового водителя.',
+    'ka': 'მძღოლი შეიცვალა. თვალყურის დევნება ახალ მძღოლზეა გადართული.',
+  });
+
+  // Driver side
+  String get shareLocationTitle => _t({
+    'en': 'Share Live Location',
+    'ar': 'مشاركة الموقع المباشر',
+    'ru': 'Передача местоположения',
+    'ka': 'მდებარეობის გაზიარება',
+  });
+  String get shareLocationSubtitle => _t({
+    'en': 'Let your passenger follow you during pickup',
+    'ar': 'اسمح للمسافر بمتابعتك أثناء الاستقبال',
+    'ru': 'Пассажир сможет видеть вас во время встречи',
+    'ka': 'მგზავრს შეეძლება თვალყური გიდევნოთ აყვანისას',
+  });
+  String get startLocationSharing => _t({
+    'en': 'Start Location Sharing',
+    'ar': 'بدء مشاركة الموقع',
+    'ru': 'Начать передачу',
+    'ka': 'გაზიარების დაწყება',
+  });
+  String get stopLocationSharing => _t({
+    'en': 'Stop Location Sharing',
+    'ar': 'إيقاف مشاركة الموقع',
+    'ru': 'Остановить передачу',
+    'ka': 'გაზიარების შეჩერება',
+  });
+  String get sharingActive => _t({
+    'en': 'Sharing your location',
+    'ar': 'جارٍ مشاركة موقعك',
+    'ru': 'Местоположение передаётся',
+    'ka': 'თქვენი მდებარეობა გაზიარებულია',
+  });
+  String get sharingStopped => _t({
+    'en': 'Location sharing is off',
+    'ar': 'مشاركة الموقع متوقفة',
+    'ru': 'Передача отключена',
+    'ka': 'გაზიარება გამორთულია',
+  });
+  String get sharingNotYetAvailable => _t({
+    'en': 'Available 30 minutes before pickup',
+    'ar': 'متاح قبل 30 دقيقة من موعد الاستقبال',
+    'ru': 'Доступно за 30 минут до встречи',
+    'ka': 'ხელმისაწვდომია აყვანამდე 30 წუთით ადრე',
+  });
+  String get sharingPermissionDenied => _t({
+    'en': 'Location permission is required to share your location.',
+    'ar': 'يلزم إذن الموقع لمشاركة موقعك.',
+    'ru': 'Для передачи местоположения нужно разрешение на геолокацию.',
+    'ka': 'მდებარეობის გასაზიარებლად საჭიროა ნებართვა.',
+  });
+  String get sharingServiceDisabled => _t({
+    'en': 'Please turn on location services on your device.',
+    'ar': 'يرجى تفعيل خدمات الموقع على جهازك.',
+    'ru': 'Включите службы геолокации на устройстве.',
+    'ka': 'ჩართეთ მდებარეობის სერვისები თქვენს მოწყობილობაზე.',
+  });
+  String get sharingBackendUnavailable => _t({
+    'en': 'Live tracking is not available yet. Please try again later.',
+    'ar': 'التتبع المباشر غير متاح بعد. يرجى المحاولة لاحقاً.',
+    'ru': 'Отслеживание пока недоступно. Повторите позже.',
+    'ka':
+        'პირდაპირი თვალყურის დევნება ჯერ არ არის ხელმისაწვდომი. სცადეთ მოგვიანებით.',
+  });
+  String get sharingRejected => _t({
+    'en': 'Sharing is only available during the pickup period.',
+    'ar': 'المشاركة متاحة فقط خلال فترة الاستقبال.',
+    'ru': 'Передача доступна только в период встречи.',
+    'ka': 'გაზიარება ხელმისაწვდომია მხოლოდ აყვანის პერიოდში.',
+  });
+  String get sharingFailed => _t({
+    'en': 'Could not start sharing. Please try again.',
+    'ar': 'تعذر بدء المشاركة. يرجى المحاولة مرة أخرى.',
+    'ru': 'Не удалось начать передачу. Повторите попытку.',
+    'ka': 'გაზიარების დაწყება ვერ მოხერხდა. სცადეთ ხელახლა.',
+  });
+  String get sharingBackgroundTitle => _t({
+    'en': 'TourOps — sharing location',
+    'ar': 'TourOps — مشاركة الموقع',
+    'ru': 'TourOps — передача геолокации',
+    'ka': 'TourOps — მდებარეობის გაზიარება',
+  });
+  String get sharingBackgroundText => _t({
+    'en': 'Your location is shared with your passenger during pickup.',
+    'ar': 'يتم مشاركة موقعك مع المسافر أثناء الاستقبال.',
+    'ru': 'Ваше местоположение доступно пассажиру во время встречи.',
+    'ka': 'თქვენი მდებარეობა მგზავრს აყვანისას უზიარდება.',
+  });
 
   // ─── Internal ──────────────────────────────────────────────────────────────
 

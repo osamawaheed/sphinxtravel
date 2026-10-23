@@ -1,5 +1,5 @@
-name: sphinxtravel
-description: A new Flutter project.
+name: tourops
+description: TourOps - Tour Operations mobile application.
 publish_to: none
 version: 1.0.0+1
 
@@ -30,6 +30,9 @@ dependencies:
   flutter_image_compress: ^2.5.1
   url_launcher: ^6.3.0
   image_picker: 1.1.2
+  share_plus: ^13.3.1
+  path_provider: ^2.1.5
+  geolocator: ^14.0.2 # Real GPS position stream with Android foreground service / iOS background updates for driver location sharing
 
 
   universal_html: ^2.3.0

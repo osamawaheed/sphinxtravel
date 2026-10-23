@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../services/theme_service.dart';
+
 class AppTheme {
   AppTheme._();
 
@@ -35,26 +37,60 @@ class AppTheme {
   }
 
   // SPHINX TRAVEL Design System Colors — Light
-  static const Color mainBackground = Color(0xFFF7F5F0);
-  static const Color cardWhite = Color(0xFFFFFFFF);
-  static const Color primaryText = Color(0xFF172331);
+  static const Color _lightMainBackground = Color(0xFFF7F5F0);
+  static const Color _lightCardWhite = Color(0xFFFFFFFF);
+  static const Color _lightPrimaryText = Color(0xFF172331);
   static const Color brandNavy = Color(0xFF123047);
   static const Color luxuryAccent = Color(0xFFC6A15B);
-  static const Color softGoldBg = Color(0xFFF2E8D5);
-  static const Color secondaryText = Color(0xFF68727D);
-  static const Color borderColor = Color(0xFFE7E3DC);
+  static const Color _lightSoftGoldBg = Color(0xFFF2E8D5);
+  static const Color _lightSecondaryText = Color(0xFF68727D);
+  static const Color _lightBorderColor = Color(0xFFE7E3DC);
   static const Color successGreen = Color(0xFF5D8A72);
   static const Color errorRed = Color(0xFFD94F4F);
-  static const Color shadowColor = Color(0x0F172331);
+  static const Color _lightShadowColor = Color(0x0F172331);
 
   // SPHINX TRAVEL Design System Colors — Dark
   static const Color darkBackground = Color(0xFF0F1923);
   static const Color darkCard = Color(0xFF1A2535);
-  static const Color darkPrimaryText = Color(0xFFF0EDE8);
-  static const Color darkSecondaryText = Color(0xFF8E9BAA);
+  static const Color darkPrimaryText = Color(0xFFFFFFFF);
+  static const Color darkSecondaryText = Color(0xFFB8C2CC);
   static const Color darkBorderColor = Color(0xFF2A3A4A);
   static const Color darkSoftGoldBg = Color(0xFF2A2215);
   static const Color darkShadowColor = Color(0x3F000000);
+
+  // ─── Brightness-aware palette ─────────────────────────────────────────────
+  /// True when the app is currently rendering in Dark Mode. Resolved from the
+  /// persisted ThemeService mode (and the platform brightness for "system"),
+  /// so every widget using these tokens updates as soon as the theme changes.
+  static bool get isDarkActive {
+    switch (ThemeService.instance.themeMode) {
+      case AppThemeMode.dark:
+        return true;
+      case AppThemeMode.light:
+        return false;
+      case AppThemeMode.system:
+        return WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+            Brightness.dark;
+    }
+  }
+
+  static Color get mainBackground =>
+      isDarkActive ? darkBackground : _lightMainBackground;
+  static Color get cardWhite => isDarkActive ? darkCard : _lightCardWhite;
+  static Color get primaryText =>
+      isDarkActive ? darkPrimaryText : _lightPrimaryText;
+  static Color get secondaryText =>
+      isDarkActive ? darkSecondaryText : _lightSecondaryText;
+  static Color get borderColor =>
+      isDarkActive ? darkBorderColor : _lightBorderColor;
+  static Color get softGoldBg =>
+      isDarkActive ? darkSoftGoldBg : _lightSoftGoldBg;
+  static Color get shadowColor =>
+      isDarkActive ? darkShadowColor : _lightShadowColor;
+
+  /// Navy in Light Mode (unchanged), white in Dark Mode. Use for text/icons
+  /// that were previously drawn in [brandNavy] on card surfaces.
+  static Color get navyText => isDarkActive ? darkPrimaryText : brandNavy;
 
   static ThemeData get lightTheme {
     return _buildLightTheme(isArabic: false);
@@ -102,67 +138,67 @@ class AppTheme {
   static ThemeData _buildLightTheme({required bool isArabic}) {
     return ThemeData(
       brightness: Brightness.light,
-      scaffoldBackgroundColor: mainBackground,
+      scaffoldBackgroundColor: _lightMainBackground,
       colorScheme: const ColorScheme(
         brightness: Brightness.light,
         primary: brandNavy,
-        onPrimary: cardWhite,
-        primaryContainer: softGoldBg,
+        onPrimary: _lightCardWhite,
+        primaryContainer: _lightSoftGoldBg,
         onPrimaryContainer: brandNavy,
         secondary: luxuryAccent,
-        onSecondary: cardWhite,
-        secondaryContainer: softGoldBg,
+        onSecondary: _lightCardWhite,
+        secondaryContainer: _lightSoftGoldBg,
         onSecondaryContainer: brandNavy,
         tertiary: successGreen,
-        onTertiary: cardWhite,
+        onTertiary: _lightCardWhite,
         tertiaryContainer: Color(0xFFE8F2EC),
         onTertiaryContainer: successGreen,
         error: errorRed,
-        onError: cardWhite,
-        surface: cardWhite,
-        onSurface: primaryText,
-        onSurfaceVariant: secondaryText,
-        outline: borderColor,
+        onError: _lightCardWhite,
+        surface: _lightCardWhite,
+        onSurface: _lightPrimaryText,
+        onSurfaceVariant: _lightSecondaryText,
+        outline: _lightBorderColor,
         outlineVariant: Color(0xFFF0EDE8),
-        shadow: shadowColor,
+        shadow: _lightShadowColor,
         scrim: Color(0x80172331),
         inverseSurface: brandNavy,
-        onInverseSurface: cardWhite,
+        onInverseSurface: _lightCardWhite,
         inversePrimary: luxuryAccent,
       ),
-      cardColor: cardWhite,
-      dividerColor: borderColor,
+      cardColor: _lightCardWhite,
+      dividerColor: _lightBorderColor,
       appBarTheme: AppBarThemeData(
-        backgroundColor: mainBackground,
-        foregroundColor: primaryText,
+        backgroundColor: _lightMainBackground,
+        foregroundColor: _lightPrimaryText,
         elevation: 0,
         scrolledUnderElevation: 0,
         titleTextStyle: _body(
           18,
           FontWeight.w600,
-          primaryText,
+          _lightPrimaryText,
           isArabic: isArabic,
         ),
       ),
       cardTheme: CardThemeData(
-        color: cardWhite,
+        color: _lightCardWhite,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: borderColor, width: 1),
+          side: const BorderSide(color: _lightBorderColor, width: 1),
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: cardWhite,
+        backgroundColor: _lightCardWhite,
         selectedItemColor: brandNavy,
-        unselectedItemColor: secondaryText,
+        unselectedItemColor: _lightSecondaryText,
         elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: brandNavy,
-          foregroundColor: cardWhite,
+          foregroundColor: _lightCardWhite,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
@@ -171,7 +207,7 @@ class AppTheme {
           textStyle: _body(
             16,
             FontWeight.w600,
-            cardWhite,
+            _lightCardWhite,
             isArabic: isArabic,
             letterSpacing: 0.3,
           ),
@@ -181,7 +217,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: brandNavy,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          side: const BorderSide(color: borderColor, width: 1.5),
+          side: const BorderSide(color: _lightBorderColor, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -194,7 +230,7 @@ class AppTheme {
         ),
       ),
       inputDecorationTheme: InputDecorationThemeData(
-        fillColor: cardWhite,
+        fillColor: _lightCardWhite,
         filled: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
@@ -202,11 +238,11 @@ class AppTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: borderColor, width: 1.5),
+          borderSide: const BorderSide(color: _lightBorderColor, width: 1.5),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: borderColor, width: 1.5),
+          borderSide: const BorderSide(color: _lightBorderColor, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -223,7 +259,7 @@ class AppTheme {
         labelStyle: _body(
           14,
           FontWeight.w400,
-          secondaryText,
+          _lightSecondaryText,
           isArabic: isArabic,
         ),
         hintStyle: _body(
@@ -242,7 +278,7 @@ class AppTheme {
         contentTextStyle: _body(
           14,
           FontWeight.w400,
-          cardWhite,
+          _lightCardWhite,
           isArabic: isArabic,
         ),
         behavior: SnackBarBehavior.floating,
@@ -374,14 +410,14 @@ class AppTheme {
         ),
         labelStyle: _body(
           14,
-          FontWeight.w400,
+          FontWeight.w600,
           darkSecondaryText,
           isArabic: isArabic,
         ),
         hintStyle: _body(
           15,
           FontWeight.w400,
-          const Color(0xFF5A6A7A),
+          const Color(0xFF8E9BAA),
           isArabic: isArabic,
         ),
       ),
@@ -404,6 +440,8 @@ class AppTheme {
   }
 
   static TextTheme _buildLightTextTheme({bool isArabic = false}) {
+    const Color primaryText = _lightPrimaryText;
+    const Color secondaryText = _lightSecondaryText;
     return TextTheme(
       displayLarge: _body(
         32,

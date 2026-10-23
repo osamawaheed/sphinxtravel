@@ -536,7 +536,7 @@ class _DriverLocationPermissionScreenState
           child: Text(
             l10n.retry,
             style: GoogleFonts.inter(
-              color: AppTheme.brandNavy,
+              color: AppTheme.navyText,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),

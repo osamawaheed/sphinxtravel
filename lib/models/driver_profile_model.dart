@@ -3,9 +3,11 @@
 ///
 /// {
 ///   "id": 2871, "role": "driver", "name": "Giorgi", "phone": "+995555000111",
-///   "profile_completed": false, "rating": 5.0, "trip_count": 1,
-///   "vehicle_model": "Toyota Camry", "vehicle_color": "Black",
-///   "plate_number": "GG-123-AB", "photo_url": "",
+///   "email": "...", "profile_completed": false, "rating": 5.0,
+///   "rating_count": 3, "trip_count": 1,
+///   "vehicle_model": "Toyota Camry", "vehicle_year": "2020",
+///   "vehicle_color": "Black", "photo_url": "",
+///   "personal_photos": ["", "", ""], "vehicle_photos": ["", "", "", "", ""],
 ///   "location_required": true   // login only
 /// }
 class DriverProfile {
@@ -13,15 +15,21 @@ class DriverProfile {
   final String role;
   final String name;
   final String phone;
+  final String email;
   final bool profileCompleted;
   final double rating;
+  final int ratingCount;
   final int tripCount;
   final String vehicleModel;
+  final String vehicleYear;
   final String vehicleColor;
-  final String plateNumber;
 
   /// Relative path (e.g. "/web/image/...") or empty string.
   final String photoUrl;
+
+  /// Image URLs (empty strings allowed — skipped when rendering).
+  final List<String> personalPhotos;
+  final List<String> vehiclePhotos;
 
   /// Only present in the login response; false when absent.
   final bool locationRequired;
@@ -31,13 +39,17 @@ class DriverProfile {
     this.role = 'driver',
     this.name = '',
     this.phone = '',
+    this.email = '',
     this.profileCompleted = false,
     this.rating = 0.0,
+    this.ratingCount = 0,
     this.tripCount = 0,
     this.vehicleModel = '',
+    this.vehicleYear = '',
     this.vehicleColor = '',
-    this.plateNumber = '',
     this.photoUrl = '',
+    this.personalPhotos = const [],
+    this.vehiclePhotos = const [],
     this.locationRequired = false,
   });
 
@@ -60,19 +72,28 @@ class DriverProfile {
     return fallback;
   }
 
+  static List<String> _strList(dynamic v) {
+    if (v is! List) return const [];
+    return v.map(_str).toList();
+  }
+
   factory DriverProfile.fromJson(Map<String, dynamic> json) {
     return DriverProfile(
       id: _int(json['id']),
       role: _str(json['role']).isEmpty ? 'driver' : _str(json['role']),
       name: _str(json['name']),
       phone: _str(json['phone']),
+      email: _str(json['email']),
       profileCompleted: _bool(json['profile_completed']),
       rating: _double(json['rating']),
+      ratingCount: _int(json['rating_count']),
       tripCount: _int(json['trip_count']),
       vehicleModel: _str(json['vehicle_model']),
+      vehicleYear: _str(json['vehicle_year']),
       vehicleColor: _str(json['vehicle_color']),
-      plateNumber: _str(json['plate_number']),
       photoUrl: _str(json['photo_url']),
+      personalPhotos: _strList(json['personal_photos']),
+      vehiclePhotos: _strList(json['vehicle_photos']),
       locationRequired: _bool(json['location_required']),
     );
   }
@@ -83,13 +104,17 @@ class DriverProfile {
       'role': role,
       'name': name,
       'phone': phone,
+      'email': email,
       'profile_completed': profileCompleted,
       'rating': rating,
+      'rating_count': ratingCount,
       'trip_count': tripCount,
       'vehicle_model': vehicleModel,
+      'vehicle_year': vehicleYear,
       'vehicle_color': vehicleColor,
-      'plate_number': plateNumber,
       'photo_url': photoUrl,
+      'personal_photos': personalPhotos,
+      'vehicle_photos': vehiclePhotos,
       'location_required': locationRequired,
     };
   }
@@ -97,8 +122,8 @@ class DriverProfile {
   DriverProfile copyWith({
     String? name,
     bool? profileCompleted,
-    String? plateNumber,
     String? vehicleModel,
+    String? vehicleYear,
     String? vehicleColor,
     String? photoUrl,
     bool? locationRequired,
@@ -108,13 +133,17 @@ class DriverProfile {
       role: role,
       name: name ?? this.name,
       phone: phone,
+      email: email,
       profileCompleted: profileCompleted ?? this.profileCompleted,
       rating: rating,
+      ratingCount: ratingCount,
       tripCount: tripCount,
       vehicleModel: vehicleModel ?? this.vehicleModel,
+      vehicleYear: vehicleYear ?? this.vehicleYear,
       vehicleColor: vehicleColor ?? this.vehicleColor,
-      plateNumber: plateNumber ?? this.plateNumber,
       photoUrl: photoUrl ?? this.photoUrl,
+      personalPhotos: personalPhotos,
+      vehiclePhotos: vehiclePhotos,
       locationRequired: locationRequired ?? this.locationRequired,
     );
   }
@@ -124,11 +153,11 @@ class DriverProfile {
     return parts.isNotEmpty && parts[0].isNotEmpty ? parts[0] : name;
   }
 
-  /// "{vehicle_model} · {plate_number}" (skips empty parts).
+  /// "{vehicle_model} · {vehicle_year}" (skips empty parts).
   String get vehicleLine {
     final parts = <String>[
       if (vehicleModel.trim().isNotEmpty) vehicleModel.trim(),
-      if (plateNumber.trim().isNotEmpty) plateNumber.trim(),
+      if (vehicleYear.trim().isNotEmpty) vehicleYear.trim(),
     ];
     return parts.join(' · ');
   }

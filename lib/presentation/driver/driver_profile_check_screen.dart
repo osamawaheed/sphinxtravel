@@ -73,9 +73,9 @@ class _DriverProfileCheckScreenState extends State<DriverProfileCheckScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: AppTheme.mainBackground,
-      body: Center(
+      body: const Center(
         child: CircularProgressIndicator(
           color: AppTheme.brandNavy,
           strokeWidth: 2,

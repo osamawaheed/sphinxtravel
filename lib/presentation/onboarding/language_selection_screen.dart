@@ -76,7 +76,7 @@ class _CustomerLanguageScreenState extends State<CustomerLanguageScreen>
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppTheme.borderColor),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 16,
                       color: AppTheme.primaryText,
@@ -212,7 +212,7 @@ class _DriverLanguageScreenState extends State<DriverLanguageScreen>
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppTheme.borderColor),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 16,
                       color: AppTheme.primaryText,
@@ -368,7 +368,7 @@ class _LanguageCardState extends State<_LanguageCard> {
                   ),
                 )
               else
-                const Icon(
+                Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 16,
                   color: AppTheme.secondaryText,

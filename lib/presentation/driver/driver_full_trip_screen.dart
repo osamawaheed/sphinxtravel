@@ -14,6 +14,7 @@ import '../../services/api_client.dart';
 import '../../services/driver_auth_service.dart';
 import '../../services/driver_api_service.dart';
 import '../../data/mock_api_data_source.dart';
+import './hotel_details_screen.dart';
 
 class DriverFullTripScreen extends StatefulWidget {
   final TripModel trip;
@@ -118,7 +119,7 @@ class _DriverFullTripScreenState extends State<DriverFullTripScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'SIM cards marked as Delivered',
+              l10n.simMarkedDelivered,
               style: GoogleFonts.inter(color: Colors.white),
             ),
             backgroundColor: AppTheme.successGreen,
@@ -135,8 +136,7 @@ class _DriverFullTripScreenState extends State<DriverFullTripScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              ApiException.messageOf(e) ??
-                  'Failed to confirm delivery. Please try again.',
+              ApiException.messageOf(e) ?? l10n.confirmDeliveryFailed,
               style: GoogleFonts.inter(color: Colors.white),
             ),
             backgroundColor: Colors.red,
@@ -813,7 +813,7 @@ class _FlightCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.flight_rounded, size: 16, color: AppTheme.brandNavy),
+              Icon(Icons.flight_rounded, size: 16, color: AppTheme.navyText),
               const SizedBox(width: 8),
               Text(
                 '${flight.airline}  ${flight.flightNumber}',
@@ -956,14 +956,23 @@ class _FullHotelCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        hotel.name,
-                        style: GoogleFonts.inter(
-                          color: textColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => HotelDetailsScreen.show(
+                          context,
+                          name: hotel.name,
+                          phone: hotel.phone ?? '',
+                          googleMapUrl: hotel.googleMapUrl ?? '',
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        child: Text(
+                          hotel.name,
+                          style: GoogleFonts.inter(
+                            color: AppTheme.luxuryAccent,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                   ],
@@ -1364,9 +1373,9 @@ class _ExtraServiceCard extends StatelessWidget {
                   if (canTap) ...[
                     const SizedBox(height: 4),
                     Text(
-                      'Tap to confirm delivery',
+                      l10n.tapToConfirmDelivery,
                       style: GoogleFonts.inter(
-                        color: AppTheme.brandNavy,
+                        color: AppTheme.navyText,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1473,14 +1482,14 @@ class _SimDeliveryBottomSheet extends StatelessWidget {
                   child: Icon(
                     Icons.sim_card_outlined,
                     size: 20,
-                    color: AppTheme.brandNavy,
+                    color: AppTheme.navyText,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Confirm SIM Cards Delivered?',
+                  l10n.confirmSimDeliveredTitle,
                   style: GoogleFonts.inter(
                     color: textColor,
                     fontSize: 16,
@@ -1502,30 +1511,31 @@ class _SimDeliveryBottomSheet extends StatelessWidget {
             child: Column(
               children: [
                 _SheetDetailRow(
-                  label: 'Trip Reference',
+                  label: l10n.tripReference,
                   value: trip.reference,
                   textColor: textColor,
                   subColor: subColor,
                 ),
                 Divider(color: border, height: 16),
                 _SheetDetailRow(
-                  label: 'Customer Name',
+                  label: l10n.customerName,
                   value: trip.customerName ?? '—',
                   textColor: textColor,
                   subColor: subColor,
                 ),
                 Divider(color: border, height: 16),
                 _SheetDetailRow(
-                  label: 'SIM Quantity',
-                  value:
-                      '${extra.quantity} SIM card${extra.quantity != 1 ? 's' : ''}',
+                  label: l10n.simQuantity,
+                  value: '${extra.quantity} ${l10n.simCardsCount}',
                   textColor: textColor,
                   subColor: subColor,
                 ),
                 Divider(color: border, height: 16),
                 _SheetDetailRow(
-                  label: 'Current Status',
-                  value: extra.status?.replaceAll('_', ' ') ?? 'Pending',
+                  label: l10n.currentStatus,
+                  value: extra.status != null
+                      ? l10n.backendStatus(extra.status!)
+                      : l10n.pending,
                   textColor: textColor,
                   subColor: subColor,
                   valueColor: AppTheme.luxuryAccent,
@@ -1548,7 +1558,7 @@ class _SimDeliveryBottomSheet extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Cancel',
+                    l10n.cancelAction,
                     style: GoogleFonts.inter(
                       color: subColor,
                       fontSize: 14,
@@ -1570,7 +1580,7 @@ class _SimDeliveryBottomSheet extends StatelessWidget {
                     elevation: 0,
                   ),
                   child: Text(
-                    'Confirm Delivery',
+                    l10n.confirmDelivery,
                     style: GoogleFonts.inter(
                       color: Colors.white,
                       fontSize: 14,
@@ -1639,6 +1649,7 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     Color color;
     switch (status.toLowerCase()) {
       case 'active':
@@ -1667,7 +1678,7 @@ class _StatusChip extends StatelessWidget {
         border: Border.all(color: color.withAlpha(60)),
       ),
       child: Text(
-        status.replaceAll('_', ' '),
+        l10n.backendStatus(status),
         style: GoogleFonts.inter(
           color: color,
           fontSize: 9,
