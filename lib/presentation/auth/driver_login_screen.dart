@@ -85,43 +85,6 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
     }
   }
 
-  /// Offers "Enable Biometric Login" once after a successful password login.
-  /// Declining or dismissing never affects the login flow.
-  Future<void> _offerPasskeyEnrollment() async {
-    final service = DriverPasskeyService.instance;
-    if (!await service.shouldOfferEnrollment() || !mounted) return;
-    final l10n = AppLocalizations.of(context);
-    final accept = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.enableBiometricLogin),
-        content: Text(
-          service.isBackendAvailable
-              ? l10n.enableBiometricLoginMessage
-              : '${l10n.enableBiometricLoginMessage}\n\n${l10n.passkeyUnavailableYet}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.notNow),
-          ),
-          TextButton(
-            // Registration stays disabled until backend verification exists.
-            onPressed: service.isBackendAvailable
-                ? () => Navigator.of(ctx).pop(true)
-                : null,
-            child: Text(l10n.enableBiometricLogin),
-          ),
-        ],
-      ),
-    );
-    if (accept == true) {
-      await service.enable();
-    } else if (service.isBackendAvailable) {
-      await service.dismissOffer();
-    }
-  }
-
   Future<void> _login() async {
     final l10n = AppLocalizations.of(context);
     final username = _usernameController.text.trim();
@@ -156,7 +119,6 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
       if (mounted) {
         // profile_completed == false → Complete Profile → Enable Location → home
         // profile_completed == true  → Enable Location → home
-        await _offerPasskeyEnrollment();
         if (!mounted) return;
         if (!user.profileCompleted) {
           debugPrint(

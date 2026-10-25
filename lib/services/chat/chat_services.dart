@@ -136,8 +136,16 @@ abstract class ChatAudioService {
   Future<void> cancelRecording();
 
   /// Starts / resumes playback of [source] (local path or blob URL).
-  Future<void> play(String messageId, String source);
+  ///
+  /// [sourceKey] is a STABLE identity of the audio (e.g. the storage path).
+  /// When given, it (not the possibly changing signed [source] URL) decides
+  /// whether the already loaded audio is the same one.
+  Future<void> play(String messageId, String source, {String? sourceKey});
   Future<void> pause();
+
+  /// True when [messageId] (with [sourceKey]) is the audio currently loaded
+  /// in the player, so it can be resumed without a new source / signed URL.
+  bool isLoaded(String messageId, {String? sourceKey});
 
   /// Position / duration / playing state of the active message.
   Stream<ChatPlaybackState> get playbackState;

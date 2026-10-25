@@ -39,7 +39,17 @@ class ChatTtsResult {
   /// Short-lived signed URL when [status] is [ChatTtsStatus.ready].
   final String? url;
   final bool retryable;
-  const ChatTtsResult({required this.status, this.url, this.retryable = true});
+
+  /// Exact server-side reason when the audio could not be produced, e.g.
+  /// `ElevenLabs not configured`, `tts_401`, `service_disabled:voice_tts_generation`,
+  /// `needs_transcript`, `http_503`. Null when ready.
+  final String? reason;
+  const ChatTtsResult({
+    required this.status,
+    this.url,
+    this.retryable = true,
+    this.reason,
+  });
 }
 
 /// Speech-to-text lifecycle for a voice message (Phase 3.1).
@@ -71,6 +81,21 @@ class ChatParticipant {
   });
 }
 
+/// One emoji reaction of one participant on one message.
+class ChatReaction {
+  final String messageId;
+  final ChatRole reactorRole;
+  final String reactorId;
+  final String emoji;
+
+  const ChatReaction({
+    required this.messageId,
+    required this.reactorRole,
+    required this.reactorId,
+    required this.emoji,
+  });
+}
+
 class ChatMessage {
   final String id;
   final ChatMessageKind kind;
@@ -95,6 +120,10 @@ class ChatMessage {
   /// Timestamp at which the recipient actually viewed this message
   /// (public.chat_messages.read_at). Null => not read yet.
   final DateTime? readAt;
+
+  /// Timestamp at which the recipient's live session received this message
+  /// (public.chat_messages.delivered_at). Null => not delivered yet.
+  final DateTime? deliveredAt;
 
   /// Voice messages.
   final int? voiceDurationSeconds;
@@ -129,6 +158,12 @@ class ChatMessage {
   /// media references are cleared server-side; the UI shows a tombstone.
   final bool deletedForEveryone;
 
+  /// Id of the message this one replies to (persisted reference).
+  final String? replyToId;
+
+  /// Persisted emoji reactions (one per participant).
+  final List<ChatReaction> reactions;
+
   const ChatMessage({
     required this.id,
     required this.kind,
@@ -140,6 +175,7 @@ class ChatMessage {
     required this.sentAt,
     this.status = ChatDeliveryStatus.sent,
     this.readAt,
+    this.deliveredAt,
     this.voiceDurationSeconds,
     this.voiceUrl,
     this.waveform,
@@ -154,6 +190,8 @@ class ChatMessage {
     this.fileMime,
     this.fileSizeBytes,
     this.deletedForEveryone = false,
+    this.replyToId,
+    this.reactions = const <ChatReaction>[],
   });
 
   bool get isSystem => kind == ChatMessageKind.system;
@@ -166,6 +204,7 @@ class ChatMessage {
   ChatMessage copyWith({
     ChatDeliveryStatus? status,
     DateTime? readAt,
+    DateTime? deliveredAt,
     String? translatedText,
     ChatTranslationState? translationState,
     String? voiceUrl,
@@ -178,6 +217,7 @@ class ChatMessage {
     bool clearDisabledService = false,
     bool clearTranslation = false,
     bool? deletedForEveryone,
+    List<ChatReaction>? reactions,
   }) {
     return ChatMessage(
       id: id,
@@ -192,6 +232,7 @@ class ChatMessage {
       sentAt: sentAt,
       status: status ?? this.status,
       readAt: readAt ?? this.readAt,
+      deliveredAt: deliveredAt ?? this.deliveredAt,
       voiceDurationSeconds: voiceDurationSeconds,
       voiceUrl: voiceUrl ?? this.voiceUrl,
       waveform: waveform,
@@ -208,6 +249,8 @@ class ChatMessage {
       fileMime: fileMime,
       fileSizeBytes: fileSizeBytes,
       deletedForEveryone: deletedForEveryone ?? this.deletedForEveryone,
+      replyToId: replyToId,
+      reactions: reactions ?? this.reactions,
     );
   }
 }

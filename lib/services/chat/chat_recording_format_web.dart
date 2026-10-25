@@ -1,4 +1,3 @@
-
 import 'package:web/web.dart' as web;
 
 /// True when the browser's MediaRecorder reports it can record [mimeType]

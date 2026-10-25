@@ -621,6 +621,120 @@ class ChatStrings {
     'ka': 'ეს შეტყობინება წაშლილია',
     'az': 'Bu mesaj silindi',
   });
+  String get reply => _t({
+    'en': 'Reply',
+    'ar': 'رد',
+    'ru': 'Ответить',
+    'ka': 'პასუხი',
+    'az': 'Cavab ver',
+  });
+  String get forward => _t({
+    'en': 'Forward',
+    'ar': 'إعادة توجيه',
+    'ru': 'Переслать',
+    'ka': 'გადაგზავნა',
+    'az': 'Yönləndir',
+  });
+  String get copy => _t({
+    'en': 'Copy',
+    'ar': 'نسخ',
+    'ru': 'Копировать',
+    'ka': 'კოპირება',
+    'az': 'Kopyala',
+  });
+  String get star => _t({
+    'en': 'Star',
+    'ar': 'تمييز بنجمة',
+    'ru': 'В избранное',
+    'ka': 'ვარსკვლავი',
+    'az': 'Ulduzla',
+  });
+  String get deleteAction => _t({
+    'en': 'Delete',
+    'ar': 'حذف',
+    'ru': 'Удалить',
+    'ka': 'წაშლა',
+    'az': 'Sil',
+  });
+  String get more => _t({
+    'en': 'More',
+    'ar': 'المزيد',
+    'ru': 'Ещё',
+    'ka': 'მეტი',
+    'az': 'Daha çox',
+  });
+  String get copied => _t({
+    'en': 'Copied',
+    'ar': 'تم النسخ',
+    'ru': 'Скопировано',
+    'ka': 'დაკოპირდა',
+    'az': 'Kopyalandı',
+  });
+  String get nothingToCopy => _t({
+    'en': 'This message has no text to copy.',
+    'ar': 'لا يوجد نص لنسخه في هذه الرسالة.',
+    'ru': 'В этом сообщении нет текста для копирования.',
+    'ka': 'ამ შეტყობინებას კოპირებადი ტექსტი არ აქვს.',
+    'az': 'Bu mesajda kopyalanacaq mətn yoxdur.',
+  });
+  String get featureNotAvailable => _t({
+    'en': 'Not available yet.',
+    'ar': 'غير متاح بعد.',
+    'ru': 'Пока недоступно.',
+    'ka': 'ჯერ მიუწვდომელია.',
+    'az': 'Hələ mövcud deyil.',
+  });
+  String get reactionFailed => _t({
+    'en': 'Could not save the reaction. Please try again.',
+    'ar': 'تعذر حفظ التفاعل. حاول مرة أخرى.',
+    'ru': 'Не удалось сохранить реакцию. Попробуйте ещё раз.',
+    'ka': 'რეაქციის შენახვა ვერ მოხერხდა. სცადეთ ხელახლა.',
+    'az': 'Reaksiyanı saxlamaq mümkün olmadı. Yenidən cəhd edin.',
+  });
+  String get replyingTo => _t({
+    'en': 'Replying to',
+    'ar': 'الرد على',
+    'ru': 'Ответ для',
+    'ka': 'პასუხი:',
+    'az': 'Cavab:',
+  });
+  String get you =>
+      _t({'en': 'You', 'ar': 'أنت', 'ru': 'Вы', 'ka': 'თქვენ', 'az': 'Siz'});
+  String get voiceMessageLabel => _t({
+    'en': 'Voice message',
+    'ar': 'رسالة صوتية',
+    'ru': 'Голосовое сообщение',
+    'ka': 'ხმოვანი შეტყობინება',
+    'az': 'Səs mesajı',
+  });
+  String get attachmentLabel => _t({
+    'en': 'Attachment',
+    'ar': 'مرفق',
+    'ru': 'Вложение',
+    'ka': 'დანართი',
+    'az': 'Əlavə',
+  });
+  String get messageDeletedQuote => _t({
+    'en': 'Message deleted',
+    'ar': 'تم حذف الرسالة',
+    'ru': 'Сообщение удалено',
+    'ka': 'შეტყობინება წაიშალა',
+    'az': 'Mesaj silindi',
+  });
+  String get originalNotFound => _t({
+    'en': 'Original message not found.',
+    'ar': 'لم يتم العثور على الرسالة الأصلية.',
+    'ru': 'Исходное сообщение не найдено.',
+    'ka': 'ორიგინალი შეტყობინება ვერ მოიძებნა.',
+    'az': 'Orijinal mesaj tapılmadı.',
+  });
+  String get replyNotSavedYet => _t({
+    'en': 'Replies are not available until the chat update is applied.',
+    'ar': 'الردود غير متاحة حتى يتم تطبيق تحديث الدردشة.',
+    'ru': 'Ответы недоступны, пока не применено обновление чата.',
+    'ka': 'პასუხები მიუწვდომელია ჩატის განახლების გამოყენებამდე.',
+    'az': 'Çat yeniləməsi tətbiq olunana qədər cavablar mövcud deyil.',
+  });
   String get messageDeletedToast => _t({
     'en': 'Message deleted',
     'ar': 'تم حذف الرسالة',

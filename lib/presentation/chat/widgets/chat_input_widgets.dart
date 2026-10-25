@@ -120,6 +120,10 @@ class ChatInputBar extends StatefulWidget {
   final VoidCallback onHoldRelease;
   final VoidCallback onHoldCancel;
 
+  /// Optional external focus node so the screen can focus the text field
+  /// (e.g. after a Reply). When null the bar owns its own node.
+  final FocusNode? focusNode;
+
   const ChatInputBar({
     super.key,
     required this.controller,
@@ -136,6 +140,7 @@ class ChatInputBar extends StatefulWidget {
     required this.onHoldRelease,
     required this.onHoldCancel,
     this.voiceReady = false,
+    this.focusNode,
   });
 
   @override
@@ -159,7 +164,8 @@ class _ChatInputBarState extends State<ChatInputBar>
   bool _releasedEarly = false;
   bool _starting = false;
 
-  final FocusNode _inputFocus = FocusNode();
+  final FocusNode _ownFocus = FocusNode();
+  FocusNode get _inputFocus => widget.focusNode ?? _ownFocus;
   bool _emojiOpen = false;
 
   /// Guards against the same physical Enter press sending twice (web can
@@ -173,18 +179,21 @@ class _ChatInputBarState extends State<ChatInputBar>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat();
-    _inputFocus.addListener(() {
-      // Typing again closes the emoji panel so the keyboard can be used.
-      if (_inputFocus.hasFocus && _emojiOpen && mounted) {
-        setState(() => _emojiOpen = false);
-      }
-    });
+    _inputFocus.addListener(_onFocusChanged);
+  }
+
+  void _onFocusChanged() {
+    // Typing again closes the emoji panel so the keyboard can be used.
+    if (_inputFocus.hasFocus && _emojiOpen && mounted) {
+      setState(() => _emojiOpen = false);
+    }
   }
 
   @override
   void dispose() {
     _wave.dispose();
-    _inputFocus.dispose();
+    _inputFocus.removeListener(_onFocusChanged);
+    _ownFocus.dispose();
     super.dispose();
   }
 

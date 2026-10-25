@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../models/chat_models.dart';
 import '../../../services/chat/chat_services.dart';
+import '../../../services/chat/chat_audio_diagnostics.dart';
 import '../../../theme/app_theme.dart';
 import '../chat_strings.dart';
 import './chat_text_bubble.dart';
@@ -23,7 +25,11 @@ class ChatVoiceBubble extends StatefulWidget {
   final ChatPlaybackState initialPlayback;
   final String timeLabel;
   final ChatStrings strings;
-  final VoidCallback onTogglePlay;
+  final Future<void> Function() onTogglePlay;
+
+  /// Id of the voice message currently being loaded (signed URL / source
+  /// load). The play icon shows a spinner only while it equals this message.
+  final ValueListenable<String?>? loadingMessageId;
 
   /// Chat translation language (decides text direction of translated text).
   final String? translationLanguage;
@@ -39,6 +45,11 @@ class ChatVoiceBubble extends StatefulWidget {
   /// Resolves to the outcome so the bubble can show loading / error states.
   final Future<ChatTtsStatus> Function({bool retry})? onListenTranslated;
 
+  /// Exact server-side reason of the last translated-audio failure (for
+  /// example `http_503:ElevenLabs not configured`). Shown next to the
+  /// generic message so a missing provider is reported precisely.
+  final String? Function()? ttsReasonProvider;
+
   const ChatVoiceBubble({
     super.key,
     required this.message,
@@ -49,10 +60,12 @@ class ChatVoiceBubble extends StatefulWidget {
     required this.timeLabel,
     required this.strings,
     required this.onTogglePlay,
+    this.loadingMessageId,
     this.translationLanguage,
     this.onRetryTranscription,
     this.failureReason,
     this.onListenTranslated,
+    this.ttsReasonProvider,
   });
 
   static String fmt(int seconds) {
@@ -60,6 +73,8 @@ class ChatVoiceBubble extends StatefulWidget {
     final s = seconds % 60;
     return '$m:${s.toString().padLeft(2, '0')}';
   }
+
+  static final ValueNotifier<String?> _noLoading = ValueNotifier<String?>(null);
 
   @override
   State<ChatVoiceBubble> createState() => _ChatVoiceBubbleState();
@@ -74,18 +89,25 @@ class _ChatVoiceBubbleState extends State<ChatVoiceBubble> {
   bool get isMine => widget.isMine;
   ChatStrings get strings => widget.strings;
 
-  /// Ignores a second tap while the previous play/pause request is still
-  /// being processed. Overlapping play() calls stop each other's audio load
-  /// ("Loading interrupted"), which produced no sound and a frozen timer.
+  /// One physical tap = one playback action. The guard stays set only while
+  /// the previous toggle request is still in flight (signed URL fetch, source
+  /// load, play/pause), so overlapping requests cannot stop each other's
+  /// audio. It is always released in `finally`, so controls are never locked.
   Future<void> _handleToggle() async {
-    if (_toggleBusy) return;
+    if (_toggleBusy) {
+      ChatAudioDiagnostics.instance.logEvent(
+        'DUPLICATE_GESTURE',
+        'ignored: previous toggle still in flight message=${message.id}',
+      );
+      return;
+    }
     _toggleBusy = true;
     try {
-      widget.onTogglePlay();
+      await widget.onTogglePlay();
+    } catch (_) {
+      // Failures are surfaced by the screen's own handler.
     } finally {
-      Future<void>.delayed(const Duration(milliseconds: 250), () {
-        _toggleBusy = false;
-      });
+      _toggleBusy = false;
     }
   }
 
@@ -166,31 +188,45 @@ class _ChatVoiceBubbleState extends State<ChatVoiceBubble> {
               width: 34,
               height: 42,
               child: Center(
-                child: Icon(
-                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: AppTheme.luxuryAccent,
-                  size: 40,
+                child: ValueListenableBuilder<String?>(
+                  valueListenable:
+                      widget.loadingMessageId ?? ChatVoiceBubble._noLoading,
+                  builder: (context, loadingId, _) {
+                    final loading = loadingId == message.id && !playing;
+                    return loading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: AppTheme.luxuryAccent,
+                            ),
+                          )
+                        : Icon(
+                            playing
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: AppTheme.luxuryAccent,
+                            size: 40,
+                          );
+                  },
                 ),
               ),
             ),
           );
 
           final waveform = Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _handleToggle,
-              child: SizedBox(
-                height: 28,
-                width: double.infinity,
-                child: CustomPaint(
-                  painter: _VoiceWavePainter(
-                    bars: _organicBars(),
-                    progress: progress.clamp(0.0, 1.0),
-                    showHead: true,
-                    playedColor: Colors.black,
-                    idleColor: const Color(0xFFB8B8B8),
-                    headColor: const Color(0xFF53A6FA),
-                  ),
+            child: SizedBox(
+              height: 28,
+              width: double.infinity,
+              child: CustomPaint(
+                painter: _VoiceWavePainter(
+                  bars: _organicBars(),
+                  progress: progress.clamp(0.0, 1.0),
+                  showHead: true,
+                  playedColor: Colors.black,
+                  idleColor: const Color(0xFFB8B8B8),
+                  headColor: const Color(0xFF53A6FA),
                 ),
               ),
             ),
@@ -490,7 +526,14 @@ class _ChatVoiceBubbleState extends State<ChatVoiceBubble> {
                 color: AppTheme.secondaryText,
               ),
               const SizedBox(width: 6),
-              Flexible(child: Text(message_, style: _small)),
+              Flexible(
+                child: Text(() {
+                  final r = outcome == ChatTtsStatus.ready
+                      ? null
+                      : widget.ttsReasonProvider?.call();
+                  return (r == null || r.isEmpty) ? message_ : '$message_ ($r)';
+                }(), style: _small),
+              ),
               if (outcome == ChatTtsStatus.failed) ...[
                 const SizedBox(width: 6),
                 InkWell(

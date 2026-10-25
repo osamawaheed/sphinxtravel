@@ -8,6 +8,15 @@ class ChatTranslationLanguages {
 
   static const List<String> supported = ['ar', 'en', 'ru', 'ka', 'az'];
 
+  /// Languages a user of [role] may choose as the translation / "Listen
+  /// Translated" target. Customers: Arabic + English. Drivers: English,
+  /// Russian + Georgian.
+  static List<String> forRole(ChatRole role) =>
+      role == ChatRole.customer ? const ['ar', 'en'] : const ['en', 'ru', 'ka'];
+
+  static bool isAllowedFor(ChatRole role, String? code) =>
+      code != null && forRole(role).contains(code);
+
   /// Native display names shown in the selector.
   static const Map<String, String> nativeNames = {
     'ar': 'العربية',
@@ -37,14 +46,14 @@ class ChatTranslationPrefs {
     try {
       final prefs = await SharedPreferences.getInstance();
       final v = prefs.getString(_key(role, userId));
-      return ChatTranslationLanguages.isSupported(v) ? v : null;
+      return ChatTranslationLanguages.isAllowedFor(role, v) ? v : null;
     } catch (_) {
       return null;
     }
   }
 
   static Future<void> save(ChatRole role, int? userId, String language) async {
-    if (!ChatTranslationLanguages.isSupported(language)) return;
+    if (!ChatTranslationLanguages.isAllowedFor(role, language)) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key(role, userId), language);
@@ -62,7 +71,7 @@ class ChatTranslationPrefs {
   ) async {
     final saved = await load(role, userId);
     if (saved != null) return saved;
-    return ChatTranslationLanguages.isSupported(appLanguage)
+    return ChatTranslationLanguages.isAllowedFor(role, appLanguage)
         ? appLanguage
         : 'en';
   }

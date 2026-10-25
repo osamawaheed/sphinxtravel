@@ -38,6 +38,17 @@ class ChatPresenceService {
   int _reconnectAttempt = 0;
   String _lastStatus = 'idle';
 
+  /// App-level heartbeat: re-publishes `last_seen` so a half-open socket
+  /// (phone lost network without a clean close) stops looking online.
+  static const Duration _heartbeatEvery = Duration(seconds: 15);
+
+  /// A presence entry whose `last_seen` is older than this is treated as
+  /// offline even if the Realtime server has not yet dropped it.
+  static const Duration _staleAfter = Duration(seconds: 45);
+  Timer? _heartbeat;
+  Timer? _expiry;
+  String _lastSig = '';
+
   /// Bumped on every presence change; listeners re-evaluate [isOnline].
   final ValueNotifier<int> changes = ValueNotifier<int>(0);
 
@@ -107,6 +118,42 @@ class ChatPresenceService {
     }
   }
 
+  /// Adds a booking (the one the open chat shows) to this user's presence
+  /// payload WITHOUT dropping the bookings published by the home screens.
+  /// If presence has not been started yet (deep link / app restore) it is
+  /// started from the chat's own identity, so both participants are always
+  /// trackable while a chat is open.
+  void ensureBooking({
+    required String role,
+    required int userId,
+    required String reference,
+    int? bookingId,
+  }) {
+    if (userId <= 0 || (role != 'customer' && role != 'driver')) return;
+    final ref = normalizeReference(reference);
+    final id = (bookingId ?? 0) > 0 ? bookingId! : null;
+    if (_key == null || _role != role || _userId != userId) {
+      start(
+        role: role,
+        userId: userId,
+        bookings: ref.isEmpty ? const [] : [ref],
+        bookingIds: id == null ? const [] : [id],
+      );
+      return;
+    }
+    final newRef = ref.isNotEmpty && !_bookings.contains(ref);
+    final newId = id != null && !_bookingIds.contains(id);
+    if (!newRef && !newId) {
+      // Make sure the channel is alive even when nothing changed.
+      if (_foreground && _channel == null) _ensureChannel();
+      return;
+    }
+    if (newRef) _bookings.add(ref);
+    if (newId) _bookingIds.add(id);
+    if (_foreground && _channel == null) _ensureChannel();
+    if (_subscribed) _track();
+  }
+
   /// Updates the bookings carried in this user's presence payload.
   void updateBookings(
     Iterable<String> bookings, {
@@ -135,9 +182,21 @@ class ChatPresenceService {
     _foreground = true;
     _log('lifecycle resumed');
     if (_key == null) return;
-    if (_channel == null) {
+    // A socket that died while backgrounded is never trusted: if the channel
+    // is not currently subscribed, rebuild it; otherwise re-track.
+    if (_channel == null || !_subscribed) {
+      final old = _channel;
+      _channel = null;
+      _subscribed = false;
+      if (old != null) {
+        () async {
+          try {
+            await old.unsubscribe();
+          } catch (_) {}
+        }();
+      }
       _ensureChannel();
-    } else if (_subscribed) {
+    } else {
       _track();
     }
   }
@@ -172,6 +231,10 @@ class ChatPresenceService {
   void _teardown() {
     _reconnect?.cancel();
     _reconnect = null;
+    _heartbeat?.cancel();
+    _heartbeat = null;
+    _expiry?.cancel();
+    _expiry = null;
     _reconnectAttempt = 0;
     final ch = _channel;
     _channel = null;
@@ -189,6 +252,7 @@ class ChatPresenceService {
     }
     if (_online.isNotEmpty) {
       _online.clear();
+      _lastSig = '';
       changes.value++;
     }
   }
@@ -219,6 +283,7 @@ class ChatPresenceService {
             _reconnectAttempt = 0;
             _track(); // same key => replaces, never duplicates
             _syncFrom(ch, 'subscribed');
+            _startTimers();
           } else if (status == RealtimeSubscribeStatus.channelError ||
               status == RealtimeSubscribeStatus.timedOut ||
               status == RealtimeSubscribeStatus.closed) {
@@ -227,6 +292,19 @@ class ChatPresenceService {
           }
         });
     _channel = ch;
+  }
+
+  void _startTimers() {
+    _heartbeat?.cancel();
+    _heartbeat = Timer.periodic(_heartbeatEvery, (_) {
+      if (_subscribed && _foreground) _track();
+    });
+    _expiry?.cancel();
+    // Re-evaluate staleness without needing a server event.
+    _expiry = Timer.periodic(const Duration(seconds: 10), (_) {
+      final ch = _channel;
+      if (ch != null && _subscribed) _syncFrom(ch, 'expiry');
+    });
   }
 
   Future<void> _track() async {
@@ -240,6 +318,7 @@ class ChatPresenceService {
       'bookings': _bookings.toList(),
       'booking_ids': _bookingIds.toList(),
       'online_at': DateTime.now().toUtc().toIso8601String(),
+      'last_seen': DateTime.now().toUtc().toIso8601String(),
     };
     try {
       final res = await ch.track(payload);
@@ -286,6 +365,18 @@ class ChatPresenceService {
           final role = data['role'];
           final uid = data['user_id'];
           if (role is! String || uid == null) continue;
+          // Expire entries that stopped heart-beating (lost network, killed
+          // app without a clean leave). Own entry is always considered fresh.
+          final seenRaw = data['last_seen'] ?? data['online_at'];
+          final seen = seenRaw == null
+              ? null
+              : DateTime.tryParse('$seenRaw')?.toUtc();
+          final isMe = '$role:$uid' == _key;
+          if (!isMe &&
+              seen != null &&
+              DateTime.now().toUtc().difference(seen) > _staleAfter) {
+            continue;
+          }
           final refs = <String>{
             for (final b in (data['bookings'] as List? ?? const []))
               normalizeReference('$b'),
@@ -307,11 +398,15 @@ class ChatPresenceService {
     _online
       ..clear()
       ..addAll(next);
+    // Only notify when the set of online keys actually changed.
+    final sig = (next.keys.toList()..sort()).join('|');
+    final changed = sig != _lastSig;
+    _lastSig = sig;
     _log(
       'received ($reason) keys=${_online.keys.toList()} '
       'me=$_key subscribed=$_subscribed',
     );
-    changes.value++;
+    if (changed || reason != 'expiry') changes.value++;
   }
 
   /// True when a user of [counterpartRole] who shares the booking with the

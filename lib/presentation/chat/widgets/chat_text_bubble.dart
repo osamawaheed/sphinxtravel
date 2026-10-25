@@ -335,7 +335,8 @@ class _ChatTextBubbleState extends State<ChatTextBubble> {
 }
 
 /// Shows ticks only for statuses the backend really reported.
-/// sending = clock, sent = one gray check, read = two blue checks.
+/// sending = clock, sent = one gray check, delivered = two gray checks,
+/// read = two coloured checks.
 class ChatStatusTicks extends StatelessWidget {
   final ChatDeliveryStatus status;
   const ChatStatusTicks({super.key, required this.status});
@@ -349,10 +350,10 @@ class ChatStatusTicks extends StatelessWidget {
       case ChatDeliveryStatus.sending:
         return const Icon(Icons.schedule_rounded, size: 14, color: sentGray);
       case ChatDeliveryStatus.sent:
-      case ChatDeliveryStatus.delivered:
-        // `delivered` is never reported by the backend; treated as sent so
-        // two gray checks are never shown.
         return const Icon(Icons.check_rounded, size: 22.5, color: sentGray);
+      case ChatDeliveryStatus.delivered:
+        // Only shown when the recipient's live session persisted delivered_at.
+        return const Icon(Icons.done_all_rounded, size: 22.5, color: sentGray);
       case ChatDeliveryStatus.read:
         return const Icon(Icons.done_all_rounded, size: 22.5, color: readBlue);
       case ChatDeliveryStatus.failed:

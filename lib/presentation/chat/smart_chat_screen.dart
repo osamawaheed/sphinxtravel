@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -26,6 +26,7 @@ import './chat_strings.dart';
 import './widgets/chat_input_widgets.dart';
 import './widgets/chat_audio_diagnostics_panel.dart';
 import './widgets/chat_file_bubble.dart';
+import './widgets/chat_message_interactions.dart';
 import './widgets/chat_text_bubble.dart';
 import './widgets/chat_voice_bubble.dart';
 import '../../services/chat/chat_audio_unlock.dart';
@@ -102,6 +103,8 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   StreamSubscription<ChatTranslationUpdate>? _translationSub;
   StreamSubscription<ChatTranscriptionUpdate>? _transcriptionSub;
   StreamSubscription<String>? _deletionSub;
+  StreamSubscription<ChatReaction>? _reactionUpsertSub;
+  StreamSubscription<ChatReaction>? _reactionRemovalSub;
   StreamSubscription<ChatAudioFailure>? _playbackErrorSub;
   String? _backendError;
   bool _isTestBooking = false;
@@ -118,9 +121,26 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   bool _loading = true;
   bool _hasText = false;
 
+  // Reply / reactions state.
+  final FocusNode _inputFocus = FocusNode();
+  ChatMessage? _replyTo;
+  String? _highlightId;
+  Timer? _highlightTimer;
+  final Map<String, GlobalKey> _rowKeys = <String, GlobalKey>{};
+  final Map<String, GlobalKey> _bubbleKeys = <String, GlobalKey>{};
+
+  GlobalKey _rowKey(String id) =>
+      _rowKeys.putIfAbsent(id, () => GlobalKey(debugLabel: 'row-$id'));
+  GlobalKey _bubbleKey(String id) =>
+      _bubbleKeys.putIfAbsent(id, () => GlobalKey(debugLabel: 'bubble-$id'));
+
   /// Real failure reason per voice message id (HTTP status / server code),
   /// shown to the recipient instead of only the generic message.
   final Map<String, String> _transcriptionErrors = <String, String>{};
+
+  /// Exact server reason of the last translated-audio failure per message
+  /// (e.g. `http_503:ElevenLabs not configured`).
+  final Map<String, String> _ttsReasons = <String, String>{};
 
   bool _recording = false;
   bool _busyRecording = false;
@@ -147,6 +167,17 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   /// to ignore repeated taps while the same message is still loading.
   String? _loadingVoiceId;
 
+  /// Same value exposed to the voice bubbles so a loading indicator is shown
+  /// ONLY while audio is genuinely being fetched / loaded.
+  final ValueNotifier<String?> _loadingVoiceNotifier = ValueNotifier<String?>(
+    null,
+  );
+
+  void _setLoadingVoice(String? id) {
+    _loadingVoiceId = id;
+    _loadingVoiceNotifier.value = id;
+  }
+
   /// Last app interface language seen by this screen. When it changes while
   /// the chat is open, the new language becomes the recipient's selected
   /// translation language (single source of truth) immediately.
@@ -159,7 +190,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     final previous = _lastAppLang;
     _lastAppLang = appLang;
     if (previous == null || previous == appLang) return;
-    if (!ChatTranslationLanguages.isSupported(appLang)) return;
+    if (!ChatTranslationLanguages.isAllowedFor(widget.role, appLang)) return;
     if (appLang == _translationLang) return;
     // The user just picked a new language: it overrides the previously saved
     // chat choice for text, voice translation and the TTS target.
@@ -170,13 +201,17 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // TEMPORARY: audio diagnostics are available for any booking in the TEST
+    // build only (AUDIO_DIAGNOSTICS flag, off for production builds). Enabled
+    // here (not after async loading) so the button is always visible.
+    ChatAudioDiagnostics.instance.setEnabled(true);
     _repo = LocalDemoChatRepository(viewerRole: widget.role);
     _audio = DeviceChatAudioService();
     // Playback that never starts (decode error, unsupported format such as
     // WebM/Opus on iOS, rejected play(), timeout): the service has already
     // reset the player to Play, so just tell the user and allow a retry.
     _playbackErrorSub = _audio.playbackErrors.listen((_) {
-      _loadingVoiceId = null;
+      _setLoadingVoice(null);
       if (mounted) _toast(_s.playbackFailed);
     });
     _conversation = ChatDemoData.conversation(
@@ -204,9 +239,6 @@ class _SmartChatScreenState extends State<SmartChatScreen>
         ? passed
         : ChatTestConfig.testBookingReference;
     _isTestBooking = ChatTestConfig.isTestReference(lookupRef);
-    // TEMPORARY: audio diagnostics are visible only for the TEST booking and
-    // never in release builds.
-    ChatAudioDiagnostics.instance.setEnabled(_isTestBooking);
 
     final lang = AppLocalizations.of(context).locale;
     final senderId =
@@ -240,16 +272,31 @@ class _SmartChatScreenState extends State<SmartChatScreen>
         odooBookingId: widget.odooBookingId,
       );
       final history = await live.loadHistory(convId);
+      final reactions = await live.loadReactions(convId);
       if (!mounted) {
         await live.dispose();
         return;
       }
       _live = live;
       _liveConversationId = convId;
+      // Make sure this user is publishing presence for the booking this chat
+      // shows (merged with the home screens' bookings). Real ids only: a
+      // negative TEST id is never published.
+      if ((senderId ?? 0) > 0) {
+        ChatPresenceService.instance.ensureBooking(
+          role: widget.role == ChatRole.driver ? 'driver' : 'customer',
+          userId: senderId!,
+          reference: lookupRef,
+          bookingId: widget.odooBookingId,
+        );
+      }
       _liveSub = live.watchMessages(convId).listen(_onLiveMessage);
       _receiptSub = live.readReceipts.listen(_onReadReceipt);
       _resyncSub = live.reconnected.listen((_) => _resyncAfterReconnect());
       _deletionSub = live.deletedForEveryone.listen(_onRemoteDeletion);
+      _reactionUpsertSub = live.reactionUpserts.listen(_onReactionUpsert);
+      _reactionRemovalSub = live.reactionRemovals.listen(_onReactionRemoval);
+      live.watchReactions(convId);
       _translationSub = live.translationUpdates.listen(_onTranslationUpdate);
       _transcriptionSub = live.transcriptionUpdates.listen(
         _onTranscriptionUpdate,
@@ -264,12 +311,14 @@ class _SmartChatScreenState extends State<SmartChatScreen>
           counterpart: _conversation.counterpart,
           isDemo: false,
         );
-        _messages = history;
+        _messages = _withReactions(history, reactions);
         _backendError = null;
         _loading = false;
       });
       _jumpToEnd();
+      _resolveReplyOriginals();
       _startReceiptPolling();
+      _markDeliveredNow();
       _markVisibleIncomingAsRead();
       _requestPendingTranslations();
       _requestPendingTranscriptions();
@@ -306,6 +355,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
         ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
     });
     _jumpToEnd();
+    if (m.replyToId != null) _resolveReplyOriginals();
     if (m.translationState == ChatTranslationState.pending) {
       _requestPendingTranslations();
     }
@@ -318,6 +368,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     // Never mark our own messages; for incoming ones, wait until the bubble
     // has been rendered, then batch via a short debounce.
     if (m.sender != null && m.sender!.role != widget.role) {
+      _markDeliveredNow();
       _scheduleMarkRead();
     }
   }
@@ -336,6 +387,23 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     });
   }
 
+  /// DELIVERED = this device is in the foreground with a live Realtime
+  /// subscription and the incoming row has actually reached it. Persisted via
+  /// RPC; the sender's UI updates from the resulting UPDATE event.
+  bool _markingDelivered = false;
+  Future<void> _markDeliveredNow() async {
+    final live = _live;
+    final convId = _liveConversationId;
+    if (live == null || convId == null || !mounted || !_foreground) return;
+    if (_markingDelivered) return;
+    _markingDelivered = true;
+    try {
+      await live.markIncomingAsDelivered(conversationId: convId);
+    } finally {
+      _markingDelivered = false;
+    }
+  }
+
   /// Removes an optimistic bubble whose insert failed (no false checkmark).
   void _failPending(String pendingId) {
     setState(() {
@@ -346,26 +414,48 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     });
   }
 
-  /// Realtime UPDATE: the recipient read one of our messages.
+  /// Realtime UPDATE: the recipient received / read one of our messages.
   void _onReadReceipt(ChatReadReceipt r) {
     if (!mounted) return;
-    _applyReadStates({r.messageId: r.readAt});
+    _applyReceiptStates({r.messageId: r});
   }
 
   void _applyReadStates(Map<String, DateTime> reads) {
-    if (reads.isEmpty) return;
+    _applyReceiptStates({
+      for (final e in reads.entries)
+        e.key: ChatReadReceipt(messageId: e.key, readAt: e.value),
+    });
+  }
+
+  /// Applies persisted delivered/read timestamps. Never downgrades: a
+  /// message that is already `read` stays `read`.
+  void _applyReceiptStates(Map<String, ChatReadReceipt> receipts) {
+    if (receipts.isEmpty) return;
     var changed = false;
     final next = [
       for (final m in _messages)
-        if (!m.isDemo &&
-            reads.containsKey(m.id) &&
-            m.status != ChatDeliveryStatus.read)
+        if (!m.isDemo && receipts.containsKey(m.id))
           () {
-            changed = true;
-            return m.copyWith(
-              status: ChatDeliveryStatus.read,
-              readAt: reads[m.id],
-            );
+            final r = receipts[m.id]!;
+            if (r.readAt != null && m.status != ChatDeliveryStatus.read) {
+              changed = true;
+              return m.copyWith(
+                status: ChatDeliveryStatus.read,
+                readAt: r.readAt,
+                deliveredAt: r.deliveredAt ?? m.deliveredAt ?? r.readAt,
+              );
+            }
+            if (r.readAt == null &&
+                r.deliveredAt != null &&
+                m.status != ChatDeliveryStatus.read &&
+                m.status != ChatDeliveryStatus.delivered) {
+              changed = true;
+              return m.copyWith(
+                status: ChatDeliveryStatus.delivered,
+                deliveredAt: r.deliveredAt,
+              );
+            }
+            return m;
           }()
         else
           m,
@@ -395,6 +485,12 @@ class _SmartChatScreenState extends State<SmartChatScreen>
         for (final m in fresh)
           if (m.readAt != null) m.id: m.readAt!,
       });
+      _applyReceiptStates({
+        for (final m in fresh)
+          if (m.deliveredAt != null && m.readAt == null)
+            m.id: ChatReadReceipt(messageId: m.id, deliveredAt: m.deliveredAt),
+      });
+      _markDeliveredNow();
       _markVisibleIncomingAsRead();
       _applyFreshTranslations(fresh);
       _requestPendingTranslations();
@@ -666,7 +762,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
                 ),
               ),
               const SizedBox(height: 8),
-              for (final code in ChatTranslationLanguages.supported)
+              for (final code in ChatTranslationLanguages.forRole(widget.role))
                 ListTile(
                   dense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -894,13 +990,13 @@ class _SmartChatScreenState extends State<SmartChatScreen>
           if (!m.isDemo &&
               !m.id.startsWith('pending-') &&
               m.sender?.role == widget.role &&
-              m.readAt == null)
+              m.status != ChatDeliveryStatus.read)
             m.id,
       ];
       if (pending.isEmpty) return;
       try {
-        final reads = await live.loadReadStatesFor(pending);
-        if (mounted) _applyReadStates(reads);
+        final states = await live.loadReceiptStatesFor(pending);
+        if (mounted) _applyReceiptStates(states);
       } catch (_) {
         // Keep polling; errors here must never disturb the chat.
       }
@@ -913,6 +1009,9 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     if (fg == _foreground) return;
     _foreground = fg;
     if (fg) {
+      // Re-join presence (reconnect after background / lost socket), then
+      // re-sync receipts and mark anything received meanwhile.
+      ChatPresenceService.instance.onResumed();
       _resyncAfterReconnect();
     } else {
       // Background: never mark; drop any pending scheduled marking.
@@ -932,7 +1031,12 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     _translationSub?.cancel();
     _transcriptionSub?.cancel();
     _deletionSub?.cancel();
+    _reactionUpsertSub?.cancel();
+    _reactionRemovalSub?.cancel();
+    _highlightTimer?.cancel();
+    _inputFocus.dispose();
     _playbackErrorSub?.cancel();
+    _loadingVoiceNotifier.dispose();
     ChatAudioDiagnostics.instance.setEnabled(false);
     // Leaving the conversation: refresh persisted unread counts.
     ChatUnreadService.instance.refreshAll();
@@ -959,10 +1063,10 @@ class _SmartChatScreenState extends State<SmartChatScreen>
           child: Column(
             children: [
               _buildHeader(s),
+              const ChatAudioDiagnosticsButton(),
+              const ChatAudioDiagnosticsPanel(),
               _buildTripCard(s),
               _buildDemoBanner(s),
-              if (_isTestBooking && !kReleaseMode)
-                const ChatAudioDiagnosticsPanel(),
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
@@ -976,8 +1080,10 @@ class _SmartChatScreenState extends State<SmartChatScreen>
                   strings: s,
                   onSelect: (q) => _sendText(s.quick(q.key)),
                 ),
+                if (_replyTo != null) _buildReplyPreview(s),
                 ChatInputBar(
                   controller: _input,
+                  focusNode: _inputFocus,
                   strings: s,
                   isRecording: _recording,
                   voiceReady: _pendingAudio != null,
@@ -1309,6 +1415,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     final t = text.trim();
     if (t.isEmpty || widget.readOnly) return;
     final lang = languageOverride ?? AppLocalizations.of(context).locale;
+    final replyId = _replyTargetId();
 
     // Live Supabase TEST path.
     final live = _live;
@@ -1333,10 +1440,12 @@ class _SmartChatScreenState extends State<SmartChatScreen>
             sentAt: DateTime.now(),
             status: ChatDeliveryStatus.sending,
             isDemo: false,
+            replyToId: replyId,
           ),
         ];
         _input.clear();
         _hasText = false;
+        _replyTo = null;
       });
       _jumpToEnd();
       try {
@@ -1344,6 +1453,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
           conversationId: convId,
           text: t,
           language: lang,
+          replyToId: replyId,
         );
         if (!mounted) return;
         setState(() {
@@ -1362,6 +1472,8 @@ class _SmartChatScreenState extends State<SmartChatScreen>
         _failPending(pendingId);
         if (e.issue == ChatBackendIssue.missingSenderIdentity) {
           _toast(_s.noSenderIdentity);
+        } else if (replyId != null && _looksLikeMissingReplyColumn(e)) {
+          _toast(_s.replyNotSavedYet);
         } else {
           _toast(
             '${_s.sendFailed} ${e.code != null ? '[${e.code}] ' : ''}${e.detail}',
@@ -1393,10 +1505,12 @@ class _SmartChatScreenState extends State<SmartChatScreen>
           sentAt: sent.sentAt,
           status: sent.status,
           isDemo: true,
+          replyToId: replyId,
         ),
       ];
       _input.clear();
       _hasText = false;
+      _replyTo = null;
     });
     _jumpToEnd();
   }
@@ -1590,6 +1704,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   Future<bool> _sendVoice(ChatRecordedAudio audio) async {
     final live = _live;
     final convId = _liveConversationId;
+    final replyId = _replyTargetId();
     if (live != null && convId != null) {
       try {
         final sent = await live.sendVoice(
@@ -1597,6 +1712,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
           localSource: audio.path,
           durationSeconds: audio.durationSeconds,
           language: _translationLang,
+          replyToId: replyId,
         );
         if (!mounted) return true;
         setState(() {
@@ -1605,6 +1721,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
             // translation, retry or AI status (state stays `none`).
             _messages = [..._messages, sent];
           }
+          _replyTo = null;
         });
         _jumpToEnd();
         return true;
@@ -1633,8 +1750,10 @@ class _SmartChatScreenState extends State<SmartChatScreen>
           voiceUrl: audio.path,
           waveform: _waveformFor(audio.durationSeconds),
           isDemo: true,
+          replyToId: replyId,
         ),
       ];
+      _replyTo = null;
     });
     _jumpToEnd();
     return true;
@@ -1720,58 +1839,106 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     // network call below): mobile browsers reject play() otherwise.
     unlockWebAudioOnGesture();
     final s = _s;
-    final request = ++_playRequest;
-    var src = m.voiceUrl ?? '';
-    if (src.startsWith('sb:')) {
-      // Stored voice from the private bucket: short-lived signed URL issued
-      // by the server after verifying the viewer is a participant. The URL is
-      // signed for THIS message id every time (never cached across messages).
-      final signed = await _live?.signedAudioUrl(
-        src.substring(3),
-        messageId: m.id,
+    final diag = ChatAudioDiagnostics.instance;
+    final tapAt = DateTime.now();
+    final storageKey = (m.voiceUrl ?? '').startsWith('sb:')
+        ? m.voiceUrl!.substring(3)
+        : null;
+    // Stable identity of this message's audio. Signed URLs change on every
+    // request and are never used to decide what is loaded.
+    final stableKey = storageKey ?? 'msg:${m.id}';
+
+    final cur = _audio.currentPlayback;
+
+    // 1) PAUSE: decided from live player state, before any network work.
+    if (cur.messageId == m.id && cur.playing) {
+      diag.logEvent(
+        'UI_TAP_PAUSE',
+        'user tap while playing pos=${cur.position.inMilliseconds}ms',
       );
-      // The user tapped another message while this one was being signed.
-      if (request != _playRequest) return;
-      if (signed == null) {
-        debugPrint(
-          '[chat] play aborted: no signed url message=${m.id} '
-          'mine=${m.sender?.role == widget.role}',
-        );
-        if (mounted) _toast(s.playbackFailed);
-        return;
-      }
-      src = signed;
-    }
-    if (src.isEmpty) {
-      // Seeded demo voice messages carry no audio file; never pretend to play.
-      _toast(s.voiceDemoNoAudio);
+      try {
+        await _audio.pause();
+      } catch (_) {}
       return;
     }
-    debugPrint(
-      '[chat] play tap message=${m.id} request=$request '
-      'src=${Uri.tryParse(src)?.replace(query: '').toString()}',
-    );
-    final cur = _audio.currentPlayback;
-    try {
-      if (cur.messageId == m.id && cur.playing) {
-        await _audio.pause();
-      } else {
-        // Same message is still loading: a second play() would stop the
-        // first load ("Loading interrupted") and leave no sound.
-        if (_loadingVoiceId == m.id) return;
-        _loadingVoiceId = m.id;
-        try {
-          await _audio.play(m.id, src);
-        } finally {
-          if (_loadingVoiceId == m.id) _loadingVoiceId = null;
-        }
+
+    // 2) RESUME the already loaded audio of this message: no signed URL, no
+    //    network, no stop()/setUrl()/seek. Direct play() on the kept source.
+    if (_audio.isLoaded(m.id, sourceKey: stableKey)) {
+      if (_loadingVoiceId == m.id) {
+        diag.logEvent('DUPLICATE_GESTURE', 'ignored: still loading ${m.id}');
+        return;
       }
+      diag.logEvent(
+        'UI_TAP_PLAY',
+        'resume-loaded sameMsg=true pos=${cur.position.inMilliseconds}ms '
+            'signedUrlFetched=false',
+      );
+      try {
+        await _audio.play(m.id, '', sourceKey: stableKey);
+      } on ChatAudioException catch (e) {
+        debugPrint('[chat] resume failed message=${m.id} ${e.failure}');
+        if (mounted) _showAudioFailure(e.failure, s);
+      } catch (e) {
+        debugPrint('[chat] resume failed message=${m.id}: $e');
+        if (mounted) _toast(s.playbackFailed);
+      }
+      return;
+    }
+
+    // 3) FIRST LOAD (or replay after the source was cleared): fetch the
+    //    signed URL, then load. Loading indicator is shown from the tap.
+    if (_loadingVoiceId == m.id) {
+      diag.logEvent('DUPLICATE_GESTURE', 'ignored: already loading ${m.id}');
+      return;
+    }
+    final request = ++_playRequest;
+    _setLoadingVoice(m.id);
+    try {
+      var src = m.voiceUrl ?? '';
+      if (src.startsWith('sb:')) {
+        // Stored voice from the private bucket: short-lived signed URL issued
+        // by the server after verifying the viewer is a participant. The URL
+        // is signed for THIS message id every time (never cached).
+        final signed = await _live?.signedAudioUrl(
+          src.substring(3),
+          messageId: m.id,
+        );
+        // The user tapped another message while this one was being signed.
+        if (request != _playRequest) return;
+        if (signed == null) {
+          debugPrint(
+            '[chat] play aborted: no signed url message=${m.id} '
+            'mine=${m.sender?.role == widget.role}',
+          );
+          if (mounted) _toast(s.playbackFailed);
+          return;
+        }
+        src = signed;
+      }
+      if (src.isEmpty) {
+        // Seeded demo voice messages carry no audio file; never pretend.
+        _toast(s.voiceDemoNoAudio);
+        return;
+      }
+      debugPrint(
+        '[chat] play tap message=${m.id} request=$request '
+        'src=${Uri.tryParse(src)?.replace(query: '').toString()}',
+      );
+      diag.logEvent(
+        'UI_TAP_PLAY',
+        'cur.playing=${cur.playing} sameMsg=${cur.messageId == m.id} '
+            'signLatency=${DateTime.now().difference(tapAt).inMilliseconds}ms',
+      );
+      await _audio.play(m.id, src, sourceKey: stableKey);
     } on ChatAudioException catch (e) {
       debugPrint('[chat] playback failed message=${m.id} failure=${e.failure}');
       if (mounted) _showAudioFailure(e.failure, s);
     } catch (e) {
       debugPrint('[chat] playback failed message=${m.id}: $e');
       if (mounted) _toast(s.playbackFailed);
+    } finally {
+      if (_loadingVoiceId == m.id) _setLoadingVoice(null);
     }
   }
 
@@ -1799,13 +1966,14 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     final requestLang = _translationLang;
     final res = await live.requestTranslatedAudio(m.id, retry: retry);
     if (res.status != ChatTtsStatus.ready || res.url == null) {
+      if (res.reason != null && res.reason!.isNotEmpty) {
+        _ttsReasons[m.id] = res.reason!;
+      } else {
+        _ttsReasons.remove(m.id);
+      }
       return res.status;
     }
-    // Another message was tapped, or the language changed, while the audio was
-    // being generated: never play stale or wrong-language audio.
-    if (request != _playRequest || requestLang != _translationLang) {
-      return ChatTtsStatus.ready;
-    }
+    _ttsReasons.remove(m.id);
     try {
       debugPrint(
         '[chat] tts play message=${m.id} lang=$requestLang request=$request',
@@ -2023,6 +2191,346 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     await _deleteMessage(m, forEveryone: forEveryone);
   }
 
+  // ---------------------------------------------------------------------
+  // Reply / reactions / long-press overlay
+  // ---------------------------------------------------------------------
+
+  /// Only persisted (non pending / non local) messages can be referenced.
+  String? _replyTargetId() {
+    final r = _replyTo;
+    if (r == null) return null;
+    if (r.isDemo || r.id.startsWith('pending-')) return null;
+    return r.id;
+  }
+
+  bool _looksLikeMissingReplyColumn(ChatBackendException e) {
+    final d = e.detail.toLowerCase();
+    return d.contains('reply_to_message_id') || e.code == 'PGRST204';
+  }
+
+  String _senderLabel(ChatMessage m) {
+    if (_isMine(m)) return _s.you;
+    final n = (m.sender?.name ?? '').trim();
+    return n.isEmpty ? _conversation.counterpart.name : n;
+  }
+
+  void _startReply(ChatMessage m) {
+    if (widget.readOnly || m.isSystem || m.deletedForEveryone) return;
+    if (m.id.startsWith('pending-')) return;
+    setState(() => _replyTo = m);
+    // Focus after the preview bar is laid out so the keyboard opens.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _inputFocus.requestFocus();
+    });
+  }
+
+  Widget _buildReplyPreview(ChatStrings s) {
+    final r = _replyTo!;
+    return ChatReplyPreviewBar(
+      senderName: _senderLabel(r),
+      snippet: chatMessageSnippet(r, s),
+      isVoice: r.isVoice,
+      isFile: r.isFile,
+      onCancel: () => setState(() => _replyTo = null),
+    );
+  }
+
+  ChatMessage? _findMessage(String? id) {
+    if (id == null) return null;
+    for (final x in _messages) {
+      if (x.id == id) return x;
+    }
+    return null;
+  }
+
+  /// Reply originals outside the loaded window (preview only; never part of
+  /// the chronological list, so pagination / ordering are unaffected).
+  final Map<String, ChatMessage> _replyOriginals = <String, ChatMessage>{};
+  final Set<String> _replyOriginalsRequested = <String>{};
+  bool _navigatingToOriginal = false;
+
+  Future<void> _resolveReplyOriginals() async {
+    final live = _live;
+    final convId = _liveConversationId;
+    if (live == null || convId == null || !mounted) return;
+    final known = {for (final m in _messages) m.id};
+    final missing = <String>{
+      for (final m in _messages)
+        if (m.replyToId != null &&
+            !known.contains(m.replyToId) &&
+            !_replyOriginals.containsKey(m.replyToId) &&
+            !_replyOriginalsRequested.contains(m.replyToId))
+          m.replyToId!,
+    };
+    if (missing.isEmpty) return;
+    _replyOriginalsRequested.addAll(missing);
+    final found = await live.loadMessagesByIds(convId, missing.toList());
+    if (!mounted || found.isEmpty) return;
+    setState(() {
+      for (final f in found) {
+        _replyOriginals[f.id] = f;
+      }
+    });
+  }
+
+  Future<void> _scrollToOriginal(String id) async {
+    // Rapid repeated taps: ignore while a navigation is already running.
+    if (_navigatingToOriginal) return;
+    _navigatingToOriginal = true;
+    try {
+      // 1) Already loaded: scroll straight to it.
+      if (_findMessage(id) == null) {
+        // 2) Not loaded: fetch it (and its neighbours) from the backend,
+        //    scoped to this conversation so access rules still apply.
+        final live = _live;
+        final convId = _liveConversationId;
+        if (live == null || convId == null) {
+          _toast(_s.originalNotFound);
+          return;
+        }
+        List<ChatMessage> window;
+        try {
+          window = await live.loadAroundMessage(convId, id);
+        } catch (_) {
+          _toast(_s.originalNotFound);
+          return;
+        }
+        if (!mounted) return;
+        if (!window.any((x) => x.id == id)) {
+          _toast(_s.originalNotFound);
+          return;
+        }
+        List<ChatReaction> reactions = const [];
+        try {
+          reactions = await live.loadReactions(convId);
+        } catch (_) {}
+        if (!mounted) return;
+        final known = {for (final m in _messages) m.id};
+        final added = _withReactions([
+          for (final m in window)
+            if (!known.contains(m.id)) m,
+        ], reactions);
+        if (added.isNotEmpty) {
+          setState(() {
+            _messages = [..._messages, ...added]
+              ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
+          });
+          _requestPendingTranslations();
+          _requestPendingTranscriptions();
+        }
+        // Wait for the row to be laid out before scrolling to it.
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
+      }
+      var ctx = _rowKeys[id]?.currentContext;
+      if (ctx == null) {
+        await WidgetsBinding.instance.endOfFrame;
+        ctx = _rowKeys[id]?.currentContext;
+      }
+      if (ctx == null || !mounted) {
+        _toast(_s.originalNotFound);
+        return;
+      }
+      await Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.3,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+      if (!mounted) return;
+      _highlightTimer?.cancel();
+      setState(() => _highlightId = id);
+      _highlightTimer = Timer(const Duration(milliseconds: 1400), () {
+        if (mounted) setState(() => _highlightId = null);
+      });
+    } finally {
+      _navigatingToOriginal = false;
+    }
+  }
+
+  List<ChatMessage> _withReactions(
+    List<ChatMessage> msgs,
+    List<ChatReaction> reactions,
+  ) {
+    if (reactions.isEmpty) return msgs;
+    final byMsg = <String, List<ChatReaction>>{};
+    for (final r in reactions) {
+      byMsg.putIfAbsent(r.messageId, () => <ChatReaction>[]).add(r);
+    }
+    return [
+      for (final m in msgs)
+        byMsg.containsKey(m.id) ? m.copyWith(reactions: byMsg[m.id]) : m,
+    ];
+  }
+
+  String? get _viewerId =>
+      _live?.senderId == null ? null : '${_live!.senderId}';
+
+  bool _isViewerReaction(ChatReaction r) =>
+      r.reactorRole == widget.role && r.reactorId == _viewerId;
+
+  String? _myReactionOn(ChatMessage m) {
+    for (final r in m.reactions) {
+      if (_isViewerReaction(r)) return r.emoji;
+    }
+    return null;
+  }
+
+  void _replaceReactions(String messageId, List<ChatReaction> next) {
+    final idx = _messages.indexWhere((x) => x.id == messageId);
+    if (idx < 0) return;
+    setState(() {
+      _messages = [
+        for (final x in _messages)
+          x.id == messageId ? x.copyWith(reactions: next) : x,
+      ];
+    });
+  }
+
+  void _onReactionUpsert(ChatReaction r) {
+    if (!mounted) return;
+    final m = _findMessage(r.messageId);
+    if (m == null) return;
+    final next = [
+      for (final x in m.reactions)
+        if (!(x.reactorRole == r.reactorRole && x.reactorId == r.reactorId)) x,
+      r,
+    ];
+    _replaceReactions(m.id, next);
+  }
+
+  void _onReactionRemoval(ChatReaction r) {
+    if (!mounted) return;
+    final m = _findMessage(r.messageId);
+    if (m == null) return;
+    final next = [
+      for (final x in m.reactions)
+        if (!(x.reactorRole == r.reactorRole && x.reactorId == r.reactorId)) x,
+    ];
+    _replaceReactions(m.id, next);
+  }
+
+  /// Selecting the same emoji again removes the reaction; a different one
+  /// replaces it. Persisted through the backend; rolled back on failure.
+  Future<void> _react(ChatMessage m, String emoji) async {
+    final live = _live;
+    final viewerId = _viewerId;
+    if (widget.readOnly || m.deletedForEveryone) return;
+    if (live == null || viewerId == null || m.isDemo) {
+      _toast(_s.featureNotAvailable);
+      return;
+    }
+    final previous = List<ChatReaction>.of(m.reactions);
+    final mine = _myReactionOn(m);
+    final removing = mine == emoji;
+    final others = [
+      for (final x in previous)
+        if (!_isViewerReaction(x)) x,
+    ];
+    final optimistic = removing
+        ? others
+        : [
+            ...others,
+            ChatReaction(
+              messageId: m.id,
+              reactorRole: widget.role,
+              reactorId: viewerId,
+              emoji: emoji,
+            ),
+          ];
+    HapticFeedback.selectionClick();
+    _replaceReactions(m.id, optimistic);
+    try {
+      await live.setReaction(m.id, removing ? '' : emoji);
+    } catch (e) {
+      debugPrint('[chat] reaction failed: $e');
+      if (!mounted) return;
+      _replaceReactions(m.id, previous);
+      _toast(_s.reactionFailed);
+    }
+  }
+
+  Future<void> _copyMessage(ChatMessage m) async {
+    final text = chatMessageCopyText(m);
+    if (text.isEmpty) {
+      _toast(_s.nothingToCopy);
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) _toast(_s.copied);
+  }
+
+  /// Text that Copy puts on the clipboard (text messages only).
+  String chatMessageCopyText(ChatMessage m) {
+    if (m.isVoice || m.isFile || m.isSystem || m.deletedForEveryone) return '';
+    return (m.hasTranslation ? m.translatedText! : m.originalText).trim();
+  }
+
+  void _openMessageOverlay(
+    ChatMessage m,
+    bool mine,
+    Widget Function() buildSnapshot,
+  ) {
+    if (m.isSystem || m.deletedForEveryone) return;
+    final box = _bubbleKey(m.id).currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) {
+      _onMessageLongPress(m, mine);
+      return;
+    }
+    final origin = box.localToGlobal(Offset.zero);
+    final anchor = origin & box.size;
+    final s = _s;
+    HapticFeedback.mediumImpact();
+    final canInteract = !widget.readOnly && !m.id.startsWith('pending-');
+    showChatMessageOverlay(
+      context: context,
+      anchor: anchor,
+      snapshot: buildSnapshot(),
+      mine: mine,
+      currentEmoji: _myReactionOn(m),
+      strings: s,
+      canReact: canInteract && _live != null && !m.isDemo,
+      onReact: (e) => _react(m, e),
+      actions: [
+        if (canInteract)
+          ChatMenuAction(
+            icon: Icons.reply_rounded,
+            label: s.reply,
+            onTap: () => _startReply(m),
+          ),
+        ChatMenuAction(
+          icon: Icons.shortcut_rounded,
+          label: s.forward,
+          disabled: true,
+          onTap: () => _toast(s.featureNotAvailable),
+        ),
+        if (chatMessageCopyText(m).isNotEmpty)
+          ChatMenuAction(
+            icon: Icons.copy_rounded,
+            label: s.copy,
+            onTap: () => _copyMessage(m),
+          ),
+        ChatMenuAction(
+          icon: Icons.star_border_rounded,
+          label: s.star,
+          disabled: true,
+          onTap: () => _toast(s.featureNotAvailable),
+        ),
+        ChatMenuAction(
+          icon: Icons.delete_outline_rounded,
+          label: s.deleteAction,
+          destructive: true,
+          onTap: () => _onMessageLongPress(m, mine),
+        ),
+        ChatMenuAction(
+          icon: Icons.more_horiz_rounded,
+          label: s.more,
+          onTap: () => _onMessageLongPress(m, mine),
+        ),
+      ],
+    );
+  }
+
   Future<bool?> _confirm({
     required String title,
     required String body,
@@ -2073,6 +2581,10 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     final id = cur.messageId;
     if (id == null) return;
     if (id == messageId || id.startsWith('tts:$messageId:')) {
+      ChatAudioDiagnostics.instance.logEvent(
+        'UI_STOP_IF_PLAYING',
+        'message removed/deleted -> pause()',
+      );
       _playRequest++;
       _audio.pause();
     }
@@ -2521,12 +3033,14 @@ class _SmartChatScreenState extends State<SmartChatScreen>
             onListenTranslated: _live == null
                 ? null
                 : ({bool retry = false}) => _listenTranslated(m, retry: retry),
+            ttsReasonProvider: () => _ttsReasons[m.id],
             onRetryTranscription:
                 m.transcriptionState == ChatTranscriptionState.failed &&
                     !_isPermanentSttError(_transcriptionErrors[m.id])
                 ? () => _retryTranscription(m)
                 : null,
             onTogglePlay: () => _togglePlay(m),
+            loadingMessageId: _loadingVoiceNotifier,
           )
         : ChatTextBubble(
             message: m,
@@ -2536,51 +3050,202 @@ class _SmartChatScreenState extends State<SmartChatScreen>
             translationLanguage: _translationLang,
           );
 
-    final bubble = m.deletedForEveryone
-        ? content
-        : GestureDetector(
-            behavior: HitTestBehavior.deferToChild,
-            onLongPress: () => _onMessageLongPress(m, mine),
-            child: content,
+    // Quoted original (persisted reference) shown inside the sent bubble.
+    final quoted = m.deletedForEveryone
+        ? null
+        : (_findMessage(m.replyToId) ??
+              (m.replyToId == null ? null : _replyOriginals[m.replyToId]));
+    final hasQuote = !m.deletedForEveryone && m.replyToId != null;
+    final Widget? quoteWidget = !hasQuote
+        ? null
+        : ChatQuotedMessage(
+            senderName: quoted == null ? '' : _senderLabel(quoted),
+            snippet: quoted == null
+                ? s.originalNotFound
+                : chatMessageSnippet(quoted, s),
+            isVoice: quoted?.isVoice ?? false,
+            isFile: quoted?.isFile ?? false,
+            deleted: quoted == null || quoted.deletedForEveryone,
+            onTap: quoted == null ? null : () => _scrollToOriginal(quoted.id),
           );
 
-    return Padding(
-      key: ValueKey<String>('chat-row-${m.id}'),
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: mine
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+    // Static look-alike used only inside the long-press overlay. The live
+    // voice bubble (audio streams / ValueKey) is never duplicated.
+    Widget snapshot() {
+      if (m.isVoice) {
+        return _overlayVoiceSnapshot(s, m, mine);
+      }
+      if (m.isFile) {
+        return _overlayFileSnapshot(s, m);
+      }
+      return Column(
+        crossAxisAlignment: mine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (!mine && !m.isVoice) ...[
-            ChatAvatar(participant: sender, size: 40),
-            const SizedBox(width: 10),
-          ],
-          Flexible(
-            child: Column(
-              crossAxisAlignment: mine
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4, left: 4, right: 4),
-                  child: Text(
-                    sender?.name ?? '',
-                    style: GoogleFonts.inter(
-                      color: AppTheme.secondaryText,
-                      fontSize: 13.5,
+          if (quoteWidget != null) quoteWidget,
+          ChatTextBubble(
+            message: m,
+            isMine: mine,
+            strings: s,
+            timeLabel: _time(m.sentAt),
+            translationLanguage: _translationLang,
+          ),
+        ],
+      );
+    }
+
+    final highlighted = _highlightId == m.id;
+    final canSwipe =
+        !widget.readOnly &&
+        !m.deletedForEveryone &&
+        !m.id.startsWith('pending-');
+
+    final Widget bubbleBody = Column(
+      crossAxisAlignment: mine
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [if (quoteWidget != null) quoteWidget, content],
+    );
+
+    final Widget bubble = m.deletedForEveryone
+        ? content
+        : ChatSwipeToReply(
+            enabled: canSwipe,
+            onReply: () => _startReply(m),
+            child: GestureDetector(
+              behavior: HitTestBehavior.deferToChild,
+              onLongPress: () => _openMessageOverlay(m, mine, snapshot),
+              child: KeyedSubtree(key: _bubbleKey(m.id), child: bubbleBody),
+            ),
+          );
+
+    final Widget reactions = ChatReactionsRow(
+      reactions: m.reactions,
+      viewerRole: widget.role,
+      viewerId: _viewerId,
+      onTapEmoji: (e) => _react(m, e),
+    );
+
+    return AnimatedContainer(
+      key: _rowKey(m.id),
+      duration: const Duration(milliseconds: 250),
+      decoration: BoxDecoration(
+        color: highlighted
+            ? AppTheme.luxuryAccent.withValues(alpha: 0.18)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        key: ValueKey<String>('chat-row-${m.id}'),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: mine
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
+          children: [
+            if (!mine && !m.isVoice) ...[
+              ChatAvatar(participant: sender, size: 40),
+              const SizedBox(width: 10),
+            ],
+            Flexible(
+              child: Column(
+                crossAxisAlignment: mine
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      bottom: 4,
+                      left: 4,
+                      right: 4,
+                    ),
+                    child: Text(
+                      sender?.name ?? '',
+                      style: GoogleFonts.inter(
+                        color: AppTheme.secondaryText,
+                        fontSize: 13.5,
+                      ),
                     ),
                   ),
-                ),
-                bubble,
-              ],
+                  bubble,
+                  if (!m.deletedForEveryone) reactions,
+                ],
+              ),
+            ),
+            if (mine && !m.isVoice) ...[
+              const SizedBox(width: 10),
+              ChatAvatar(participant: sender, size: 40),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _overlayVoiceSnapshot(ChatStrings s, ChatMessage m, bool mine) {
+    final secs = m.voiceDurationSeconds ?? 0;
+    final label =
+        '${(secs ~/ 60).toString()}:${(secs % 60).toString().padLeft(2, '0')}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: mine ? AppTheme.softGoldBg : AppTheme.cardWhite,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: mine ? Colors.transparent : AppTheme.borderColor,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.mic_rounded, color: AppTheme.secondaryText),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              '${s.voiceMessageLabel}  $label',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                color: AppTheme.primaryText,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          if (mine && !m.isVoice) ...[
-            const SizedBox(width: 10),
-            ChatAvatar(participant: sender, size: 40),
-          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _overlayFileSnapshot(ChatStrings s, ChatMessage m) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardWhite,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.attach_file_rounded, color: AppTheme.secondaryText),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              chatMessageSnippet(m, s),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                color: AppTheme.primaryText,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );

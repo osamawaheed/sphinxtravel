@@ -317,12 +317,18 @@ class SupabaseChatRepository {
       voiceUrl: voiceAudioPath == null ? null : 'sb:$voiceAudioPath',
       sentAt: DateTime.parse(row['created_at'] as String).toLocal(),
       // The row exists in the database => it was stored (one gray check).
-      // It is only `read` when the recipient's app wrote read_at.
+      // `delivered` only when the recipient's live session wrote delivered_at;
+      // `read` only when the recipient's app wrote read_at.
       status: row['read_at'] != null
           ? ChatDeliveryStatus.read
-          : ChatDeliveryStatus.sent,
+          : (row['delivered_at'] != null
+                ? ChatDeliveryStatus.delivered
+                : ChatDeliveryStatus.sent),
       readAt: row['read_at'] != null
           ? DateTime.tryParse('${row['read_at']}')?.toLocal()
+          : null,
+      deliveredAt: row['delivered_at'] != null
+          ? DateTime.tryParse('${row['delivered_at']}')?.toLocal()
           : null,
       voiceDurationSeconds: row['audio_duration_seconds'] as int?,
       filePath: isFile ? (row['file_path'] as String?) : null,
@@ -331,6 +337,7 @@ class SupabaseChatRepository {
       fileSizeBytes: isFile ? (row['file_size_bytes'] as num?)?.toInt() : null,
       isDemo: false,
       deletedForEveryone: row['deleted_for_everyone_at'] != null,
+      replyToId: row['reply_to_message_id'] as String?,
     );
   }
 
@@ -617,7 +624,10 @@ class SupabaseChatRepository {
         'lang=$viewerLanguage body=${data is Map ? {...data, 'url': data['url'] == null ? null : '<signed-url>'} : data}',
       );
       if (data is! Map) {
-        return const ChatTtsResult(status: ChatTtsStatus.failed);
+        return ChatTtsResult(
+          status: ChatTtsStatus.failed,
+          reason: 'http_${res.status}_unexpected_body',
+        );
       }
       final status = '${data['status'] ?? ''}';
       if (status == 'ready' && data['url'] is String) {
@@ -630,7 +640,10 @@ class SupabaseChatRepository {
         }
       }
       if (status == 'service_disabled') {
-        return const ChatTtsResult(status: ChatTtsStatus.disabled);
+        return ChatTtsResult(
+          status: ChatTtsStatus.disabled,
+          reason: 'service_disabled:${data['service'] ?? 'voice_tts'}',
+        );
       }
       if (status == 'pending') {
         return const ChatTtsResult(status: ChatTtsStatus.pending);
@@ -638,11 +651,17 @@ class SupabaseChatRepository {
       if (status == 'skipped' ||
           status == 'needs_transcript' ||
           status == 'needs_translation') {
-        return const ChatTtsResult(status: ChatTtsStatus.unavailable);
+        return ChatTtsResult(
+          status: ChatTtsStatus.unavailable,
+          reason: status == 'skipped'
+              ? 'skipped:${data['reason'] ?? ''}'
+              : status,
+        );
       }
       return ChatTtsResult(
         status: ChatTtsStatus.failed,
         retryable: data['retryable'] != false,
+        reason: '${data['error_code'] ?? data['error'] ?? 'failed'}',
       );
     } on FunctionException catch (e) {
       debugPrint(
@@ -650,10 +669,23 @@ class SupabaseChatRepository {
         'viewer=${viewerRole.name}/$senderId lang=$viewerLanguage '
         'details=${e.details}',
       );
-      return const ChatTtsResult(status: ChatTtsStatus.failed);
+      // Keep the real server reason (e.g. "ElevenLabs not configured",
+      // "Function not configured") so a missing provider is reported exactly.
+      final det = e.details;
+      final serverReason = det is Map
+          ? '${det['error_code'] ?? det['error'] ?? ''}'
+          : '$det';
+      return ChatTtsResult(
+        status: ChatTtsStatus.failed,
+        reason:
+            'http_${e.status}${serverReason.isEmpty ? '' : ':${_shortDetail(serverReason)}'}',
+      );
     } catch (e) {
       debugPrint('[chat] tts FAILED (client): $e');
-      return const ChatTtsResult(status: ChatTtsStatus.failed);
+      return ChatTtsResult(
+        status: ChatTtsStatus.failed,
+        reason: 'client:${_shortDetail(e)}',
+      );
     }
   }
 
@@ -742,6 +774,7 @@ class SupabaseChatRepository {
     required String localSource,
     required int durationSeconds,
     String language = 'en',
+    String? replyToId,
   }) async {
     final id = senderId;
     if (id == null) {
@@ -797,6 +830,7 @@ class SupabaseChatRepository {
             'audio_path': path,
             'audio_duration_seconds': durationSeconds,
             'original_language': language,
+            if (replyToId != null) 'reply_to_message_id': replyToId,
           })
           .select()
           .single();
@@ -1226,6 +1260,97 @@ class SupabaseChatRepository {
     }
   }
 
+  /// Fetches ONE message (scoped to [conversationId], so RLS and the
+  /// conversation boundary still apply) plus a small window of messages
+  /// around it, oldest first. Returns an empty list when the target does not
+  /// exist, is hidden for this viewer, or is not accessible.
+  Future<List<ChatMessage>> loadAroundMessage(
+    String conversationId,
+    String messageId, {
+    int before = 20,
+    int after = 20,
+  }) async {
+    try {
+      final target = await _client
+          .from('chat_messages')
+          .select()
+          .eq('conversation_id', conversationId)
+          .eq('id', messageId)
+          .maybeSingle();
+      if (target == null) return const [];
+      final hidden = await loadHiddenMessageIds(conversationId);
+      if (hidden.contains(messageId)) return const [];
+      final createdAt = '${target['created_at']}';
+      final olderRows = await _client
+          .from('chat_messages')
+          .select()
+          .eq('conversation_id', conversationId)
+          .lt('created_at', createdAt)
+          .order('created_at', ascending: false)
+          .limit(before);
+      final newerRows = await _client
+          .from('chat_messages')
+          .select()
+          .eq('conversation_id', conversationId)
+          .gt('created_at', createdAt)
+          .order('created_at', ascending: true)
+          .limit(after);
+      var list = <Map<String, dynamic>>[
+        ...List<Map<String, dynamic>>.from(olderRows).reversed,
+        Map<String, dynamic>.from(target),
+        ...List<Map<String, dynamic>>.from(newerRows),
+      ];
+      if (hidden.isNotEmpty) {
+        list = [
+          for (final r in list)
+            if (!hidden.contains(r['id'] as String)) r,
+        ];
+      }
+      final tr = await _loadTranslations([
+        for (final r in list) r['id'] as String,
+      ]);
+      final vt = await _loadTranscripts([
+        for (final r in list)
+          if (r['message_type'] == 'voice') r['id'] as String,
+      ]);
+      return [
+        for (final r in list)
+          _messageFrom(r, translationsByMessage: tr, voiceTranscripts: vt),
+      ];
+    } catch (e) {
+      throw _map(e);
+    }
+  }
+
+  /// Batch-resolves reply originals (for the quoted preview only) that are
+  /// not part of the loaded window. Scoped to the conversation, hidden
+  /// messages excluded; missing/inaccessible ids are simply absent.
+  Future<List<ChatMessage>> loadMessagesByIds(
+    String conversationId,
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return const [];
+    try {
+      final rows = await _client
+          .from('chat_messages')
+          .select()
+          .eq('conversation_id', conversationId)
+          .inFilter('id', ids);
+      var list = List<Map<String, dynamic>>.from(rows);
+      final hidden = await loadHiddenMessageIds(conversationId);
+      if (hidden.isNotEmpty) {
+        list = [
+          for (final r in list)
+            if (!hidden.contains(r['id'] as String)) r,
+        ];
+      }
+      return [for (final r in list) _messageFrom(r)];
+    } catch (e) {
+      debugPrint('[chat] reply originals unavailable: $e');
+      return const [];
+    }
+  }
+
   /// Subscribes to Realtime INSERTs for this conversation only.
   ///
   /// Text and voice rows use the SAME channel and path. The row is emitted to
@@ -1273,12 +1398,20 @@ class SupabaseChatRepository {
               _deletions.add(row['id'] as String);
             }
             final readAt = row['read_at'];
-            if (readAt == null || _receipts.isClosed) return;
+            final deliveredAt = row['delivered_at'];
+            if ((readAt == null && deliveredAt == null) || _receipts.isClosed) {
+              return;
+            }
             _receipts.add(
               ChatReadReceipt(
                 messageId: row['id'] as String,
-                readAt:
-                    DateTime.tryParse('$readAt')?.toLocal() ?? DateTime.now(),
+                readAt: readAt == null
+                    ? null
+                    : (DateTime.tryParse('$readAt')?.toLocal() ??
+                          DateTime.now()),
+                deliveredAt: deliveredAt == null
+                    ? null
+                    : DateTime.tryParse('$deliveredAt')?.toLocal(),
               ),
             );
           },
@@ -1511,13 +1644,53 @@ class SupabaseChatRepository {
     }
   }
 
-  /// Marks INCOMING (opposite-role) messages of this conversation as read.
+  /// Marks INCOMING (opposite-role) messages of this conversation as
+  /// DELIVERED. Only call this when this device is in the foreground with a
+  /// live Realtime subscription that actually received the rows. Returns the
+  /// rows newly marked. Fails quietly (returns 0) when the TEST migration
+  /// `tourops_test_delivery_receipts.sql` is not applied yet: delivery is then
+  /// simply not reported, never faked.
+  Future<int> markIncomingAsDelivered({required String conversationId}) async {
+    final id = senderId;
+    if (id == null) return 0;
+    final role = viewerRole == ChatRole.driver ? 'driver' : 'customer';
+    try {
+      final res = await _client.rpc(
+        'chat_mark_messages_delivered',
+        params: {
+          'p_conversation_id': conversationId,
+          'p_reader_role': role,
+          'p_reader_odoo_id': id,
+        },
+      );
+      final count = _rpcRowCount(res);
+      debugPrint(
+        '[chat] chat_mark_messages_delivered ok: conversation=$conversationId '
+        'role=$role odoo_id=$id rows_marked=$count',
+      );
+      deliveryBackendError = null;
+      return count;
+    } catch (e) {
+      final mapped = _map(e);
+      deliveryBackendError =
+          '${mapped.code != null ? '[${mapped.code}] ' : ''}${mapped.detail}';
+      debugPrint(
+        '[chat] chat_mark_messages_delivered FAILED: $deliveryBackendError',
+      );
+      return 0;
+    }
+  }
+
+  /// Last exact error of the delivery RPC (null = last call succeeded).
+  String? deliveryBackendError;
+
+  /// Marks INCOMING (opposite-role) messages of this conversation as READ.
   ///
   /// Goes through the SECURITY DEFINER RPC `chat_mark_messages_read`, which
-  /// only ever touches messages sent by the opposite role and never the
-  /// caller's own. The anon role gets NO direct UPDATE on chat_messages.
-  /// Returns the number of rows newly marked, or throws the exact backend
-  /// error (e.g. function missing until the SQL migration is applied).
+  /// only touches messages sent by the opposite role (never the caller's own)
+  /// and also sets delivered_at. Call only when the recipient actually views
+  /// the open conversation in the foreground. Returns rows newly marked, or
+  /// throws the exact backend error.
   Future<int> markIncomingAsRead({required String conversationId}) async {
     final id = senderId;
     if (id == null) {
@@ -1551,6 +1724,51 @@ class SupabaseChatRepository {
       );
       throw mapped;
     }
+  }
+
+  /// Persisted delivered/read timestamps for the given message ids (normal
+  /// RLS SELECT = source of truth). Missing `delivered_at` column => the
+  /// query falls back to read_at only.
+  Future<Map<String, ChatReadReceipt>> loadReceiptStatesFor(
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return const {};
+    try {
+      final rows = await _client
+          .from('chat_messages')
+          .select('id, read_at, delivered_at')
+          .inFilter('id', ids);
+      return _receiptsFromRows(rows);
+    } catch (_) {
+      try {
+        final rows = await _client
+            .from('chat_messages')
+            .select('id, read_at')
+            .inFilter('id', ids);
+        return _receiptsFromRows(rows);
+      } catch (e) {
+        throw _map(e);
+      }
+    }
+  }
+
+  Map<String, ChatReadReceipt> _receiptsFromRows(List<dynamic> rows) {
+    final out = <String, ChatReadReceipt>{};
+    for (final r in rows) {
+      final read = r['read_at'] == null
+          ? null
+          : DateTime.tryParse('${r['read_at']}')?.toLocal();
+      final delivered = r['delivered_at'] == null
+          ? null
+          : DateTime.tryParse('${r['delivered_at']}')?.toLocal();
+      if (read == null && delivered == null) continue;
+      out[r['id'] as String] = ChatReadReceipt(
+        messageId: r['id'] as String,
+        readAt: read,
+        deliveredAt: delivered,
+      );
+    }
+    return out;
   }
 
   /// Rows newly marked by the last successful RPC call (null = never called).
@@ -1602,6 +1820,7 @@ class SupabaseChatRepository {
     required String conversationId,
     required String text,
     required String language,
+    String? replyToId,
   }) async {
     final id = senderId;
     if (id == null) {
@@ -1624,6 +1843,7 @@ class SupabaseChatRepository {
             'message_type': 'text',
             'original_text': text,
             'original_language': language,
+            if (replyToId != null) 'reply_to_message_id': replyToId,
           })
           .select()
           .single();
@@ -1633,9 +1853,139 @@ class SupabaseChatRepository {
     }
   }
 
+  // -------------------------------------------------------------------
+  // Reactions (persisted in public.chat_message_reactions)
+  // -------------------------------------------------------------------
+
+  RealtimeChannel? _reactChannel;
+  final StreamController<ChatReaction> _reactionUpserts =
+      StreamController<ChatReaction>.broadcast();
+  final StreamController<ChatReaction> _reactionRemovals =
+      StreamController<ChatReaction>.broadcast();
+
+  /// Reactions added / changed by any participant (Realtime).
+  Stream<ChatReaction> get reactionUpserts => _reactionUpserts.stream;
+
+  /// Reactions removed by any participant (Realtime).
+  Stream<ChatReaction> get reactionRemovals => _reactionRemovals.stream;
+
+  ChatReaction? _reactionFrom(Map<String, dynamic> row) {
+    final mid = row['message_id'] as String?;
+    final role = row['reactor_role'] as String?;
+    final rid = row['reactor_odoo_id'];
+    final emoji = row['emoji'] as String?;
+    if (mid == null || role == null || rid == null) return null;
+    return ChatReaction(
+      messageId: mid,
+      reactorRole: role == 'driver' ? ChatRole.driver : ChatRole.customer,
+      reactorId: '$rid',
+      emoji: emoji ?? '',
+    );
+  }
+
+  /// Loads the persisted reactions of a conversation. Returns an empty list
+  /// when the reactions migration has not been applied yet.
+  Future<List<ChatReaction>> loadReactions(String conversationId) async {
+    try {
+      final rows = await _client
+          .from('chat_message_reactions')
+          .select()
+          .eq('conversation_id', conversationId);
+      return [
+        for (final r in List<Map<String, dynamic>>.from(rows))
+          if (_reactionFrom(r) != null) _reactionFrom(r)!,
+      ];
+    } catch (e) {
+      debugPrint('[chat] reactions load skipped: $e');
+      return const <ChatReaction>[];
+    }
+  }
+
+  /// Live reaction changes for this conversation.
+  void watchReactions(String conversationId) {
+    _reactChannel?.unsubscribe();
+    final filter = PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
+      column: 'conversation_id',
+      value: conversationId,
+    );
+    void upsert(PostgresChangePayload p) {
+      final r = _reactionFrom(Map<String, dynamic>.from(p.newRecord));
+      if (r != null && !_reactionUpserts.isClosed) _reactionUpserts.add(r);
+    }
+
+    _reactChannel = _client
+        .channel('chat_reactions:$conversationId:${identityHashCode(this)}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'chat_message_reactions',
+          filter: filter,
+          callback: upsert,
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'chat_message_reactions',
+          filter: filter,
+          callback: upsert,
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'chat_message_reactions',
+          filter: filter,
+          callback: (p) {
+            final r = _reactionFrom(Map<String, dynamic>.from(p.oldRecord));
+            if (r != null && !_reactionRemovals.isClosed) {
+              _reactionRemovals.add(r);
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  /// Sets, changes (same RPC) or removes ([emoji] empty) the viewer's
+  /// reaction on [messageId]. Throws [ChatBackendException] on failure; the
+  /// caller must roll back its optimistic UI state.
+  Future<void> setReaction(String messageId, String emoji) async {
+    final id = senderId;
+    if (id == null) {
+      throw const ChatBackendException(
+        ChatBackendIssue.missingSenderIdentity,
+        'No authenticated Odoo id; the reaction was not saved.',
+      );
+    }
+    try {
+      final ok = await _client.rpc(
+        'chat_set_message_reaction',
+        params: {
+          'p_message_id': messageId,
+          'p_actor_role': _roleName,
+          'p_actor_odoo_id': id,
+          'p_emoji': emoji,
+        },
+      );
+      if (ok != true) {
+        throw const ChatBackendException(
+          ChatBackendIssue.unknown,
+          'The reaction could not be saved.',
+        );
+      }
+    } on ChatBackendException {
+      rethrow;
+    } catch (e) {
+      throw _map(e);
+    }
+  }
+
   Future<void> dispose() async {
     await _channel?.unsubscribe();
     _channel = null;
+    await _reactChannel?.unsubscribe();
+    _reactChannel = null;
+    await _reactionUpserts.close();
+    await _reactionRemovals.close();
     await _trChannel?.unsubscribe();
     _trChannel = null;
     await _translations.close();
@@ -1670,11 +2020,16 @@ class ChatTranslationUpdate {
   });
 }
 
-/// A persisted read receipt delivered through Realtime.
+/// A persisted delivery / read receipt delivered through Realtime.
 class ChatReadReceipt {
   final String messageId;
-  final DateTime readAt;
-  const ChatReadReceipt({required this.messageId, required this.readAt});
+  final DateTime? readAt;
+  final DateTime? deliveredAt;
+  const ChatReadReceipt({
+    required this.messageId,
+    this.readAt,
+    this.deliveredAt,
+  });
 }
 
 /// A signed attachment URL with its local expiry time.
