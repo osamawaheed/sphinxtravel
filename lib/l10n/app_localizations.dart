@@ -55,6 +55,66 @@ class AppLocalizations {
     'ka': 'გასვლა',
   });
   String get signOut => logout;
+  String get enableBiometricLogin => _t({
+    'en': 'Enable Biometric Login',
+    'ar': 'تفعيل تسجيل الدخول بالبصمة',
+    'ru': 'Включить биометрический вход',
+    'ka': 'ბიომეტრიული შესვლის ჩართვა',
+  });
+  String get enableBiometricLoginMessage => _t({
+    'en':
+        'Sign in faster next time with a Passkey using your fingerprint, face or device screen lock. Your password stays as a fallback.',
+    'ar':
+        'سجّل الدخول بشكل أسرع في المرة القادمة باستخدام مفتاح المرور عبر البصمة أو الوجه أو قفل الشاشة. تبقى كلمة المرور خيارًا بديلًا.',
+    'ru':
+        'В следующий раз входите быстрее с помощью Passkey: отпечаток пальца, лицо или блокировка экрана. Пароль остаётся запасным вариантом.',
+    'ka':
+        'შემდეგ ჯერზე უფრო სწრაფად შედით Passkey-ით თითის ანაბეჭდით, სახით ან ეკრანის დაბლოკვით. პაროლი რჩება სარეზერვო ვარიანტად.',
+  });
+  String get notNow => _t({
+    'en': 'Not now',
+    'ar': 'ليس الآن',
+    'ru': 'Не сейчас',
+    'ka': 'ახლა არა',
+  });
+  String get signInWithPasskey => _t({
+    'en': 'Sign in with Passkey',
+    'ar': 'تسجيل الدخول بمفتاح المرور',
+    'ru': 'Войти с помощью Passkey',
+    'ka': 'შესვლა Passkey-ით',
+  });
+  String get passkeyLogin => _t({
+    'en': 'Passkey Login',
+    'ar': 'تسجيل الدخول بمفتاح المرور',
+    'ru': 'Вход по Passkey',
+    'ka': 'Passkey-ით შესვლა',
+  });
+  String get passkeyUnavailableYet => _t({
+    'en': 'Passkey login is not available yet. Please use your password.',
+    'ar': 'تسجيل الدخول بمفتاح المرور غير متاح بعد. يرجى استخدام كلمة المرور.',
+    'ru': 'Вход по Passkey пока недоступен. Используйте пароль.',
+    'ka': 'Passkey-ით შესვლა ჯერ მიუწვდომელია. გამოიყენეთ პაროლი.',
+  });
+  String get passkeyComingSoon =>
+      _t({'en': 'Coming soon', 'ar': 'قريبًا', 'ru': 'Скоро', 'ka': 'მალე'});
+  String get passkeyDisabledMessage => _t({
+    'en': 'Passkey login disabled on this device.',
+    'ar': 'تم تعطيل تسجيل الدخول بمفتاح المرور على هذا الجهاز.',
+    'ru': 'Вход по Passkey отключён на этом устройстве.',
+    'ka': 'Passkey-ით შესვლა გამორთულია ამ მოწყობილობაზე.',
+  });
+  String get passkeyFailed => _t({
+    'en': 'Passkey sign-in failed. Please use your password.',
+    'ar': 'فشل تسجيل الدخول بمفتاح المرور. يرجى استخدام كلمة المرور.',
+    'ru': 'Не удалось войти с Passkey. Используйте пароль.',
+    'ka': 'Passkey-ით შესვლა ვერ მოხერხდა. გამოიყენეთ პაროლი.',
+  });
+  String get passkeySubtitle => _t({
+    'en': 'Use fingerprint, face or screen lock to sign in',
+    'ar': 'استخدم البصمة أو الوجه أو قفل الشاشة لتسجيل الدخول',
+    'ru': 'Входите по отпечатку, лицу или блокировке экрана',
+    'ka': 'შედით თითის ანაბეჭდით, სახით ან ეკრანის დაბლოკვით',
+  });
   String get signOutMessage => _t({
     'en': 'Are you sure you want to sign out?',
     'ar': 'هل أنت متأكد أنك تريد تسجيل الخروج؟',
@@ -491,6 +551,18 @@ class AppLocalizations {
     'ar': 'تفاصيل الرحلة',
     'ru': 'Детали поездки',
     'ka': 'მოგზაურობის დეტალები',
+  });
+  String get driverTaskTitle => _t({
+    'en': 'Driver Task',
+    'ar': 'مهمة السائق',
+    'ru': 'Задача водителя',
+    'ka': 'მძღოლის დავალება',
+  });
+  String get statusReadyToGo => _t({
+    'en': 'Ready to Go',
+    'ar': 'جاهز للانطلاق',
+    'ru': 'Готов к выезду',
+    'ka': 'მზადაა გასასვლელად',
   });
   String get support => _t({
     'en': 'Support',

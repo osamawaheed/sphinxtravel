@@ -8,6 +8,7 @@ import '../../models/transportation_segment_model.dart';
 import '../../routes/app_routes.dart';
 import '../../services/api_client.dart';
 import '../../services/driver_api_service.dart';
+import '../../services/driver_auth_service.dart';
 import '../../services/localization_service.dart';
 import '../../theme/app_theme.dart';
 import '../customer/widgets/day_itinerary_card.dart';
@@ -78,6 +79,37 @@ class _DriverTripOverviewScreenState extends State<DriverTripOverviewScreen> {
 
   void _openSegment(int id) {
     context.push(AppRoutes.driverTripDetails, extra: {'segmentId': id});
+  }
+
+  /// Opens the shared Smart Chat. The driver's own name / id / photo come from
+  /// the same driver bootstrap the Driver home header uses; if it cannot be
+  /// loaded the chat still opens (initial fallback only for that avatar).
+  Future<void> _openChat(CustomerHomeTrip trip, HomeCustomer cust) async {
+    String? myName;
+    int? myId;
+    String? myPhoto;
+    try {
+      final b = await DriverAuthService(ApiClient()).loadBootstrap();
+      myName = b.driverName.trim().isEmpty ? null : b.driverName.trim();
+      myId = b.driver.id > 0 ? b.driver.id : null;
+      myPhoto = b.driverPhotoUrl;
+    } catch (_) {}
+    if (!mounted) return;
+    context.push(
+      AppRoutes.smartChat,
+      extra: {
+        'role': 'driver',
+        'bookingReference': trip.reference,
+        'tripTitle': trip.destination,
+        'currentUserName': myName,
+        'currentUserPhoto': myPhoto,
+        'currentUserOdooId': myId,
+        'counterpartName': cust.name,
+        'counterpartPhoto': cust.photoUrl.isNotEmpty ? cust.photoUrl : null,
+        'counterpartOdooId': cust.id > 0 ? cust.id : null,
+        'counterpartPhone': cust.phone,
+      },
+    );
   }
 
   @override
@@ -181,6 +213,37 @@ class _DriverTripOverviewScreenState extends State<DriverTripOverviewScreen> {
                   l10n: l10n,
                   bookingId: widget.tripId,
                   bookingReference: trip.reference,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openChat(trip, cust),
+                    icon: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: AppTheme.luxuryAccent,
+                      size: 20,
+                    ),
+                    label: Text(
+                      l10n.message,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.luxuryAccent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: AppTheme.luxuryAccent.withAlpha(120),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),

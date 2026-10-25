@@ -935,16 +935,28 @@ class HomeCustomer {
   final String phone;
   final String whatsapp;
 
+  /// Odoo customer id and profile photo, only when the API returns them.
+  final int id;
+  final String photoUrl;
+
   const HomeCustomer({
     required this.name,
     required this.phone,
     required this.whatsapp,
+    this.id = 0,
+    this.photoUrl = '',
   });
 
   factory HomeCustomer.fromJson(Map<String, dynamic> j) => HomeCustomer(
     name: _s(j['name']),
     phone: _s(j['phone']),
     whatsapp: _s(j['whatsapp']),
+    id: _i(j['id']),
+    photoUrl: _s(j['avatar_url']).isNotEmpty
+        ? _s(j['avatar_url'])
+        : (_s(j['photo_url']).isNotEmpty
+              ? _s(j['photo_url'])
+              : _s(j['image_url'])),
   );
 }
 
@@ -1077,6 +1089,11 @@ class DriverTripListItem {
   final String departureDate;
   final String customerName;
 
+  /// Customer Odoo id and profile photo from the same `customer` object
+  /// (same keys as [HomeCustomer]); 0 / '' when the API does not return them.
+  final int customerId;
+  final String customerPhotoUrl;
+
   const DriverTripListItem({
     required this.id,
     required this.reference,
@@ -1086,10 +1103,15 @@ class DriverTripListItem {
     required this.arrivalDate,
     required this.departureDate,
     required this.customerName,
+    this.customerId = 0,
+    this.customerPhotoUrl = '',
   });
 
   factory DriverTripListItem.fromJson(Map<String, dynamic> j) {
     final cust = _map(j['customer']);
+    final avatar = cust == null ? '' : _s(cust['avatar_url']);
+    final photo = cust == null ? '' : _s(cust['photo_url']);
+    final image = cust == null ? '' : _s(cust['image_url']);
     return DriverTripListItem(
       id: _i(j['id']),
       reference: _s(j['reference']),
@@ -1099,6 +1121,10 @@ class DriverTripListItem {
       arrivalDate: _s(j['arrival_date']),
       departureDate: _s(j['departure_date']),
       customerName: cust != null ? _s(cust['name']) : '',
+      customerId: cust != null ? _i(cust['id']) : 0,
+      customerPhotoUrl: avatar.isNotEmpty
+          ? avatar
+          : (photo.isNotEmpty ? photo : image),
     );
   }
 

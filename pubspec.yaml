@@ -13,6 +13,7 @@ dependencies:
     sdk: flutter
   
   # CRITICAL: Core UI and responsive design - DO NOT REMOVE OR MODIFY
+  supabase_flutter: ^2.9.1
   sizer: ^2.0.15              # Required for responsive design system
   flutter_svg: ^2.0.9        # Required for SVG icon support
   google_fonts: ^6.1.0       # Required for typography (replaces local fonts)
@@ -30,9 +31,14 @@ dependencies:
   flutter_image_compress: ^2.5.1
   url_launcher: ^6.3.0
   image_picker: 1.1.2
-  share_plus: ^13.3.1
+  share_plus: ^12.0.2 # Resolves win32 conflict with file_picker (SharePlus.instance.share/ShareParams API is unchanged)
   path_provider: ^2.1.5
   geolocator: ^14.0.2 # Real GPS position stream with Android foreground service / iOS background updates for driver location sharing
+  record: 6.1.2 # Real microphone recording to local file (Dart ^3.5 / Flutter >=3.24 compatible)
+  just_audio: ^0.10.6 # Voice message playback with position/duration streams
+  file_picker: ^11.0.3 # Real attachment picker (images, PDF, DOC/DOCX, XLS/XLSX, TXT) for Smart Chat, web + mobile
+  video_player: ^2.9.2 # Inline video playback (MP4/WEBM) in chat bubbles and fullscreen player, web + Android
+  pdfx: ^2.9.2 # Render first-page PDF preview and paged/zoomable PDF viewer, web + Android
 
 
   universal_html: ^2.3.0

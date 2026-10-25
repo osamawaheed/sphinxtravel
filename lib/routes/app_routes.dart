@@ -16,10 +16,12 @@ import '../presentation/driver/driver_trip_details_screen.dart';
 import '../presentation/driver/driver_full_trip_screen.dart';
 import '../presentation/driver/driver_trip_overview_screen.dart';
 import '../presentation/driver/driver_ratings_screen.dart';
+import '../presentation/chat/smart_chat_screen.dart';
 import '../models/trip_model.dart';
 import '../models/driver_bootstrap_model.dart';
 import '../models/driver_profile_model.dart';
 import '../models/transportation_segment_model.dart';
+import '../models/chat_models.dart';
 
 class AppRoutes {
   static const String initial = '/';
@@ -38,6 +40,7 @@ class AppRoutes {
   static const String driverFullTrip = '/driver/full-trip';
   static const String driverTripOverview = '/driver/trip-overview';
   static const String driverRatings = '/driver/ratings';
+  static const String smartChat = '/chat';
 
   // Driver onboarding routes
   static const String driverLocationPermission = '/driver/onboarding/location';
@@ -191,6 +194,29 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.driverRatings,
       builder: (context, state) => const DriverRatingsScreen(),
+    ),
+    // Smart Chat (Phase 1 — frontend only)
+    GoRoute(
+      path: AppRoutes.smartChat,
+      builder: (context, state) {
+        final extra = state.extra is Map
+            ? Map<String, dynamic>.from(state.extra as Map)
+            : <String, dynamic>{};
+        return SmartChatScreen(
+          role: extra['role'] == 'driver' ? ChatRole.driver : ChatRole.customer,
+          bookingReference: extra['bookingReference'] as String?,
+          tripTitle: extra['tripTitle'] as String?,
+          currentUserName: extra['currentUserName'] as String?,
+          currentUserPhoto: extra['currentUserPhoto'] as String?,
+          counterpartName: extra['counterpartName'] as String?,
+          counterpartPhoto: extra['counterpartPhoto'] as String?,
+          counterpartOdooId: extra['counterpartOdooId'] as int?,
+          counterpartPhone: extra['counterpartPhone'] as String?,
+          currentUserOdooId: extra['currentUserOdooId'] as int?,
+          odooBookingId: extra['odooBookingId'] as int?,
+          readOnly: extra['readOnly'] == true,
+        );
+      },
     ),
     GoRoute(
       path: AppRoutes.driverLocationPermission,

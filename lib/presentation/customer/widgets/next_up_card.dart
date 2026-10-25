@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../routes/app_routes.dart';
 import '../../../theme/app_theme.dart';
 import '../../../models/customer_bootstrap_model.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../widgets/auth_network_image.dart';
+import '../../../widgets/unread_badge.dart';
+import '../../../services/chat/chat_unread_service.dart';
 
 const String _whatsappSvg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
@@ -20,24 +24,59 @@ class NextUpCard extends StatefulWidget {
   final AppLocalizations l10n;
   final void Function(HomeDriver driver)? onRateDriver;
 
+  /// Odoo booking reference / trip title / customer identity used to open the
+  /// Smart Chat conversation for this booking.
+  final String? bookingReference;
+  final String? tripTitle;
+  final String? customerName;
+  final String? customerPhoto;
+
+  /// Authenticated Odoo customer id (from /api/v1/customer/bootstrap) and the
+  /// real Odoo trip/booking id, forwarded to Smart Chat. Never invented.
+  final int? customerId;
+  final int? tripId;
+
   const NextUpCard({
     super.key,
     required this.pickup,
     required this.l10n,
     this.onRateDriver,
+    this.bookingReference,
+    this.tripTitle,
+    this.customerName,
+    this.customerPhoto,
+    this.customerId,
+    this.tripId,
   });
 
   @override
   State<NextUpCard> createState() => _NextUpCardState();
 }
 
-class _NextUpCardState extends State<NextUpCard> {
+class _NextUpCardState extends State<NextUpCard> with WidgetsBindingObserver {
   static const String _mapsKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
   static const Duration _etaRefresh = Duration(seconds: 30);
 
   Timer? _timer;
   int? _etaMinutes;
   bool _fetching = false;
+
+  final ChatUnreadService _unread = ChatUnreadService.instance;
+
+  void _trackUnread() {
+    final ref = (widget.bookingReference ?? '').trim();
+    final hasDriver = widget.pickup.driver != null;
+    if (ref.isEmpty || !hasDriver) {
+      _unread.untrack('customer');
+      return;
+    }
+    _unread.track(role: 'customer', references: [ref]);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _unread.refresh('customer');
+  }
 
   AppLocalizations get l10n => widget.l10n;
   HomeNextPickup get pickup => widget.pickup;
@@ -73,17 +112,22 @@ class _NextUpCardState extends State<NextUpCard> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _syncEtaTimer();
+    _trackUnread();
   }
 
   @override
   void didUpdateWidget(covariant NextUpCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncEtaTimer();
+    _trackUnread();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _unread.untrack('customer');
     _timer?.cancel();
     super.dispose();
   }
@@ -211,6 +255,30 @@ class _NextUpCardState extends State<NextUpCard> {
     final p = _cleanPhone(phone);
     if (p == null) return;
     await _open(Uri.parse('sms:$p'));
+  }
+
+  Future<void> _openChat(HomeDriver driver) async {
+    final cid = widget.customerId;
+    final tid = widget.tripId;
+    await context.push(
+      AppRoutes.smartChat,
+      extra: {
+        'role': 'customer',
+        'bookingReference': widget.bookingReference,
+        'tripTitle': widget.tripTitle,
+        'currentUserName': widget.customerName,
+        'currentUserPhoto': widget.customerPhoto,
+        'currentUserOdooId': (cid != null && cid > 0) ? cid : null,
+        'odooBookingId': (tid != null && tid > 0) ? tid : null,
+        'counterpartName': driver.name,
+        'counterpartPhoto': driver.photoUrl,
+        'counterpartOdooId': driver.id > 0 ? driver.id : null,
+        'counterpartPhone': driver.phone,
+      },
+    );
+    // Back on Today: re-count from the database (read_at already confirmed
+    // by the chat screen).
+    _unread.refresh('customer');
   }
 
   Future<void> _whatsapp(String? phone) async {
@@ -344,7 +412,7 @@ class _NextUpCardState extends State<NextUpCard> {
                 ),
               ),
             ),
-          if (hasDriver && driver.phone.trim().isNotEmpty)
+          if (hasDriver)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
               child: Row(
@@ -358,10 +426,14 @@ class _NextUpCardState extends State<NextUpCard> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _ActionButton(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      label: l10n.message.toUpperCase(),
-                      onTap: () => _sms(driver.phone),
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _unread.countFor('customer'),
+                      builder: (context, unread, _) => _ActionButton(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        label: l10n.message.toUpperCase(),
+                        onTap: () => _openChat(driver),
+                        badgeCount: unread,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -508,7 +580,7 @@ class _NextUpCardState extends State<NextUpCard> {
               builder: (context, c) {
                 const gap = 8.0;
                 final unit = (c.maxWidth - gap) / 3;
-                final h = (unit * 2 / 1.5).clamp(110.0, 220.0);
+                final h = (unit * 2 / 1.5).clamp(110.0, 220.0) * 0.7;
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -921,12 +993,14 @@ class _ActionButton extends StatelessWidget {
   final VoidCallback onTap;
   final Color? accent = null;
   final String? svg;
+  final int badgeCount;
 
   const _ActionButton({
     required this.icon,
     required this.label,
     required this.onTap,
     this.svg,
+    this.badgeCount = 0,
   });
 
   @override
@@ -941,9 +1015,12 @@ class _ActionButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            svg != null
-                ? SvgPicture.string(svg!, width: 18, height: 18)
-                : Icon(icon, color: accent ?? Colors.white, size: 18),
+            UnreadBadge(
+              count: badgeCount,
+              child: svg != null
+                  ? SvgPicture.string(svg!, width: 18, height: 18)
+                  : Icon(icon, color: accent ?? Colors.white, size: 18),
+            ),
             const SizedBox(height: 4),
             Text(
               label,

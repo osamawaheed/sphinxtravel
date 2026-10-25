@@ -7,12 +7,21 @@ import 'package:sizer/sizer.dart';
 import './l10n/app_localizations.dart';
 import './routes/app_routes.dart';
 import './services/localization_service.dart';
+import './services/supabase_service.dart';
 import './services/theme_service.dart';
+import './services/chat/chat_presence_service.dart';
 import './theme/app_theme.dart';
 import './widgets/custom_error_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase
+  try {
+    await SupabaseService.initialize();
+  } catch (e) {
+    debugPrint('Failed to initialize Supabase: $e');
+  }
 
   bool hasShownError = false;
 
@@ -68,22 +77,47 @@ class SphinxTravelApp extends StatefulWidget {
   State<SphinxTravelApp> createState() => _SphinxTravelAppState();
 }
 
-class _SphinxTravelAppState extends State<SphinxTravelApp> {
+class _SphinxTravelAppState extends State<SphinxTravelApp>
+    with WidgetsBindingObserver {
   final LocalizationService _localizationService = LocalizationService.instance;
   final ThemeService _themeService = ThemeService.instance;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _localizationService.addListener(_onChanged);
     _themeService.addListener(_onChanged);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    ChatPresenceService.instance.onBackgrounded(force: true);
     _localizationService.removeListener(_onChanged);
     _themeService.removeListener(_onChanged);
     super.dispose();
+  }
+
+  /// App-level presence lifecycle: foreground => online, background /
+  /// detached => offline. Independent of which screen is open.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        ChatPresenceService.instance.onResumed();
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        // Mobile: background => offline. Web: an unfocused tab is ignored.
+        ChatPresenceService.instance.onBackgrounded();
+        break;
+      case AppLifecycleState.detached:
+        ChatPresenceService.instance.onBackgrounded(force: true);
+        break;
+      case AppLifecycleState.inactive:
+        break;
+    }
   }
 
   void _onChanged() => setState(() {});

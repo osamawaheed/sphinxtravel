@@ -116,8 +116,8 @@ class TripHeroCard extends StatelessWidget {
                                 child: Text(
                                   trip.reference,
                                   style: GoogleFonts.inter(
-                                    color: Colors.white70,
-                                    fontSize: 12,
+                                    color: Colors.white,
+                                    fontSize: 13.8,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
@@ -141,27 +141,43 @@ class TripHeroCard extends StatelessWidget {
                     maxLines: 2,
                   ),
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 14,
-                    runSpacing: 6,
+                  Row(
                     children: [
                       if (trip.arrivalDate.isNotEmpty)
-                        _Meta(
-                          icon: Icons.flight_land_rounded,
-                          text: trip.arrivalDate,
+                        Flexible(
+                          child: _Meta(
+                            icon: Icons.flight_land_rounded,
+                            text: trip.arrivalDate,
+                          ),
                         ),
+                      if (trip.arrivalDate.isNotEmpty &&
+                          trip.departureDate.isNotEmpty)
+                        const SizedBox(width: 14),
                       if (trip.departureDate.isNotEmpty)
-                        _Meta(
-                          icon: Icons.flight_takeoff_rounded,
-                          text: trip.departureDate,
+                        Flexible(
+                          child: _Meta(
+                            icon: Icons.flight_takeoff_rounded,
+                            text: trip.departureDate,
+                          ),
                         ),
-                      _Meta(
-                        icon: Icons.calendar_today_rounded,
-                        text: '${trip.totalDays} ${l10n.daysLabel}',
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: _Meta(
+                          icon: Icons.calendar_today_rounded,
+                          iconSize: 21.06,
+                          text: '${trip.totalDays} ${l10n.daysLabel}',
+                        ),
                       ),
-                      _Meta(
-                        icon: Icons.people_alt_outlined,
-                        text: '${trip.passengers} ${l10n.guestsLabel}',
+                      const SizedBox(width: 14),
+                      Flexible(
+                        child: _Meta(
+                          icon: Icons.people_alt_outlined,
+                          text: '${trip.passengers} ${l10n.guestsLabel}',
+                        ),
                       ),
                     ],
                   ),
@@ -177,7 +193,7 @@ class TripHeroCard extends StatelessWidget {
                   trip.reference,
                   style: GoogleFonts.inter(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 23,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
                   ),
@@ -255,8 +271,8 @@ class TripHeroCard extends StatelessWidget {
                     Text(
                       trip.reference,
                       style: GoogleFonts.inter(
-                        color: AppTheme.luxuryAccent,
-                        fontSize: 15,
+                        color: Colors.white,
+                        fontSize: 17.25,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
@@ -287,6 +303,7 @@ class TripHeroCard extends StatelessWidget {
                       Expanded(
                         child: _SummaryMetric(
                           icon: Icons.calendar_today_rounded,
+                          iconSize: 29.16,
                           value: daysText,
                           label: l10n.duration,
                         ),
@@ -320,17 +337,19 @@ class _SummaryMetric extends StatelessWidget {
   final IconData icon;
   final String value;
   final String label;
+  final double iconSize;
   const _SummaryMetric({
     required this.icon,
     required this.value,
     required this.label,
+    this.iconSize = 36,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: AppTheme.luxuryAccent, size: 18),
+        Icon(icon, color: AppTheme.luxuryAccent, size: iconSize),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -368,21 +387,26 @@ class _SummaryMetric extends StatelessWidget {
 class _Meta extends StatelessWidget {
   final IconData icon;
   final String text;
-  const _Meta({required this.icon, required this.text});
+  final double iconSize;
+  const _Meta({required this.icon, required this.text, this.iconSize = 26});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: Colors.white70, size: 13),
+        Icon(icon, color: Colors.white70, size: iconSize),
         const SizedBox(width: 4),
-        Text(
-          text,
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],

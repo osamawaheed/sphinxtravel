@@ -76,8 +76,8 @@ class DriverTripHeroCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
-                        color: AppTheme.luxuryAccent,
-                        fontSize: 15,
+                        color: Colors.white,
+                        fontSize: 17.25,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
@@ -122,19 +122,24 @@ class DriverTripHeroCard extends StatelessWidget {
                   if (trip.arrivalDate.isNotEmpty ||
                       trip.departureDate.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 14,
-                      runSpacing: 4,
+                    Row(
                       children: [
                         if (trip.arrivalDate.isNotEmpty)
-                          _DateChip(
-                            icon: Icons.flight_land_rounded,
-                            text: trip.arrivalDate,
+                          Flexible(
+                            child: _DateChip(
+                              icon: Icons.flight_land_rounded,
+                              text: trip.arrivalDate,
+                            ),
                           ),
+                        if (trip.arrivalDate.isNotEmpty &&
+                            trip.departureDate.isNotEmpty)
+                          const SizedBox(width: 14),
                         if (trip.departureDate.isNotEmpty)
-                          _DateChip(
-                            icon: Icons.flight_takeoff_rounded,
-                            text: trip.departureDate,
+                          Flexible(
+                            child: _DateChip(
+                              icon: Icons.flight_takeoff_rounded,
+                              text: trip.departureDate,
+                            ),
                           ),
                       ],
                     ),
@@ -150,6 +155,7 @@ class DriverTripHeroCard extends StatelessWidget {
                       Flexible(
                         child: _Metric(
                           icon: Icons.calendar_today_rounded,
+                          iconSize: 29.16,
                           value: daysText,
                           label: l10n.duration,
                         ),
@@ -183,14 +189,20 @@ class _Metric extends StatelessWidget {
   final IconData icon;
   final String value;
   final String label;
-  const _Metric({required this.icon, required this.value, required this.label});
+  final double iconSize;
+  const _Metric({
+    required this.icon,
+    required this.value,
+    required this.label,
+    this.iconSize = 36,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: AppTheme.luxuryAccent, size: 18),
+        Icon(icon, color: AppTheme.luxuryAccent, size: iconSize),
         const SizedBox(width: 8),
         Flexible(
           child: Column(
@@ -235,14 +247,18 @@ class _DateChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: AppTheme.luxuryAccent, size: 13),
+        Icon(icon, color: AppTheme.luxuryAccent, size: 26),
         const SizedBox(width: 5),
-        Text(
-          text,
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],

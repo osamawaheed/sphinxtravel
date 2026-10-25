@@ -1,36 +1,37 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../data/mock_api_data_source.dart';
-import '../../routes/app_routes.dart';
-import '../../services/session_manager.dart';
-import '../../services/api_client.dart';
-import '../../services/customer_auth_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/customer_bootstrap_model.dart';
+import '../../models/extra_service_model.dart';
 import '../../models/flight_model.dart';
 import '../../models/hotel_model.dart';
-import '../../models/extra_service_model.dart';
 import '../../models/transportation_segment_model.dart';
-import '../../theme/app_theme.dart';
-import '../../l10n/app_localizations.dart';
-import '../../services/localization_service.dart';
+import '../../routes/app_routes.dart';
+import '../../services/api_client.dart';
+import '../../services/chat/chat_presence_service.dart';
+import '../../services/customer_auth_service.dart';
 import '../../services/flight_visibility.dart';
+import '../../services/localization_service.dart';
 import '../../services/notification_service.dart';
-import './widgets/todays_plan_card.dart';
-import './widgets/customer_sim_card.dart';
-import './widgets/tomorrow_preview_card.dart';
-import './widgets/trip_hero_card.dart';
-import './widgets/next_up_card.dart';
-import './widgets/track_your_driver_card.dart';
-import './widgets/flight_card.dart';
-import './widgets/current_hotel_card.dart';
-import './widgets/rating_sheet.dart';
-import './widgets/driver_review_dialog.dart';
-import './widgets/customer_trip_details_widget.dart';
-import './widgets/language_picker_sheet.dart';
+import '../../services/session_manager.dart';
+import '../../theme/app_theme.dart';
 import '../driver/hotel_details_screen.dart';
+import './widgets/current_hotel_card.dart';
+import './widgets/customer_sim_card.dart';
+import './widgets/customer_trip_details_widget.dart';
+import './widgets/driver_review_dialog.dart';
+import './widgets/flight_card.dart';
+import './widgets/language_picker_sheet.dart';
+import './widgets/next_up_card.dart';
+import './widgets/rating_sheet.dart';
+import './widgets/todays_plan_card.dart';
+import './widgets/tomorrow_preview_card.dart';
+import './widgets/track_your_driver_card.dart';
+import './widgets/trip_hero_card.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -65,6 +66,30 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
 
   void _onLocaleChanged() {
     _loadData();
+  }
+
+  /// App-level presence for the signed-in customer. Unique key is
+  /// `customer:<customerId>`; the booking reference lets the driver of the
+  /// same booking resolve this customer's status.
+  void _startPresence(CustomerBootstrapModel data) {
+    if (MockApiDataSource.useMock) {
+      debugPrint('[presence] customer start skipped: USE_MOCK_API=true');
+      return;
+    }
+    if (data.customerId <= 0) {
+      debugPrint(
+        '[presence] customer start skipped: customerId=${data.customerId}',
+      );
+      return;
+    }
+    final trip = data.homeTrip;
+    final ref = (trip?.reference ?? '').trim();
+    ChatPresenceService.instance.start(
+      role: 'customer',
+      userId: data.customerId,
+      bookings: ref.isEmpty ? const [] : [ref],
+      bookingIds: (trip?.id ?? 0) > 0 ? [trip!.id] : const [],
+    );
   }
 
   String _currentLanguageLabel() {
@@ -130,6 +155,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
           _bootstrap = data;
           _isLoading = false;
         });
+        _startPresence(data);
       }
     } catch (e) {
       if (mounted) {
@@ -633,6 +659,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
                 pickup: trip.nextPickup!,
                 l10n: l10n,
                 onRateDriver: (d) => _rateDriver(d, l10n),
+                bookingReference: trip.reference,
+                tripTitle: trip.destination,
+                customerName: _bootstrap?.customerName,
+                customerPhoto: _bootstrap?.avatarUrl,
+                customerId: _bootstrap?.customerId,
+                tripId: trip.id,
               ),
               if (trip.nextPickup!.driver != null) ...[
                 const SizedBox(height: 14),

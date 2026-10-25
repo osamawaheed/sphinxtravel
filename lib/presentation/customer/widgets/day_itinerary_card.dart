@@ -119,6 +119,18 @@ class DayItineraryCard extends StatelessWidget {
   }
 }
 
+/// Public entry point to the exact hotel card used in My Trips → Trip Details,
+/// so other screens (e.g. Driver Home → Today's Plan) can reuse it as-is.
+class TripHotelCard extends StatelessWidget {
+  final HomeStayHotel hotel;
+  final AppLocalizations l10n;
+
+  const TripHotelCard({super.key, required this.hotel, required this.l10n});
+
+  @override
+  Widget build(BuildContext context) => _HotelCard(hotel: hotel, l10n: l10n);
+}
+
 class _HotelCard extends StatelessWidget {
   final HomeStayHotel hotel;
   final AppLocalizations l10n;

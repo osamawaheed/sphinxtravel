@@ -299,9 +299,27 @@ class _DriverFullTripScreenState extends State<DriverFullTripScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                Text(
-                  trip.reference,
-                  style: GoogleFonts.inter(color: subColor, fontSize: 12),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandNavy,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      trip.reference,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 13.8,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -368,9 +386,11 @@ class _DriverFullTripScreenState extends State<DriverFullTripScreen> {
                   children: [
                     Text(
                       trip.reference,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
-                        color: AppTheme.luxuryAccent,
-                        fontSize: 13,
+                        color: Colors.white,
+                        fontSize: 14.95,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

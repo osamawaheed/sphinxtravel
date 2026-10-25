@@ -18,7 +18,7 @@ class TripProgressTimeline extends StatelessWidget {
   static String _shortStatusLabel(TripStatus s, AppLocalizations l10n) {
     switch (s) {
       case TripStatus.assigned:
-        return l10n.statusAssigned;
+        return l10n.statusReadyToGo;
       case TripStatus.onTheWay:
         return l10n.statusOnTheWay;
       case TripStatus.arrived:
@@ -172,7 +172,7 @@ class TripProgressTimeline extends StatelessWidget {
                                         : (isDark
                                               ? AppTheme.darkSecondaryText
                                               : AppTheme.secondaryText),
-                                    fontSize: 8.5,
+                                    fontSize: 9.35,
                                     fontWeight: isCurrent
                                         ? FontWeight.w700
                                         : FontWeight.w500,

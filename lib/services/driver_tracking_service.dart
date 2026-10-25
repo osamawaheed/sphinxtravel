@@ -307,10 +307,16 @@ class DriverLocationSharingService extends ChangeNotifier {
 
   /// Opens the OS settings so the driver can grant permission.
   Future<void> openSettings({bool location = false}) async {
-    if (location) {
-      await Geolocator.openLocationSettings();
-    } else {
-      await Geolocator.openAppSettings();
+    // Browsers have no OS settings screen to open.
+    if (kIsWeb) return;
+    try {
+      if (location) {
+        await Geolocator.openLocationSettings();
+      } else {
+        await Geolocator.openAppSettings();
+      }
+    } catch (e) {
+      debugPrint('[TRACKING] openSettings failed: $e');
     }
   }
 

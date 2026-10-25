@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../data/mock_api_data_source.dart';
 import '../routes/app_routes.dart';
 import './api_client.dart';
+import './chat/chat_presence_service.dart';
 import './driver_review_notifications.dart';
 import './driver_tracking_service.dart';
 import './notification_service.dart';
@@ -90,6 +91,8 @@ class SessionManager {
       role == 'driver' ? AppRoutes.driverLogin : AppRoutes.customerLogin;
 
   static Future<void> _clearLocalSession() async {
+    // Go offline immediately: the session no longer exists.
+    ChatPresenceService.instance.stop();
     try {
       await TokenManager.clearTokens();
     } catch (_) {}

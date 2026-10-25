@@ -265,14 +265,27 @@ class _RatingCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  item.tripReference,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    color: AppTheme.luxuryAccent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandNavy,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      item.tripReference,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 13.8,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ),

@@ -8,6 +8,7 @@ import '../../models/driver_profile_model.dart';
 import '../../routes/app_routes.dart';
 import '../../services/api_client.dart';
 import '../../services/driver_auth_service.dart';
+import '../../services/driver_passkey_service.dart';
 import '../../services/token_manager.dart';
 import '../../theme/app_theme.dart';
 
@@ -28,10 +29,12 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _error;
+  bool _showPasskeyButton = false;
 
   @override
   void initState() {
     super.initState();
+    _loadPasskeyAvailability();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -46,6 +49,77 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPasskeyAvailability() async {
+    final can = await DriverPasskeyService.instance.canSignInWithPasskey();
+    if (mounted && can != _showPasskeyButton) {
+      setState(() => _showPasskeyButton = can);
+    }
+  }
+
+  /// Passkey sign-in. Succeeds ONLY when the trusted backend verified the
+  /// assertion and returned tokens; otherwise the password form stays usable.
+  Future<void> _signInWithPasskey() async {
+    final l10n = AppLocalizations.of(context);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final result = await DriverPasskeyService.instance.signIn();
+      if (result == null) {
+        if (mounted) setState(() => _error = l10n.passkeyFailed);
+        return;
+      }
+      await TokenManager.saveTokens(
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        role: 'driver',
+      );
+      if (mounted) context.go(AppRoutes.driverLocationPermission);
+    } catch (_) {
+      if (mounted) setState(() => _error = l10n.passkeyFailed);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Offers "Enable Biometric Login" once after a successful password login.
+  /// Declining or dismissing never affects the login flow.
+  Future<void> _offerPasskeyEnrollment() async {
+    final service = DriverPasskeyService.instance;
+    if (!await service.shouldOfferEnrollment() || !mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final accept = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.enableBiometricLogin),
+        content: Text(
+          service.isBackendAvailable
+              ? l10n.enableBiometricLoginMessage
+              : '${l10n.enableBiometricLoginMessage}\n\n${l10n.passkeyUnavailableYet}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.notNow),
+          ),
+          TextButton(
+            // Registration stays disabled until backend verification exists.
+            onPressed: service.isBackendAvailable
+                ? () => Navigator.of(ctx).pop(true)
+                : null,
+            child: Text(l10n.enableBiometricLogin),
+          ),
+        ],
+      ),
+    );
+    if (accept == true) {
+      await service.enable();
+    } else if (service.isBackendAvailable) {
+      await service.dismissOffer();
+    }
   }
 
   Future<void> _login() async {
@@ -82,6 +156,8 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
       if (mounted) {
         // profile_completed == false → Complete Profile → Enable Location → home
         // profile_completed == true  → Enable Location → home
+        await _offerPasskeyEnrollment();
+        if (!mounted) return;
         if (!user.profileCompleted) {
           debugPrint(
             '[DRIVER ROUTE] DriverLoginScreen: profile_completed=false → driverProfileCompletion',
@@ -352,6 +428,31 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                           ),
                   ),
                 ),
+                if (_showPasskeyButton) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _signInWithPasskey,
+                      icon: const Icon(Icons.fingerprint_rounded, size: 20),
+                      label: Text(
+                        l10n.signInWithPasskey,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.brandNavy,
+                        side: BorderSide(color: AppTheme.borderColor),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 40),
               ],
             ),

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../theme/app_theme.dart';
-import '../../../models/customer_bootstrap_model.dart';
+
 import '../../../l10n/app_localizations.dart';
+import '../../../models/customer_bootstrap_model.dart';
+import '../../../theme/app_theme.dart';
 import '../../../widgets/auth_network_image.dart';
+import './day_itinerary_card.dart';
+import 'day_itinerary_card.dart' show TripHotelCard;
 
 class TodayTimelineWidget extends StatelessWidget {
   final List<HomePlanItem> items;
@@ -14,6 +17,7 @@ class TodayTimelineWidget extends StatelessWidget {
   final bool Function(HomePlanItem item)? isItemTappable;
   final bool driverMode;
   final List<int> mySegmentIds;
+  final List<HomeStayHotel> hotels;
 
   const TodayTimelineWidget({
     super.key,
@@ -25,6 +29,7 @@ class TodayTimelineWidget extends StatelessWidget {
     this.isItemTappable,
     this.driverMode = false,
     this.mySegmentIds = const [],
+    this.hotels = const [],
   });
 
   @override
@@ -74,6 +79,7 @@ class TodayTimelineWidget extends StatelessWidget {
             onRateDriver: onRateDriver,
             driverMode: driverMode,
             isMine: mySegmentIds.contains(e.value.id),
+            hotels: hotels,
             onTap:
                 (onItemTap != null && (isItemTappable?.call(e.value) ?? true))
                 ? () => onItemTap!(e.value)
@@ -126,6 +132,7 @@ class _TimelineRow extends StatelessWidget {
   final VoidCallback? onTap;
   final bool driverMode;
   final bool isMine;
+  final List<HomeStayHotel> hotels;
 
   const _TimelineRow({
     required this.item,
@@ -135,13 +142,27 @@ class _TimelineRow extends StatelessWidget {
     this.onTap,
     this.driverMode = false,
     this.isMine = false,
+    this.hotels = const [],
   });
+
+  HomeStayHotel _resolveHotel() {
+    for (final h in hotels) {
+      if (h.id != 0 && h.id == item.id) return h;
+    }
+    final title = item.title.trim().toLowerCase();
+    for (final h in hotels) {
+      final n = h.name.trim().toLowerCase();
+      if (n.isNotEmpty && (title == n || title.contains(n))) return h;
+    }
+    return HomeStayHotel(id: item.id, name: item.title, city: item.subtitle);
+  }
 
   @override
   Widget build(BuildContext context) {
     final timeText = item.endTime.isNotEmpty
         ? '${item.time} – ${item.endTime}'
         : item.time;
+    final isHotelCard = driverMode && item.type == 'hotel';
 
     final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -183,49 +204,54 @@ class _TimelineRow extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(height: 3),
-                Text(
-                  item.title,
-                  style: GoogleFonts.inter(
-                    color: AppTheme.primaryText,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (item.subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 3),
+                if (isHotelCard) ...[
+                  const SizedBox(height: 4),
+                  TripHotelCard(hotel: _resolveHotel(), l10n: l10n),
+                ] else ...[
                   Text(
-                    item.subtitle,
-                    softWrap: true,
+                    item.title,
                     style: GoogleFonts.inter(
-                      color: AppTheme.secondaryText,
-                      fontSize: 13,
+                      color: AppTheme.primaryText,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
-                if (item.imageUrl.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 150,
-                      child: AuthNetworkImage(
-                        photoUrl: item.imageUrl,
+                  if (item.subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      item.subtitle,
+                      softWrap: true,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.secondaryText,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                  if (item.imageUrl.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: SizedBox(
                         width: double.infinity,
                         height: 150,
-                        fit: BoxFit.cover,
-                        fallback: Container(
-                          height: 150,
+                        child: AuthNetworkImage(
+                          photoUrl: item.imageUrl,
                           width: double.infinity,
-                          color: AppTheme.softGoldBg,
-                          child: Icon(
-                            Icons.image_outlined,
-                            color: AppTheme.secondaryText,
+                          height: 150,
+                          fit: BoxFit.cover,
+                          fallback: Container(
+                            height: 150,
+                            width: double.infinity,
+                            color: AppTheme.softGoldBg,
+                            child: Icon(
+                              Icons.image_outlined,
+                              color: AppTheme.secondaryText,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
                 if (driverMode) ...[
                   if (item.type == 'transport' && isMine) ...[

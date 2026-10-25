@@ -30,6 +30,8 @@
 	<string>TourOps needs your location in the background to continue tracking active trips and provide live navigation.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>TourOps needs your location to support live trip operations and driver tracking.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>TourOps needs the microphone to record voice messages in the trip chat.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

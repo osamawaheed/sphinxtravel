@@ -15,6 +15,7 @@ import '../../services/api_client.dart';
 import '../../services/session_manager.dart';
 import '../../services/driver_auth_service.dart';
 import '../../services/driver_api_service.dart';
+import '../../services/driver_passkey_service.dart';
 import '../../services/localization_service.dart';
 import '../../services/flight_visibility.dart';
 import '../../services/notification_service.dart';
@@ -22,13 +23,21 @@ import '../../services/theme_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_network_image.dart';
 import '../customer/widgets/flight_card.dart';
+import '../customer/widgets/day_itinerary_card.dart' show TripHotelCard;
 import '../customer/widgets/language_picker_sheet.dart';
 import '../customer/widgets/today_timeline_widget.dart';
+import '../chat/chat_inbox_strings.dart';
+import '../chat/driver_chats_view.dart';
+import '../../services/chat/chat_inbox_service.dart';
+import '../../services/chat/chat_unread_service.dart';
+import '../../services/chat/chat_presence_service.dart';
+import '../../widgets/unread_badge.dart';
 import './widgets/driver_tomorrow_card.dart';
 import './widgets/driver_customer_card.dart';
 import './widgets/driver_corner_ribbon.dart';
 import './widgets/driver_trip_hero_card.dart';
 import './widgets/driver_location_sharing_card.dart';
+import './wallet/driver_wallet_view.dart';
 
 class DriverHomeScreen extends StatefulWidget {
   const DriverHomeScreen({super.key});
@@ -40,6 +49,10 @@ class DriverHomeScreen extends StatefulWidget {
 class _DriverHomeScreenState extends State<DriverHomeScreen>
     with WidgetsBindingObserver, FlightVisibilityRefresher {
   int _selectedTab = 0;
+
+  /// Support now lives inside Profile. When true, the (unchanged) Support
+  /// page is shown in place of the Profile tab content.
+  bool _showSupport = false;
   DriverBootstrapModel? _bootstrap;
   bool _isLoading = true;
   String? _errorMessage;
@@ -76,9 +89,61 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
 
   @override
   void dispose() {
+    ChatUnreadService.instance.untrack('driver');
     disposeFlightVisibility();
     LocalizationService.instance.removeListener(_onLocaleChanged);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      ChatUnreadService.instance.refresh('driver');
+    }
+  }
+
+  /// Tracks only currently assigned (non-completed) bookings, so read-only
+  /// history from earlier assignments / finished trips is never counted.
+  void _trackDriverUnread(List<DriverTripListItem> trips) {
+    ChatUnreadService.instance.track(
+      role: 'driver',
+      references: [
+        for (final t in trips)
+          if (!ChatInboxService.isTripCompleted(t)) t.reference,
+      ],
+    );
+    _syncPresence(trips);
+  }
+
+  /// App-level presence for the signed-in driver. Unique key is
+  /// `driver:<driverId>`; carries the currently assigned booking references
+  /// so each customer resolves only THEIR assigned driver's status.
+  void _syncPresence(List<DriverTripListItem> trips) {
+    if (MockApiDataSource.useMock) {
+      debugPrint('[presence] driver start skipped: USE_MOCK_API=true');
+      return;
+    }
+    final id = _bootstrap?.driver.id ?? 0;
+    if (id <= 0) {
+      debugPrint(
+        '[presence] driver start deferred: driverId=$id (bootstrap not loaded)',
+      );
+      return;
+    }
+    final active = [
+      for (final t in trips)
+        if (!ChatInboxService.isTripCompleted(t)) t,
+    ];
+    ChatPresenceService.instance.start(
+      role: 'driver',
+      userId: id,
+      bookings: [for (final t in active) t.reference],
+      bookingIds: [
+        for (final t in active)
+          if (t.id > 0) t.id,
+      ],
+    );
   }
 
   void _onLocaleChanged() {
@@ -158,6 +223,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           _bootstrap = data;
           _isLoading = false;
         });
+        // Trips may have finished loading before the bootstrap (driver id was
+        // unknown then): start presence now that the id is available. Also
+        // covers a driver with no trips yet (still Online, no bookings).
+        _syncPresence(_myTrips);
         if (_myTrips.isNotEmpty) _loadOtherTripDetails(_myTrips);
       }
     } catch (e) {
@@ -185,6 +254,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           _tripsLoading = false;
           _tripsError = null;
         });
+        _trackDriverUnread(trips);
         _loadOtherTripDetails(trips);
       }
     } catch (e) {
@@ -597,9 +667,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       case 2:
         return _buildWalletTab(l10n, isDark);
       case 3:
-        return _buildSupportTab(l10n, isDark);
+        return DriverChatsView(
+          trips: _myTrips,
+          tripsLoading: _tripsLoading,
+          tripsError: _tripsError,
+          onReloadTrips: _loadTrips,
+          driverName: _bootstrap?.driverName.trim() ?? '',
+          driverOdooId: _bootstrap?.driver.id ?? 0,
+          driverPhotoUrl: _bootstrap?.driverPhotoUrl,
+          isDark: isDark,
+        );
       case 4:
-        return _buildProfileTab(l10n, isDark);
+        return _showSupport
+            ? _buildSupportPage(l10n, isDark)
+            : _buildProfileTab(l10n, isDark);
       default:
         return _buildTodayTab(l10n, isDark);
     }
@@ -681,6 +762,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               l10n: l10n,
               driverMode: true,
               mySegmentIds: home.mySegmentIds,
+              hotels: home.hotels,
               isItemTappable: (item) => home.mySegmentIds.contains(item.id),
               onItemTap: (item) {
                 context.push(
@@ -809,20 +891,21 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   ) {
     final hotel = trip.hotelForDate(now);
     if (hotel == null) return const SizedBox.shrink();
-    final nightNum = hotel.nightNumberForDate(now);
-    final isCheckIn = hotel.isCheckInDate(now);
-    final isCheckOut = hotel.isCheckOutDate(now);
     return Column(
       children: [
         GestureDetector(
           onTap: () => _showHotelBottomSheet(hotel),
-          child: _HotelCard(
-            hotel: hotel,
-            nightNumber: nightNum,
-            isCheckIn: isCheckIn,
-            isCheckOut: isCheckOut,
+          child: TripHotelCard(
+            hotel: HomeStayHotel(
+              id: hotel.id,
+              name: hotel.name,
+              city: hotel.location,
+              checkIn: hotel.checkIn,
+              checkOut: hotel.checkOut,
+              phone: hotel.phone ?? '',
+              googleMapUrl: hotel.googleMapUrl ?? '',
+            ),
             l10n: l10n,
-            isDark: isDark,
           ),
         ),
         const SizedBox(height: 16),
@@ -1235,9 +1318,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     );
   }
 
-  // ─── Wallet Tab (UI only) ──────────────────────────────────────────────────
+  // ─── Wallet Tab ────────────────────────────────────────────────────────────
 
   Widget _buildWalletTab(AppLocalizations l10n, bool isDark) {
+    return DriverWalletView(isDark: isDark);
+  }
+
+  // ignore: unused_element
+  Widget _buildLegacyWalletTab(AppLocalizations l10n, bool isDark) {
     final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
     final subColor = isDark
         ? AppTheme.darkSecondaryText
@@ -1334,18 +1422,206 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
 
   // ─── Support Tab ───────────────────────────────────────────────────────────
 
-  Widget _buildSupportTab(AppLocalizations l10n, bool isDark) {
+  /// Existing Support content (unchanged) shown from Driver Profile with a
+  /// back control that returns to the Profile tab.
+  Widget _buildSupportPage(AppLocalizations l10n, bool isDark) {
+    final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _showSupport = false);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 20, 0),
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showSupport = false),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 16,
+                color: textColor,
+              ),
+              label: Text(
+                l10n.profile,
+                style: GoogleFonts.inter(
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          Expanded(child: _buildSupportTab(l10n, isDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPasskeySettingTile(AppLocalizations l10n, bool isDark) {
     final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
     final subColor = isDark
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
+    final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
+    final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+    final service = DriverPasskeyService.instance;
+    return ValueListenableBuilder<bool>(
+      valueListenable: service.enabledNotifier,
+      builder: (context, enabled, _) {
+        final available = service.isBackendAvailable;
+        // Switch is interactive only to turn OFF an enabled Passkey, or to
+        // turn ON when the backend can verify registration.
+        final canToggle = enabled || available;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppTheme.darkBackground
+                      : AppTheme.mainBackground,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.fingerprint_rounded,
+                  color: isDark ? AppTheme.luxuryAccent : AppTheme.brandNavy,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.passkeyLogin,
+                      style: GoogleFonts.inter(
+                        color: textColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      available || enabled
+                          ? l10n.passkeySubtitle
+                          : l10n.passkeyComingSoon,
+                      style: GoogleFonts.inter(color: subColor, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: enabled,
+                onChanged: canToggle
+                    ? (value) async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        if (value) {
+                          final ok = await service.enable();
+                          if (!ok) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.passkeyUnavailableYet),
+                              ),
+                            );
+                          }
+                        } else {
+                          await service.disable();
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(l10n.passkeyDisabledMessage),
+                            ),
+                          );
+                        }
+                      }
+                    : null,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileSupportItem(AppLocalizations l10n, bool isDark) {
+    final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
+    final subColor = isDark
+        ? AppTheme.darkSecondaryText
+        : AppTheme.secondaryText;
+    final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
+    final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+    return GestureDetector(
+      onTap: () => setState(() => _showSupport = true),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppTheme.darkBackground
+                    : AppTheme.mainBackground,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.headset_mic_outlined,
+                color: isDark ? AppTheme.luxuryAccent : AppTheme.brandNavy,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                l10n.support,
+                style: GoogleFonts.inter(
+                  color: textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: subColor, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Support Tab (content reused by the Profile → Support page) ───────────
+
+  static const String _supportPhone = '+995555551560';
+  static const String _supportEmail = 'info@sphinx-travel.com';
+
+  Future<void> _launchSupportUri(Uri uri) async {
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  Widget _buildSupportTab(AppLocalizations l10n, bool isDark) {
+    final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            l10n.support,
+            l10n.supportTitle,
             style: GoogleFonts.inter(
               color: textColor,
               fontSize: 22,
@@ -1353,14 +1629,44 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
             ),
           ),
           const SizedBox(height: 16),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 48),
-              child: Text(
-                l10n.supportComingSoon,
-                style: GoogleFonts.inter(color: subColor, fontSize: 15),
-              ),
+          _DriverSupportItem(
+            icon: Icons.phone_outlined,
+            title: l10n.callUs,
+            subtitle: _supportPhone,
+            isDark: isDark,
+            onTap: () =>
+                _launchSupportUri(Uri(scheme: 'tel', path: _supportPhone)),
+          ),
+          const SizedBox(height: 12),
+          _DriverSupportItem(
+            icon: Icons.chat_bubble_outline_rounded,
+            title: l10n.whatsapp,
+            subtitle: l10n.chatWithTeam,
+            isDark: isDark,
+            onTap: () => _launchSupportUri(
+              Uri.parse('https://wa.me/${_supportPhone.replaceAll('+', '')}'),
             ),
+          ),
+          const SizedBox(height: 12),
+          _DriverSupportItem(
+            icon: Icons.email_outlined,
+            title: l10n.email,
+            subtitle: _supportEmail,
+            isDark: isDark,
+            onTap: () =>
+                _launchSupportUri(Uri(scheme: 'mailto', path: _supportEmail)),
+          ),
+          const SizedBox(height: 12),
+          _DriverSupportItem(
+            icon: Icons.help_outline_rounded,
+            title: l10n.faq,
+            subtitle: l10n.faqSubtitle,
+            isDark: isDark,
+            onTap: () {
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(SnackBar(content: Text(l10n.supportComingSoon)));
+            },
           ),
         ],
       ),
@@ -1786,6 +2092,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           ),
           const SizedBox(height: 16),
           _DriverThemeSelector(),
+          const SizedBox(height: 16),
+          _buildPasskeySettingTile(l10n, isDark),
+          const SizedBox(height: 16),
+          _buildProfileSupportItem(l10n, isDark),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
@@ -1852,9 +2162,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         'label': l10n.wallet,
       },
       {
-        'icon': Icons.headset_mic_outlined,
-        'activeIcon': Icons.headset_mic_rounded,
-        'label': l10n.support,
+        'icon': Icons.chat_bubble_outline_rounded,
+        'activeIcon': Icons.chat_bubble_rounded,
+        'label': ChatInboxStrings(l10n.locale).navChat,
       },
       {
         'icon': Icons.person_outline_rounded,
@@ -1886,23 +2196,48 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               final isSelected = _selectedTab == i;
               return Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _selectedTab = i),
+                  onTap: () => setState(() {
+                    _selectedTab = i;
+                    if (i != 4) _showSupport = false;
+                    // Back on Today (or leaving Chat): re-count unread.
+                    if (i == 0 || i == 3) {
+                      ChatUnreadService.instance.refresh('driver');
+                    }
+                  }),
                   behavior: HitTestBehavior.opaque,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(height: 4),
-                      Icon(
-                        isSelected
-                            ? tab['activeIcon'] as IconData
-                            : tab['icon'] as IconData,
-                        size: 24,
-                        color: isSelected
-                            ? AppTheme.luxuryAccent
-                            : (isDark
-                                  ? AppTheme.darkSecondaryText
-                                  : AppTheme.secondaryText),
-                      ),
+                      i == 3
+                          ? ValueListenableBuilder<int>(
+                              valueListenable: ChatUnreadService.instance
+                                  .countFor('driver'),
+                              builder: (context, unread, child) =>
+                                  UnreadBadge(count: unread, child: child!),
+                              child: Icon(
+                                isSelected
+                                    ? tab['activeIcon'] as IconData
+                                    : tab['icon'] as IconData,
+                                size: 24,
+                                color: isSelected
+                                    ? AppTheme.luxuryAccent
+                                    : (isDark
+                                          ? AppTheme.darkSecondaryText
+                                          : AppTheme.secondaryText),
+                              ),
+                            )
+                          : Icon(
+                              isSelected
+                                  ? tab['activeIcon'] as IconData
+                                  : tab['icon'] as IconData,
+                              size: 24,
+                              color: isSelected
+                                  ? AppTheme.luxuryAccent
+                                  : (isDark
+                                        ? AppTheme.darkSecondaryText
+                                        : AppTheme.secondaryText),
+                            ),
                       const SizedBox(height: 3),
                       Text(
                         tab['label'] as String,
@@ -1935,6 +2270,81 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               );
             }).toList(),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Driver Support Item (matches Customer Support row) ───────────────────────
+
+class _DriverSupportItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isDark;
+  final VoidCallback onTap;
+  const _DriverSupportItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
+    final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+    final iconBg = isDark ? AppTheme.darkBackground : AppTheme.mainBackground;
+    final iconColor = isDark ? AppTheme.darkPrimaryText : AppTheme.navyText;
+    final titleColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
+    final subColor = isDark
+        ? AppTheme.darkSecondaryText
+        : AppTheme.secondaryText;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      color: titleColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(color: subColor, fontSize: 13),
+                    ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: subColor, size: 20),
+          ],
         ),
       ),
     );
@@ -2040,15 +2450,28 @@ class _DriverTripRow extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (trip.reference.isNotEmpty)
-                          Text(
-                            trip.reference,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                              color: AppTheme.luxuryAccent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.brandNavy,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                trip.reference,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontSize: 13.8,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
                             ),
                           ),
                         if (place.isNotEmpty) ...[
@@ -2329,9 +2752,11 @@ class _TripSummaryCard extends StatelessWidget {
                   // Reference badge — no border, just gold text (slightly larger)
                   Text(
                     trip.reference,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                      color: AppTheme.luxuryAccent,
-                      fontSize: 15,
+                      color: Colors.white,
+                      fontSize: 17.25,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
                     ),
