@@ -4,19 +4,22 @@ import '../../../theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../services/api_client.dart';
 import '../../../widgets/first_letter_capitalize_formatter.dart';
+import '../../../models/customer_bootstrap_model.dart';
 
 /// Modal dialog (shown over the current screen, dimmed background) used to
-/// rate a driver: 1-5 stars, optional comment, Submit and Cancel.
+/// rate a driver: 1-10 selector, optional comment, Submit and Cancel.
 /// [onSubmit] performs the Odoo call and must throw on failure; the dialog
 /// only closes with `true` after it completes successfully.
 class DriverReviewDialog extends StatefulWidget {
   final String driverName;
+  final HomeMyRating? initial;
   final AppLocalizations l10n;
   final Future<void> Function(int rating, String comment) onSubmit;
 
   const DriverReviewDialog({
     super.key,
     required this.driverName,
+    this.initial,
     required this.l10n,
     required this.onSubmit,
   });
@@ -24,6 +27,7 @@ class DriverReviewDialog extends StatefulWidget {
   static Future<bool?> show(
     BuildContext context, {
     required String driverName,
+    HomeMyRating? initial,
     required AppLocalizations l10n,
     required Future<void> Function(int rating, String comment) onSubmit,
   }) {
@@ -33,6 +37,7 @@ class DriverReviewDialog extends StatefulWidget {
       barrierColor: Colors.black.withAlpha(160),
       builder: (_) => DriverReviewDialog(
         driverName: driverName,
+        initial: initial,
         l10n: l10n,
         onSubmit: onSubmit,
       ),
@@ -44,10 +49,17 @@ class DriverReviewDialog extends StatefulWidget {
 }
 
 class _DriverReviewDialogState extends State<DriverReviewDialog> {
-  final TextEditingController _commentCtrl = TextEditingController();
-  int _rating = 0;
+  late final TextEditingController _commentCtrl;
+  late int _rating;
   bool _submitting = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _rating = (widget.initial?.rating10 ?? 0).clamp(0, 10);
+    _commentCtrl = TextEditingController(text: widget.initial?.comment ?? '');
+  }
 
   @override
   void dispose() {
@@ -56,8 +68,8 @@ class _DriverReviewDialogState extends State<DriverReviewDialog> {
   }
 
   Future<void> _submit() async {
-    if (_rating < 1 || _rating > 5) {
-      setState(() => _error = widget.l10n.ratingRequired);
+    if (_rating < 1 || _rating > 10) {
+      setState(() => _error = widget.l10n.driverRatingRequired);
       return;
     }
     setState(() {
@@ -116,32 +128,59 @@ class _DriverReviewDialogState extends State<DriverReviewDialog> {
                 ),
               ],
               const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) {
-                  final filled = i < _rating;
-                  return GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _submitting
-                        ? null
-                        : () => setState(() {
-                            _rating = i + 1;
-                            _error = null;
-                          }),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(
-                        filled
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
-                        size: 40,
-                        color: filled
-                            ? AppTheme.luxuryAccent
-                            : Colors.white.withAlpha(120),
+              Column(
+                children: [
+                  for (final start in const [1, 6])
+                    Padding(
+                      padding: EdgeInsets.only(top: start == 6 ? 10 : 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (int n = start; n < start + 5; n++)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: _submitting
+                                    ? null
+                                    : () => setState(() {
+                                        _rating = n;
+                                        _error = null;
+                                      }),
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _rating == n
+                                        ? AppTheme.luxuryAccent
+                                        : Colors.white.withAlpha(20),
+                                    border: Border.all(
+                                      color: _rating == n
+                                          ? AppTheme.luxuryAccent
+                                          : Colors.white.withAlpha(70),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '$n',
+                                    style: GoogleFonts.inter(
+                                      color: _rating == n
+                                          ? AppTheme.brandNavy
+                                          : Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                  );
-                }),
+                ],
               ),
               const SizedBox(height: 18),
               TextField(

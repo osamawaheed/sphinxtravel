@@ -17,6 +17,72 @@
 //     revoked before they expire.
 // =====================================================================
 
+// ---- Inlined booking-scoped Odoo JWT guard (no external module import) ----
+type GuardResult = { ok: true } | { ok: false; status: number; error: string };
+
+function jwtAuthEnabled(): boolean {
+  return (Deno.env.get("ODOO_CHAT_AUTH_ENABLED") ?? "").toLowerCase() === "true";
+}
+
+function callerJwt(req: Request): string {
+  const h = req.headers.get("authorization") ?? "";
+  return h.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : "";
+}
+
+async function callPredicate(
+  fn: "chat_sec_can_view" | "chat_sec_can_send",
+  conversationId: string,
+  jwt: string,
+): Promise<boolean | "unauthorized" | "error"> {
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  if (!url || !anon) return "error";
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: {
+        apikey: anon,
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_conversation_id: conversationId }),
+    });
+    if (res.status === 401 || res.status === 403) return "unauthorized";
+    if (!res.ok) return "error";
+    return (await res.json()) === true;
+  } catch (_) {
+    return "error";
+  }
+}
+
+async function guardConversation(
+  req: Request,
+  conversationId: string,
+  needSend: boolean,
+): Promise<GuardResult> {
+  const jwt = callerJwt(req);
+  if (!jwt) return { ok: false, status: 401, error: "Unauthorized" };
+
+  const view = await callPredicate("chat_sec_can_view", conversationId, jwt);
+  if (view === "unauthorized") {
+    return { ok: false, status: 401, error: "Unauthorized" };
+  }
+  if (view === "error") {
+    return { ok: false, status: 503, error: "Authorization unavailable" };
+  }
+  if (view !== true) return { ok: false, status: 403, error: "Forbidden" };
+
+  if (needSend) {
+    const send = await callPredicate("chat_sec_can_send", conversationId, jwt);
+    if (send === "error") {
+      return { ok: false, status: 503, error: "Authorization unavailable" };
+    }
+    if (send !== true) return { ok: false, status: 403, error: "Forbidden" };
+  }
+  return { ok: true };
+}
+// ---- end inlined guard ----
+
 type Row = Record<string, unknown>;
 
 const BUCKET = "chat-files";
@@ -114,13 +180,83 @@ const restHeaders = {
 
 const rest = (path: string) => `${SUPABASE_URL}/rest/v1/${path}`;
 
+// LEGACY (anon key + client-supplied viewer id) participant check, moved
+// verbatim from the previous handler. Used only while ODOO_CHAT_AUTH_ENABLED
+// is not "true". Returns a Response to deny, or null to allow.
+async function legacyAuthorizeFile(
+  msg: Row,
+  viewerRole: unknown,
+  viewerId: number,
+): Promise<Response | null> {
+  const convRes = await fetch(
+    rest(
+      `chat_conversations?id=eq.${msg.conversation_id}` +
+        `&select=id,booking_reference&limit=1`,
+    ),
+    { headers: restHeaders },
+  );
+  if (!convRes.ok) return json({ error: "Lookup failed" }, 502);
+  const convs = await convRes.json();
+  if (!Array.isArray(convs) || convs.length === 0) {
+    return json({ error: "Forbidden" }, 403);
+  }
+  const isTestConv =
+    String((convs[0] as Row).booking_reference ?? "").trim().toUpperCase() ===
+      TEST_BOOKING_REFERENCE;
+  if (viewerId < 0 && !isTestConv) return json({ error: "Forbidden" }, 403);
+
+  const senderRole = String(msg.sender_role ?? "");
+  const senderId = Number(msg.odoo_sender_id);
+  if (viewerRole === senderRole) {
+    if (viewerId !== senderId) return json({ error: "Forbidden" }, 403);
+  } else if (isTestConv && viewerId < 0) {
+    const expected = viewerRole === "customer" ? -1 : -2;
+    if (viewerId !== expected) return json({ error: "Forbidden" }, 403);
+  } else {
+    let known = false;
+    if (viewerRole === "driver") {
+      const chgRes = await fetch(
+        rest(
+          `chat_driver_changes?conversation_id=eq.${msg.conversation_id}` +
+            `&or=(new_driver_odoo_id.eq.${viewerId},` +
+            `previous_driver_odoo_id.eq.${viewerId})&select=id&limit=1`,
+        ),
+        { headers: restHeaders },
+      );
+      if (chgRes.ok) {
+        const chg = await chgRes.json();
+        known = Array.isArray(chg) && chg.length > 0;
+      }
+    }
+    if (!known) {
+      const partRes = await fetch(
+        rest(
+          `chat_messages?conversation_id=eq.${msg.conversation_id}` +
+            `&sender_role=eq.${viewerRole}&odoo_sender_id=eq.${viewerId}` +
+            `&select=id&limit=1`,
+        ),
+        { headers: restHeaders },
+      );
+      if (partRes.ok) {
+        const part = await partRes.json();
+        known = Array.isArray(part) && part.length > 0;
+      }
+    }
+    if (!known) return json({ error: "Forbidden" }, 403);
+  }
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!SUPABASE_URL || !SERVICE_KEY || PROJECT_KEYS.length === 0) {
     return json({ error: "Function not configured" }, 503);
   }
-  if (!hasProjectKey(req)) return json({ error: "Unauthorized" }, 401);
+  const jwtMode = jwtAuthEnabled();
+  // Legacy path: anon/publishable key. JWT path: the booking JWT is verified
+  // by the database below (a project key alone is NOT enough).
+  if (!jwtMode && !hasProjectKey(req)) return json({ error: "Unauthorized" }, 401);
 
   let body: Row;
   try {
@@ -134,8 +270,9 @@ Deno.serve(async (req: Request) => {
   const viewerId = Number(body?.viewer_id);
   if (
     typeof messageId !== "string" || !UUID_RE.test(messageId) ||
-    (viewerRole !== "customer" && viewerRole !== "driver") ||
-    !Number.isInteger(viewerId) || viewerId === 0
+    (!jwtMode &&
+      ((viewerRole !== "customer" && viewerRole !== "driver") ||
+        !Number.isInteger(viewerId) || viewerId === 0))
   ) {
     return json({ error: "Invalid request" }, 400);
   }
@@ -159,63 +296,14 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Forbidden" }, 403);
     }
 
-    const convRes = await fetch(
-      rest(
-        `chat_conversations?id=eq.${msg.conversation_id}` +
-          `&select=id,booking_reference&limit=1`,
-      ),
-      { headers: restHeaders },
-    );
-    if (!convRes.ok) return json({ error: "Lookup failed" }, 502);
-    const convs = await convRes.json();
-    if (!Array.isArray(convs) || convs.length === 0) {
-      return json({ error: "Forbidden" }, 403);
-    }
-    const isTestConv =
-      String((convs[0] as Row).booking_reference ?? "").trim().toUpperCase() ===
-        TEST_BOOKING_REFERENCE;
-    if (viewerId < 0 && !isTestConv) return json({ error: "Forbidden" }, 403);
-
-    const senderRole = String(msg.sender_role ?? "");
-    const senderId = Number(msg.odoo_sender_id);
-    if (viewerRole === senderRole) {
-      if (viewerId !== senderId) return json({ error: "Forbidden" }, 403);
-    } else if (isTestConv && viewerId < 0) {
-      const expected = viewerRole === "customer" ? -1 : -2;
-      if (viewerId !== expected) return json({ error: "Forbidden" }, 403);
+    if (jwtMode) {
+      // Viewing an attachment needs view access only (no send): a former
+      // driver's read access is a deferred decision handled by the database.
+      const g = await guardConversation(req, String(msg.conversation_id), false);
+      if (!g.ok) return json({ error: g.error }, g.status);
     } else {
-      // Recipient with a real Odoo id must already be a participant of this
-      // conversation (has posted as this role, or is a recorded driver).
-      let known = false;
-      if (viewerRole === "driver") {
-        const chgRes = await fetch(
-          rest(
-            `chat_driver_changes?conversation_id=eq.${msg.conversation_id}` +
-              `&or=(new_driver_odoo_id.eq.${viewerId},` +
-              `previous_driver_odoo_id.eq.${viewerId})&select=id&limit=1`,
-          ),
-          { headers: restHeaders },
-        );
-        if (chgRes.ok) {
-          const chg = await chgRes.json();
-          known = Array.isArray(chg) && chg.length > 0;
-        }
-      }
-      if (!known) {
-        const partRes = await fetch(
-          rest(
-            `chat_messages?conversation_id=eq.${msg.conversation_id}` +
-              `&sender_role=eq.${viewerRole}&odoo_sender_id=eq.${viewerId}` +
-              `&select=id&limit=1`,
-          ),
-          { headers: restHeaders },
-        );
-        if (partRes.ok) {
-          const part = await partRes.json();
-          known = Array.isArray(part) && part.length > 0;
-        }
-      }
-      if (!known) return json({ error: "Forbidden" }, 403);
+      const legacy = await legacyAuthorizeFile(msg, viewerRole, viewerId);
+      if (legacy) return legacy;
     }
 
     const objectPath = String(msg.file_path)

@@ -43,5 +43,7 @@ class ExtraServiceModel {
     'notes': notes,
   };
 
-  bool get isSimCard => serviceType == 'sim_card';
+  bool get isFlowers => serviceType == 'flowers';
+
+  bool get isSimCard => serviceType == 'sim_card' || isFlowers;
 }

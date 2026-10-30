@@ -258,7 +258,7 @@ class _DriverLocationSharingCardState extends State<DriverLocationSharingCard> {
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 52,
             child: sharing
                 ? OutlinedButton.icon(
                     onPressed: _stop,
@@ -287,16 +287,29 @@ class _DriverLocationSharingCardState extends State<DriverLocationSharingCard> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.play_circle_outline, size: 20),
-                    label: Text(
-                      l10n.startLocationSharing,
-                      style: GoogleFonts.inter(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
+                    label: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l10n.startLocationSharing,
+                        maxLines: 1,
+                        softWrap: false,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.luxuryAccent,
                       foregroundColor: AppTheme.brandNavy,
+                      alignment: Alignment.center,
+                      minimumSize: const Size.fromHeight(52),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       disabledBackgroundColor: AppTheme.luxuryAccent.withAlpha(
                         70,
                       ),

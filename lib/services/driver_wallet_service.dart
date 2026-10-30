@@ -81,12 +81,15 @@ class DriverWalletService {
     required String currency,
     required PayoutBankDetails details,
     required String idempotencyKey,
+    String? bookingId,
   }) => _guard(() async {
     final res = await _apiClient.post(
       '$_base/payouts',
       data: {
         'amount': amount,
         'currency': currency,
+        if (bookingId != null && bookingId.isNotEmpty)
+          'booking_id': int.tryParse(bookingId) ?? bookingId,
         ...details.toJson(),
         'idempotency_key': idempotencyKey,
       },

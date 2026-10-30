@@ -106,12 +106,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   /// Tracks only currently assigned (non-completed) bookings, so read-only
   /// history from earlier assignments / finished trips is never counted.
   void _trackDriverUnread(List<DriverTripListItem> trips) {
+    final active = [
+      for (final t in trips)
+        if (!ChatInboxService.isTripCompleted(t)) t,
+    ];
     ChatUnreadService.instance.track(
       role: 'driver',
-      references: [
-        for (final t in trips)
-          if (!ChatInboxService.isTripCompleted(t)) t.reference,
-      ],
+      references: [for (final t in active) t.reference],
+      bookingIds: {
+        for (final t in active)
+          if (t.id > 0) t.reference.trim(): t.id,
+      },
     );
     _syncPresence(trips);
   }
@@ -328,7 +333,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.sim_card_outlined, color: AppTheme.luxuryAccent),
+            Icon(
+              service.isFlowers
+                  ? Icons.local_florist_outlined
+                  : Icons.sim_card_outlined,
+              color: AppTheme.luxuryAccent,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -345,7 +355,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           ],
         ),
         content: Text(
-          l10n.esimDeliveryQuestion,
+          service.isFlowers
+              ? l10n.flowersDeliveryQuestion
+              : l10n.esimDeliveryQuestion,
           style: GoogleFonts.inter(
             color: isDark ? AppTheme.darkSecondaryText : AppTheme.secondaryText,
             fontSize: 14,
@@ -413,7 +425,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l10n.esimDeliveredSuccess,
+            service.isFlowers
+                ? l10n.flowersDeliveredSuccess
+                : l10n.esimDeliveredSuccess,
             style: GoogleFonts.inter(color: Colors.white),
           ),
           backgroundColor: AppTheme.successGreen,
@@ -1889,21 +1903,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          ...List.generate(5, (i) {
-                            final r = driver.driver.rating;
-                            return Icon(
-                              r >= i + 1
-                                  ? Icons.star_rounded
-                                  : (r >= i + 0.5
-                                        ? Icons.star_half_rounded
-                                        : Icons.star_outline_rounded),
-                              color: AppTheme.luxuryAccent,
-                              size: 18,
-                            );
-                          }),
+                          const Icon(
+                            Icons.star_rounded,
+                            color: AppTheme.luxuryAccent,
+                            size: 18,
+                          ),
                           const SizedBox(width: 6),
                           Text(
-                            driver.driver.rating.toStringAsFixed(1),
+                            driver.driver.rating10.toStringAsFixed(1),
                             style: GoogleFonts.inter(
                               color: textColor,
                               fontSize: 15,
@@ -2093,6 +2100,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           const SizedBox(height: 16),
           _DriverThemeSelector(),
           const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+            child: Text(
+              l10n.securitySectionTitle,
+              style: GoogleFonts.inter(
+                color: subColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
           _buildPasskeySettingTile(l10n, isDark),
           const SizedBox(height: 16),
           _buildProfileSupportItem(l10n, isDark),
@@ -2588,7 +2607,9 @@ class _HomeServiceRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    service.isSimCard
+                    service.isFlowers
+                        ? Icons.local_florist_outlined
+                        : service.isSimCard
                         ? Icons.sim_card_outlined
                         : Icons.star_outline_rounded,
                     color: AppTheme.luxuryAccent,
@@ -2891,10 +2912,26 @@ class _CustomerProfileCard extends StatelessWidget {
     }
   }
 
-  Future<void> _openPhone(String phone) async {
-    final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<void> _openPhone(BuildContext context, String? phone) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final cleaned = (phone ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleaned.isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.customerPhoneUnavailable)),
+      );
+      return;
+    }
+    var launched = false;
+    try {
+      launched = await launchUrl(
+        Uri(scheme: 'tel', path: cleaned),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      launched = false;
+    }
+    if (!launched) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.callFailed)));
     }
   }
 
@@ -2966,9 +3003,8 @@ class _CustomerProfileCard extends StatelessWidget {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: customerPhone != null
-                      ? () => _openPhone(customerPhone)
-                      : null,
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _openPhone(context, customerPhone),
                   child: Container(
                     height: 48,
                     decoration: BoxDecoration(

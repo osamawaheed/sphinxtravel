@@ -18,6 +18,7 @@ class DriverProfile {
   final String email;
   final bool profileCompleted;
   final double rating;
+  final double rating10;
   final int ratingCount;
   final int tripCount;
   final String vehicleModel;
@@ -42,6 +43,7 @@ class DriverProfile {
     this.email = '',
     this.profileCompleted = false,
     this.rating = 0.0,
+    this.rating10 = 0.0,
     this.ratingCount = 0,
     this.tripCount = 0,
     this.vehicleModel = '',
@@ -86,6 +88,7 @@ class DriverProfile {
       email: _str(json['email']),
       profileCompleted: _bool(json['profile_completed']),
       rating: _double(json['rating']),
+      rating10: _double(json['rating_10']),
       ratingCount: _int(json['rating_count']),
       tripCount: _int(json['trip_count']),
       vehicleModel: _str(json['vehicle_model']),
@@ -107,6 +110,7 @@ class DriverProfile {
       'email': email,
       'profile_completed': profileCompleted,
       'rating': rating,
+      'rating_10': rating10,
       'rating_count': ratingCount,
       'trip_count': tripCount,
       'vehicle_model': vehicleModel,
@@ -136,6 +140,7 @@ class DriverProfile {
       email: email,
       profileCompleted: profileCompleted ?? this.profileCompleted,
       rating: rating,
+      rating10: rating10,
       ratingCount: ratingCount,
       tripCount: tripCount,
       vehicleModel: vehicleModel ?? this.vehicleModel,

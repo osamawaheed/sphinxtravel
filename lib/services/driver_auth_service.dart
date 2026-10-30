@@ -2,6 +2,7 @@ import '../models/driver_bootstrap_model.dart';
 import '../models/driver_profile_model.dart';
 import './api_client.dart';
 import './token_manager.dart';
+import './chat/odoo/odoo_chat_secure_session.dart';
 
 class DriverAuthService {
   final ApiClient _apiClient;
@@ -46,6 +47,7 @@ class DriverAuthService {
     try {
       await _apiClient.post('/api/v1/auth/logout');
     } catch (_) {}
+    await ChatSecureSession.clearAll();
     await TokenManager.clearTokens();
   }
 }

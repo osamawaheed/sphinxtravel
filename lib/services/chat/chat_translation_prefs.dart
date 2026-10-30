@@ -9,13 +9,23 @@ class ChatTranslationLanguages {
   static const List<String> supported = ['ar', 'en', 'ru', 'ka', 'az'];
 
   /// Languages a user of [role] may choose as the translation / "Listen
-  /// Translated" target. Customers: Arabic + English. Drivers: English,
-  /// Russian + Georgian.
-  static List<String> forRole(ChatRole role) =>
-      role == ChatRole.customer ? const ['ar', 'en'] : const ['en', 'ru', 'ka'];
+  /// Translated" target. Customers: Arabic and English only. Drivers:
+  /// English, Russian, Georgian + Azerbaijani.
+  static List<String> forRole(ChatRole role) => role == ChatRole.customer
+      ? const ['ar', 'en']
+      : const ['en', 'ru', 'ka', 'az'];
 
   static bool isAllowedFor(ChatRole role, String? code) =>
       code != null && forRole(role).contains(code);
+
+  /// Flag emoji shown in the selector.
+  static const Map<String, String> flags = {
+    'ar': '🇸🇦',
+    'en': '🇬🇧',
+    'ru': '🇷🇺',
+    'ka': '🇬🇪',
+    'az': '🇦🇿',
+  };
 
   /// Native display names shown in the selector.
   static const Map<String, String> nativeNames = {

@@ -215,50 +215,52 @@ class _ChatVoiceBubbleState extends State<ChatVoiceBubble> {
             ),
           );
 
-          final waveform = Expanded(
-            child: SizedBox(
-              height: 28,
-              width: double.infinity,
-              child: CustomPaint(
-                painter: _VoiceWavePainter(
-                  bars: _organicBars(),
-                  progress: progress.clamp(0.0, 1.0),
-                  showHead: true,
-                  playedColor: Colors.black,
-                  idleColor: const Color(0xFFB8B8B8),
-                  headColor: const Color(0xFF53A6FA),
-                ),
+          final waveform = SizedBox(
+            height: 28,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _VoiceWavePainter(
+                bars: _organicBars(),
+                progress: progress.clamp(0.0, 1.0),
+                showHead: true,
+                playedColor: Colors.black,
+                idleColor: const Color(0xFFB8B8B8),
+                headColor: const Color(0xFF53A6FA),
               ),
             ),
           );
 
+          // Duration (start edge) and timestamp + ticks (end edge) share one
+          // row under the waveform. Everything is direction-aware, so the
+          // whole player mirrors together in RTL and nothing can overlap.
           final durationTimeRow = Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Padding(
-                  // avatar 46 + gap 8 + play 34 + gap 4 = 92
-                  padding: const EdgeInsets.only(left: 92),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      color: AppTheme.secondaryText,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      height: 1.1,
+                child: Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.secondaryText,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        height: 1.1,
+                      ),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 6),
-              // Invisible placeholder keeps the duration/ticks layout identical;
-              // the visible timestamp is drawn separately, 5% lower.
-              Opacity(
-                opacity: 0,
+              Directionality(
+                textDirection: TextDirection.ltr,
                 child: Text(
                   widget.timeLabel,
+                  maxLines: 1,
                   style: GoogleFonts.inter(
                     color: AppTheme.secondaryText,
                     fontSize: 11,
@@ -273,79 +275,41 @@ class _ChatVoiceBubbleState extends State<ChatVoiceBubble> {
             ],
           );
 
-          // Timestamp only, aligned exactly where it sits inside
-          // [durationTimeRow] (right edge minus ticks width when mine).
-          final timestampOnly = Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                widget.timeLabel,
-                style: GoogleFonts.inter(
-                  color: AppTheme.secondaryText,
-                  fontSize: 11,
-                  height: 1.1,
-                ),
-              ),
-              if (isMine) ...[
-                const SizedBox(width: 4),
-                Opacity(
-                  opacity: 0,
-                  child: ChatStatusTicks(status: message.status),
-                ),
-              ],
-            ],
-          );
-
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                height: 76,
-                child: Stack(
-                  clipBehavior: Clip.none,
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Avatar: centered on the Y axis of the fixed player area
-                    // (identical with or without "Listen Translated").
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(child: _avatarWithMic()),
-                    ),
-                    // Play icon + waveform row, vertically centered.
-                    Positioned(
-                      left: 54,
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                    // Avatar always sits at the start edge of the bubble.
+                    _avatarWithMic(),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          playIcon,
-                          const SizedBox(width: 4),
-                          waveform,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              playIcon,
+                              const SizedBox(width: 4),
+                              Expanded(child: waveform),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          // Aligned under the waveform (play 34 + gap 4).
+                          Padding(
+                            padding: const EdgeInsetsDirectional.only(
+                              start: 38,
+                            ),
+                            child: durationTimeRow,
+                          ),
                         ],
                       ),
-                    ),
-                    // Duration / ticks row: same top as the timestamp so both
-                    // share one horizontal baseline.
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 55.0,
-                      height: 14,
-                      child: durationTimeRow,
-                    ),
-                    // Timestamp only: stays at 55.0 from the top.
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 55.0,
-                      height: 14,
-                      child: timestampOnly,
                     ),
                   ],
                 ),
@@ -386,8 +350,8 @@ class _ChatVoiceBubbleState extends State<ChatVoiceBubble> {
         clipBehavior: Clip.none,
         children: [
           ChatAvatar(participant: widget.sender, size: 46),
-          Positioned(
-            right: -5,
+          PositionedDirectional(
+            end: -5,
             bottom: -2,
             child: Container(
               width: 16,

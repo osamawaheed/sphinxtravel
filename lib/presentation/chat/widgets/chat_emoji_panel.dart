@@ -472,20 +472,13 @@ class _ChatEmojiPanelState extends State<ChatEmojiPanel> {
                     itemCount: items.length,
                     itemBuilder: (context, i) {
                       final e = items[i];
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => widget.onSelected(e),
+                      return Listener(
+                        behavior: HitTestBehavior.opaque,
+                        onPointerDown: (_) => widget.onSelected(e),
                         child: Center(
                           child: Text(
                             e,
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontFamilyFallback: [
-                                'Noto Color Emoji',
-                                'Apple Color Emoji',
-                                'Segoe UI Emoji',
-                              ],
-                            ),
+                            style: GoogleFonts.notoColorEmoji(fontSize: 26),
                           ),
                         ),
                       );

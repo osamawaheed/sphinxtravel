@@ -83,6 +83,24 @@ class AppLocalizations {
     'ru': 'Войти с помощью Passkey',
     'ka': 'შესვლა Passkey-ით',
   });
+  String get securitySectionTitle => _t({
+    'en': 'Security',
+    'ar': 'الأمان',
+    'ru': 'Безопасность',
+    'ka': 'უსაფრთხოება',
+  });
+  String get customerPhoneUnavailable => _t({
+    'en': 'Customer phone number is not available.',
+    'ar': 'رقم هاتف العميل غير متوفر.',
+    'ru': 'Номер телефона клиента недоступен.',
+    'ka': 'მომხმარებლის ტელეფონის ნომერი მიუწვდომელია.',
+  });
+  String get callFailed => _t({
+    'en': 'Could not open the phone dialer.',
+    'ar': 'تعذر فتح تطبيق الاتصال.',
+    'ru': 'Не удалось открыть набор номера.',
+    'ka': 'ტელეფონის აპლიკაციის გახსნა ვერ მოხერხდა.',
+  });
   String get passkeyLogin => _t({
     'en': 'Passkey Login',
     'ar': 'تسجيل الدخول بمفتاح المرور',
@@ -268,10 +286,13 @@ class AppLocalizations {
     'ka': 'თქვენი ტელეფონის ნომერი',
   });
   String get phoneSubtitle => _t({
-    'en': "We'll send a verification code via WhatsApp",
-    'ar': 'سنرسل رمز التحقق عبر واتساب',
-    'ru': 'Мы отправим код подтверждения через WhatsApp',
-    'ka': 'ჩვენ გავაგზავნით დამადასტურებელ კოდს WhatsApp-ით',
+    'en':
+        "We'll send a verification code to the phone number registered with your booking.",
+    'ar': 'سنرسل رمز التحقق إلى رقم الهاتف المسجل في حجزك.',
+    'ru':
+        'Мы отправим код подтверждения на номер телефона, указанный в вашем бронировании.',
+    'ka':
+        'ჩვენ გამოგიგზავნით დამადასტურებელ კოდს თქვენს ჯავშანზე რეგისტრირებულ ტელეფონის ნომერზე.',
   });
   String get phoneHint => _t({
     'en': 'Phone number',
@@ -280,10 +301,10 @@ class AppLocalizations {
     'ka': 'ტელეფონის ნომერი',
   });
   String get sendOtpWhatsapp => _t({
-    'en': 'Send OTP via WhatsApp',
-    'ar': 'إرسال رمز عبر واتساب',
-    'ru': 'Отправить код через WhatsApp',
-    'ka': 'კოდის გაგზავნა WhatsApp-ით',
+    'en': 'Send Verification Code',
+    'ar': 'إرسال رمز التحقق',
+    'ru': 'Отправить код подтверждения',
+    'ka': 'დამადასტურებელი კოდის გაგზავნა',
   });
   String get enterPhone => _t({
     'en': 'Please enter your phone number',
@@ -429,6 +450,23 @@ class AppLocalizations {
     'ar': 'اسم المستخدم أو كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.',
     'ru': 'Неверное имя пользователя или пароль. Попробуйте ещё раз.',
     'ka': 'არასწორი მომხმარებლის სახელი ან პაროლი. სცადეთ ხელახლა.',
+  });
+
+  String get driverLoginFailedMessage => _t({
+    'en': 'Incorrect username or password. Please try again.',
+    'ar': 'اسم المستخدم أو كلمة المرور غير صحيحة. يُرجى المحاولة مرة أخرى.',
+    'ru': 'Неверное имя пользователя или пароль. Попробуйте ещё раз.',
+    'ka': 'არასწორი მომხმარებლის სახელი ან პაროლი. სცადეთ ხელახლა.',
+  });
+  String get driverLoginFailedMultiple => _t({
+    'en':
+        'Login failed multiple times. Please contact the Operations Team to verify your username and password.',
+    'ar':
+        'فشلت محاولات تسجيل الدخول عدة مرات. يُرجى التواصل مع فريق العمليات للتأكد من صحة اسم المستخدم وكلمة المرور.',
+    'ru':
+        'Не удалось войти несколько раз. Обратитесь в операционную службу, чтобы проверить имя пользователя и пароль.',
+    'ka':
+        'შესვლა რამდენჯერმე ვერ მოხერხდა. დაუკავშირდით ოპერაციების გუნდს მომხმარებლის სახელისა და პაროლის შესამოწმებლად.',
   });
 
   // ─── Customer Home ─────────────────────────────────────────────────────────
@@ -726,6 +764,12 @@ class AppLocalizations {
     'ru': 'Выберите оценку от 1 до 5',
     'ka': 'აირჩიეთ შეფასება 1-დან 5-მდე',
   });
+  String get driverRatingRequired => _t({
+    'en': 'Please select a rating from 1 to 10',
+    'ar': 'يرجى اختيار تقييم من 1 إلى 10',
+    'ru': 'Выберите оценку от 1 до 10',
+    'ka': 'აირჩიეთ შეფასება 1-დან 10-მდე',
+  });
   String get thanksForRating => _t({
     'en': 'Thanks for your rating',
     'ar': 'شكراً على تقييمك',
@@ -1005,6 +1049,86 @@ class AppLocalizations {
     'ar': 'تعذر تحديث حالة الشريحة. يرجى المحاولة مرة أخرى.',
     'ru': 'Не удалось обновить статус SIM. Попробуйте снова.',
     'ka': 'SIM-ის სტატუსის განახლება ვერ მოხერხდა. სცადეთ ხელახლა.',
+  });
+  String get flowersTitle =>
+      _t({'en': 'Flowers', 'ar': 'الزهور', 'ru': 'Цветы', 'ka': 'ყვავილები'});
+  String get flowersCount => _t({
+    'en': 'flowers',
+    'ar': 'باقات زهور',
+    'ru': 'цветов',
+    'ka': 'ყვავილი',
+  });
+  String get flowersQuantityLabel => _t({
+    'en': 'Flowers quantity',
+    'ar': 'عدد الزهور',
+    'ru': 'Количество цветов',
+    'ka': 'ყვავილების რაოდენობა',
+  });
+  String get flowersReceivedLabel => _t({
+    'en': 'Flowers Received',
+    'ar': 'تم استلام الزهور',
+    'ru': 'Цветы получены',
+    'ka': 'ყვავილები მიღებულია',
+  });
+  String get confirmFlowersReceived => _t({
+    'en': 'Confirm Flowers Received',
+    'ar': 'تأكيد استلام الزهور',
+    'ru': 'Подтвердить получение цветов',
+    'ka': 'ყვავილების მიღების დადასტურება',
+  });
+  String get flowersNotReceivedYet => _t({
+    'en': 'Flowers Not Received Yet',
+    'ar': 'لم أستلم الزهور بعد',
+    'ru': 'Цветы ещё не получены',
+    'ka': 'ყვავილები ჯერ არ მიმიღია',
+  });
+  String get flowersReceivedQuestion => _t({
+    'en': 'Have you received your flowers?',
+    'ar': 'هل استلمت الزهور الخاصة بك؟',
+    'ru': 'Вы получили свои цветы?',
+    'ka': 'მიიღეთ თქვენი ყვავილები?',
+  });
+  String get flowersNotReceivedQuestion => _t({
+    'en': 'Have you not received your flowers yet?',
+    'ar': 'هل لم تستلم الزهور الخاصة بك بعد؟',
+    'ru': 'Вы ещё не получили свои цветы?',
+    'ka': 'ჯერ არ მიგიღიათ თქვენი ყვავილები?',
+  });
+  String get flowersReceiptSaved => _t({
+    'en': 'Flowers receipt confirmed',
+    'ar': 'تم تأكيد استلام الزهور',
+    'ru': 'Получение цветов подтверждено',
+    'ka': 'ყვავილების მიღება დადასტურებულია',
+  });
+  String get flowersActionFailed => _t({
+    'en': 'Could not update flowers status. Please try again.',
+    'ar': 'تعذر تحديث حالة الزهور. يرجى المحاولة مرة أخرى.',
+    'ru': 'Не удалось обновить статус цветов. Попробуйте снова.',
+    'ka': 'ყვავილების სტატუსის განახლება ვერ მოხერხდა. სცადეთ ხელახლა.',
+  });
+  String get flowersDeliveryQuestion => _t({
+    'en': 'Have you delivered the flowers to the customer?',
+    'ar': 'هل قمت بتسليم الزهور إلى العميل؟',
+    'ru': 'Вы передали цветы клиенту?',
+    'ka': 'მიაწოდეთ თუ არა ყვავილები მომხმარებელს?',
+  });
+  String get flowersDeliveredSuccess => _t({
+    'en': 'Flowers delivery confirmed',
+    'ar': 'تم تأكيد تسليم الزهور',
+    'ru': 'Доставка цветов подтверждена',
+    'ka': 'ყვავილების მიწოდება დადასტურდა',
+  });
+  String get confirmFlowersDeliveredTitle => _t({
+    'en': 'Confirm Flowers Delivered?',
+    'ar': 'تأكيد تسليم الزهور؟',
+    'ru': 'Подтвердить доставку цветов?',
+    'ka': 'დაადასტურეთ ყვავილების მიწოდება?',
+  });
+  String get flowersMarkedDelivered => _t({
+    'en': 'Flowers marked as Delivered',
+    'ar': 'تم تحديد الزهور كمُسلَّمة',
+    'ru': 'Цветы отмечены как доставленные',
+    'ka': 'ყვავილები მონიშნულია როგორც მიწოდებული',
   });
   String get tomorrow =>
       _t({'en': 'Tomorrow', 'ar': 'غداً', 'ru': 'Завтра', 'ka': 'ხვალ'});

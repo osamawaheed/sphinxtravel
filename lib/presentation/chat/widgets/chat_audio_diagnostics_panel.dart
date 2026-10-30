@@ -39,6 +39,13 @@ class ChatAudioDiagnosticsButton extends StatelessWidget {
                 backgroundColor: Colors.amber.shade400,
                 foregroundColor: Colors.black,
                 elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 0,
+                ),
+                minimumSize: const Size(0, 40),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                alignment: Alignment.center,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),

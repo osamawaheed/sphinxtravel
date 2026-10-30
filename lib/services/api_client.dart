@@ -154,8 +154,17 @@ class ApiClient {
           );
           final alreadyRetried = error.requestOptions.extra['retried'] == true;
 
+          // Login/OTP endpoints return 401 for bad credentials: that is not
+          // an expired session, so never refresh or navigate away from them.
+          final path = error.requestOptions.path;
+          final isCredentialCall =
+              path.endsWith('/auth/driver/login') ||
+              path.endsWith('/auth/customer/request-otp') ||
+              path.endsWith('/auth/customer/verify-otp');
+
           if (error.response?.statusCode == 401 &&
               !isRefreshCall &&
+              !isCredentialCall &&
               !alreadyRetried) {
             final refreshed = await _refreshToken();
             if (refreshed) {

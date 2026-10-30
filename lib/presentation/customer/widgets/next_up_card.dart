@@ -66,11 +66,17 @@ class _NextUpCardState extends State<NextUpCard> with WidgetsBindingObserver {
   void _trackUnread() {
     final ref = (widget.bookingReference ?? '').trim();
     final hasDriver = widget.pickup.driver != null;
+    final bookingId = widget.tripId ?? 0;
     if (ref.isEmpty || !hasDriver) {
       _unread.untrack('customer');
       return;
     }
-    _unread.track(role: 'customer', references: [ref]);
+    // Customer has exactly one booking: use its secure session only.
+    _unread.track(
+      role: 'customer',
+      references: [ref],
+      bookingIds: bookingId > 0 ? {ref: bookingId} : const {},
+    );
   }
 
   @override
@@ -489,7 +495,7 @@ class _NextUpCardState extends State<NextUpCard> with WidgetsBindingObserver {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          if (driver.rating != null) ...[
+                          if (driver.rating10 != null) ...[
                             const Icon(
                               Icons.star_rounded,
                               color: AppTheme.luxuryAccent,
@@ -642,6 +648,11 @@ class _NextUpCardState extends State<NextUpCard> with WidgetsBindingObserver {
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 0,
+                  ),
+                  minimumSize: const Size.fromHeight(44),
                   side: BorderSide(
                     color: AppTheme.luxuryAccent.withAlpha(140),
                     width: 1.2,
@@ -661,8 +672,15 @@ class _NextUpCardState extends State<NextUpCard> with WidgetsBindingObserver {
   String _statsText(HomeDriver d) {
     if (!d.hasAppAccount) return '';
     final parts = <String>[];
-    final rating = d.rating;
-    if (rating != null) parts.add(rating.toStringAsFixed(1));
+    final rating = d.rating10;
+    if (rating != null) {
+      final count = d.ratingCount;
+      parts.add(
+        count != null
+            ? '${rating.toStringAsFixed(1)} / 10 ($count)'
+            : '${rating.toStringAsFixed(1)} / 10',
+      );
+    }
     final trips = d.tripCount;
     if (trips != null) parts.add('$trips ${l10n.trips}');
     return parts.join(' · ');

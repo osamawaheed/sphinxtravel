@@ -40,11 +40,20 @@ class CustomerSimCard extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.sim_card_outlined, color: AppTheme.luxuryAccent),
+            Icon(
+              service.isFlowers
+                  ? Icons.local_florist_outlined
+                  : Icons.sim_card_outlined,
+              color: AppTheme.luxuryAccent,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                service.isESim ? l10n.eSimCardTitle : l10n.simCardTitle,
+                service.isFlowers
+                    ? l10n.flowersTitle
+                    : service.isESim
+                    ? l10n.eSimCardTitle
+                    : l10n.simCardTitle,
                 style: GoogleFonts.inter(
                   color: AppTheme.navyText,
                   fontSize: 16,
@@ -93,12 +102,18 @@ class CustomerSimCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final received = service.isCustomerReceived;
     final reported = service.isNotReceivedReported;
-    final title = service.isESim ? l10n.eSimCardTitle : l10n.simCardTitle;
+    final title = service.isFlowers
+        ? l10n.flowersTitle
+        : service.isESim
+        ? l10n.eSimCardTitle
+        : l10n.simCardTitle;
 
     String statusText;
     Color statusColor;
     if (received) {
-      statusText = l10n.simReceivedLabel;
+      statusText = service.isFlowers
+          ? l10n.flowersReceivedLabel
+          : l10n.simReceivedLabel;
       statusColor = AppTheme.successGreen;
     } else if (reported) {
       statusText = l10n.simNotReceivedReported;
@@ -132,8 +147,10 @@ class CustomerSimCard extends StatelessWidget {
                     color: AppTheme.softGoldBg,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.sim_card_outlined,
+                  child: Icon(
+                    service.isFlowers
+                        ? Icons.local_florist_outlined
+                        : Icons.sim_card_outlined,
                     color: AppTheme.luxuryAccent,
                     size: 20,
                   ),
@@ -155,7 +172,7 @@ class CustomerSimCard extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
-                            '$totalQty ${l10n.simCardsCount}',
+                            '$totalQty ${service.isFlowers ? l10n.flowersCount : l10n.simCardsCount}',
                             style: GoogleFonts.inter(
                               color: AppTheme.secondaryText,
                               fontSize: 12,
@@ -216,7 +233,9 @@ class CustomerSimCard extends StatelessWidget {
                       : () async {
                           final ok = await _confirmDialog(
                             context,
-                            question: l10n.simReceivedQuestion,
+                            question: service.isFlowers
+                                ? l10n.flowersReceivedQuestion
+                                : l10n.simReceivedQuestion,
                             confirmLabel: l10n.confirmReceipt,
                           );
                           if (ok) await onConfirmReceived();
@@ -231,7 +250,9 @@ class CustomerSimCard extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    l10n.confirmSimReceived,
+                    service.isFlowers
+                        ? l10n.confirmFlowersReceived
+                        : l10n.confirmSimReceived,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -249,7 +270,9 @@ class CustomerSimCard extends StatelessWidget {
                         : () async {
                             final ok = await _confirmDialog(
                               context,
-                              question: l10n.simNotReceivedQuestion,
+                              question: service.isFlowers
+                                  ? l10n.flowersNotReceivedQuestion
+                                  : l10n.simNotReceivedQuestion,
                               confirmLabel: l10n.reportNotReceived,
                             );
                             if (ok) await onReportNotReceived();
@@ -266,7 +289,9 @@ class CustomerSimCard extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      l10n.simNotReceivedYet,
+                      service.isFlowers
+                          ? l10n.flowersNotReceivedYet
+                          : l10n.simNotReceivedYet,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,

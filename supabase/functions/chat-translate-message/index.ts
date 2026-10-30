@@ -25,6 +25,72 @@
 
 const LANGUAGES = ["ar", "en", "ru", "ka", "az"];
 
+// ---- Inlined booking-scoped Odoo JWT guard (no external module import) ----
+type GuardResult = { ok: true } | { ok: false; status: number; error: string };
+
+function jwtAuthEnabled(): boolean {
+  return (Deno.env.get("ODOO_CHAT_AUTH_ENABLED") ?? "").toLowerCase() === "true";
+}
+
+function callerJwt(req: Request): string {
+  const h = req.headers.get("authorization") ?? "";
+  return h.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : "";
+}
+
+async function callPredicate(
+  fn: "chat_sec_can_view" | "chat_sec_can_send",
+  conversationId: string,
+  jwt: string,
+): Promise<boolean | "unauthorized" | "error"> {
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  if (!url || !anon) return "error";
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: {
+        apikey: anon,
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_conversation_id: conversationId }),
+    });
+    if (res.status === 401 || res.status === 403) return "unauthorized";
+    if (!res.ok) return "error";
+    return (await res.json()) === true;
+  } catch (_) {
+    return "error";
+  }
+}
+
+async function guardConversation(
+  req: Request,
+  conversationId: string,
+  needSend: boolean,
+): Promise<GuardResult> {
+  const jwt = callerJwt(req);
+  if (!jwt) return { ok: false, status: 401, error: "Unauthorized" };
+
+  const view = await callPredicate("chat_sec_can_view", conversationId, jwt);
+  if (view === "unauthorized") {
+    return { ok: false, status: 401, error: "Unauthorized" };
+  }
+  if (view === "error") {
+    return { ok: false, status: 503, error: "Authorization unavailable" };
+  }
+  if (view !== true) return { ok: false, status: 403, error: "Forbidden" };
+
+  if (needSend) {
+    const send = await callPredicate("chat_sec_can_send", conversationId, jwt);
+    if (send === "error") {
+      return { ok: false, status: 503, error: "Authorization unavailable" };
+    }
+    if (send !== true) return { ok: false, status: 403, error: "Forbidden" };
+  }
+  return { ok: true };
+}
+// ---- end inlined guard ----
+
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
@@ -215,7 +281,7 @@ Deno.serve(async (req: Request) => {
     // 1. Load the stored message.
     const msgRes = await fetch(
       `${SUPABASE_URL}/rest/v1/chat_messages?id=eq.${messageId}` +
-        `&select=id,message_type,original_text,original_language`,
+        `&select=id,conversation_id,message_type,original_text,original_language`,
       { headers: restHeaders },
     );
     if (!msgRes.ok) return json({ error: "Message lookup failed" }, 502);
@@ -224,6 +290,17 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Message not found" }, 404);
     }
     const msg = rows[0];
+
+    // JWT mode: only a caller who can VIEW this conversation (booking JWT,
+    // verified by the database) may read or trigger a translation. View
+    // permission alone is enough to receive an already-cached translation.
+    // Send permission is required later, only when a NEW (paid) translation
+    // must be generated (see step 3b).
+    const authOn = jwtAuthEnabled();
+    if (authOn) {
+      const g = await guardConversation(req, String(msg.conversation_id), false);
+      if (!g.ok) return json({ error: g.error }, g.status);
+    }
 
     // 2. Text only (voice translation is a separate phase).
     if (msg.message_type !== "text" || !(msg.original_text ?? "").trim()) {
@@ -266,6 +343,14 @@ Deno.serve(async (req: Request) => {
           target_language: target,
         });
       }
+    }
+
+    // 3b. A new translation must be generated (paid: OpenAI language
+    //     detection and/or chat-translate). In JWT mode this requires send
+    //     permission, checked BEFORE any paid AI call.
+    if (authOn) {
+      const gs = await guardConversation(req, String(msg.conversation_id), true);
+      if (!gs.ok) return json({ error: gs.error }, gs.status);
     }
 
     // 4. Detect the real language (not the sender's interface language).

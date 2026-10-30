@@ -147,31 +147,6 @@ class _DriverRatingsScreenState extends State<DriverRatingsScreen> {
   }
 }
 
-class _Stars extends StatelessWidget {
-  final double rating;
-  final double size;
-
-  const _Stars({required this.rating, this.size = 18});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (i) {
-        final IconData icon;
-        if (rating >= i + 1) {
-          icon = Icons.star_rounded;
-        } else if (rating >= i + 0.5) {
-          icon = Icons.star_half_rounded;
-        } else {
-          icon = Icons.star_outline_rounded;
-        }
-        return Icon(icon, color: AppTheme.luxuryAccent, size: size);
-      }),
-    );
-  }
-}
-
 class _AverageHeader extends StatelessWidget {
   final DriverRatingsResult result;
   final bool isDark;
@@ -198,15 +173,13 @@ class _AverageHeader extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            result.rating.toStringAsFixed(1),
+            '${result.rating10.toStringAsFixed(1)} / 10',
             style: GoogleFonts.inter(
               color: textColor,
               fontSize: 40,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
-          _Stars(rating: result.rating, size: 24),
           const SizedBox(height: 6),
           Text(
             l10n.ratingsCountLabel(result.ratingCount),
@@ -258,7 +231,25 @@ class _RatingCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _Stars(rating: item.rating),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.star_rounded,
+                    color: AppTheme.luxuryAccent,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    '${item.rating10.toStringAsFixed(1)} / 10',
+                    style: GoogleFonts.inter(
+                      color: textColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 4),

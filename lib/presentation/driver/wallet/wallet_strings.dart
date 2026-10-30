@@ -75,6 +75,23 @@ class WalletStrings {
     'ru': 'Останется доступно',
     'ka': 'დარჩება ხელმისაწვდომი',
   });
+  String get booking =>
+      _t({'en': 'Booking', 'ru': 'Бронирование', 'ka': 'ჯავშანი'});
+  String get selectBooking => _t({
+    'en': 'Select booking',
+    'ru': 'Выберите бронирование',
+    'ka': 'აირჩიეთ ჯავშანი',
+  });
+  String bookingAvailable(String ref, String amount, String currency) => _t({
+    'en': '$ref — $amount $currency available',
+    'ru': '$ref — доступно $amount $currency',
+    'ka': '$ref — ხელმისაწვდომია $amount $currency',
+  });
+  String requestSubmittedFor(String ref) => _t({
+    'en': 'Payout request submitted for $ref. Status: Pending.',
+    'ru': 'Запрос на выплату по $ref отправлен. Статус: В ожидании.',
+    'ka': 'გადახდის მოთხოვნა $ref-ისთვის გაიგზავნა. სტატუსი: მოლოდინში.',
+  });
   String get bankDetails => _t({
     'en': 'Bank Details',
     'ru': 'Банковские реквизиты',

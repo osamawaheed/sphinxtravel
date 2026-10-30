@@ -274,7 +274,9 @@ class _ServiceRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              service.isSimCard
+              service.isFlowers
+                  ? Icons.local_florist_outlined
+                  : service.isSimCard
                   ? Icons.sim_card_outlined
                   : Icons.star_outline_rounded,
               color: AppTheme.luxuryAccent,

@@ -68,13 +68,13 @@ class HomeDriverBlock extends StatelessWidget {
 
   String _statsText() {
     final parts = <String>[];
-    final rating = driver.rating;
+    final rating = driver.rating10;
     if (rating != null) {
       final count = driver.ratingCount;
       parts.add(
         count != null
-            ? '${rating.toStringAsFixed(1)} ($count)'
-            : rating.toStringAsFixed(1),
+            ? '${rating.toStringAsFixed(1)} / 10 ($count)'
+            : '${rating.toStringAsFixed(1)} / 10',
       );
     }
     final trips = driver.tripCount;
@@ -93,7 +93,7 @@ class HomeDriverBlock extends StatelessWidget {
         : AppTheme.secondaryText;
     final full = driver.hasAppAccount;
     final stats = full ? _statsText() : '';
-    final showRating = full && driver.rating != null;
+    final showRating = full && driver.rating10 != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

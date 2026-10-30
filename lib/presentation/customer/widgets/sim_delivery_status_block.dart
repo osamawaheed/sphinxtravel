@@ -127,7 +127,13 @@ class SimDeliveryStatusBlock extends StatelessWidget {
                 : l10n.simConfirmedByDriver,
           ),
         if (confirmed && at.isNotEmpty) _detail(l10n.simConfirmedAtLabel, at),
-        if (confirmed && qty > 0) _detail(l10n.simQuantityLabel, '$qty'),
+        if (confirmed && qty > 0)
+          _detail(
+            service.isFlowers
+                ? l10n.flowersQuantityLabel
+                : l10n.simQuantityLabel,
+            '$qty',
+          ),
       ],
     );
   }

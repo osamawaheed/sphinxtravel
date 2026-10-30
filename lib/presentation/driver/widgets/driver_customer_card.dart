@@ -49,6 +49,24 @@ class _DriverCustomerCardState extends State<DriverCustomerCard> {
     } catch (_) {}
   }
 
+  Future<void> _call(String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleaned.isEmpty) {
+      _toast(l10n.customerPhoneUnavailable);
+      return;
+    }
+    var launched = false;
+    try {
+      launched = await launchUrl(
+        Uri(scheme: 'tel', path: cleaned),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      launched = false;
+    }
+    if (!launched) _toast(l10n.callFailed);
+  }
+
   void _toast(String message) {
     if (!mounted || message.isEmpty) return;
     ScaffoldMessenger.of(
@@ -280,7 +298,7 @@ class _DriverCustomerCardState extends State<DriverCustomerCard> {
                 if (phone.isNotEmpty)
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => _open(Uri.parse('tel:$phone')),
+                      onPressed: () => _call(phone),
                       icon: const Icon(Icons.call_rounded, size: 18),
                       label: Text(
                         l10n.call,

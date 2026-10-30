@@ -8,7 +8,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/customer_bootstrap_model.dart';
 import '../../routes/app_routes.dart';
+import '../../services/api_client.dart';
 import '../../services/chat/chat_inbox_service.dart';
+import '../../services/driver_api_service.dart';
 import '../../theme/app_theme.dart';
 import './chat_inbox_strings.dart';
 
@@ -108,6 +110,17 @@ class _DriverChatsViewState extends State<DriverChatsView> {
   Future<void> _open(ChatInboxItem item) async {
     final cid = item.conversationId;
     if (cid != null) await _service.markSeen(cid);
+    var phone = item.customerPhone.trim();
+    if (phone.isEmpty && item.tripId > 0) {
+      // Same source as the working customer details screen:
+      // GET /driver/trips/{id} -> customer.phone.
+      try {
+        final detail = await DriverApiService(
+          ApiClient(),
+        ).loadTripDetail(item.tripId);
+        phone = (detail.customer?.phone ?? '').trim();
+      } catch (_) {}
+    }
     if (!mounted) return;
     await context.push(
       AppRoutes.smartChat,
@@ -116,6 +129,7 @@ class _DriverChatsViewState extends State<DriverChatsView> {
         'bookingReference': item.bookingReference,
         'tripTitle': item.tripTitle,
         'counterpartName': item.customerName,
+        'counterpartPhone': phone.isEmpty ? null : phone,
         'counterpartPhoto': item.customerPhotoUrl.isNotEmpty
             ? item.customerPhotoUrl
             : null,
@@ -174,20 +188,6 @@ class _DriverChatsViewState extends State<DriverChatsView> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         children: [
-          Text(
-            s.title,
-            style: GoogleFonts.inter(
-              color: textColor,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            s.subtitle,
-            style: GoogleFonts.inter(color: subColor, fontSize: 14),
-          ),
-          const SizedBox(height: 16),
           _buildSearch(s, isDark, textColor, subColor),
           const SizedBox(height: 14),
           _buildFilters(s, isDark),

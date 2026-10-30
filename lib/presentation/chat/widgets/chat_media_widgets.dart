@@ -57,6 +57,202 @@ Widget _mediaPlaceholder({Widget? child}) => Container(
       ),
 );
 
+/// Instant optimistic preview of an image that is still uploading: decoded
+/// from the local (already compressed) bytes at a bounded size, with a
+/// spinner overlay. Never touches the network.
+class ChatLocalUploadingImage extends StatefulWidget {
+  final Uint8List bytes;
+  const ChatLocalUploadingImage({super.key, required this.bytes});
+
+  @override
+  State<ChatLocalUploadingImage> createState() =>
+      _ChatLocalUploadingImageState();
+}
+
+class _ChatLocalUploadingImageState extends State<ChatLocalUploadingImage> {
+  double? _aspect;
+  late final MemoryImage _provider = MemoryImage(widget.bytes);
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    final stream = ResizeImage(
+      _provider,
+      width: 600,
+    ).resolve(const ImageConfiguration());
+    final listener = ImageStreamListener((info, _) {
+      final w = info.image.width.toDouble();
+      final h = info.image.height.toDouble();
+      if (mounted && h > 0) setState(() => _aspect = w / h);
+    });
+    _stream = stream;
+    _listener = listener;
+    stream.addListener(listener);
+  }
+
+  @override
+  void dispose() {
+    final l = _listener;
+    if (l != null) _stream?.removeListener(l);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: chatClampAspect(_aspect),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image(
+            image: ResizeImage(_provider, width: 600),
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          ),
+          Container(
+            color: Colors.black.withValues(alpha: 0.28),
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 30,
+              height: 30,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.6,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Static image thumbnail used inside the long-press overlay. Shows the real
+/// image (local bytes while uploading, otherwise the signed URL) and never a
+/// filename or attachment icon.
+class ChatOverlayImage extends StatefulWidget {
+  final ChatMessage message;
+  final ChatUrlResolver resolveUrl;
+  final Uint8List? localBytes;
+  final double width;
+
+  const ChatOverlayImage({
+    super.key,
+    required this.message,
+    required this.resolveUrl,
+    required this.width,
+    this.localBytes,
+  });
+
+  @override
+  State<ChatOverlayImage> createState() => _ChatOverlayImageState();
+}
+
+class _ChatOverlayImageState extends State<ChatOverlayImage> {
+  String? _url;
+  bool _failed = false;
+  double? _aspect;
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.localBytes == null) {
+      _load();
+    } else {
+      _watch(MemoryImage(widget.localBytes!));
+    }
+  }
+
+  @override
+  void dispose() {
+    final l = _listener;
+    if (l != null) _stream?.removeListener(l);
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final url = await widget.resolveUrl(forceRefresh: false);
+    if (!mounted) return;
+    setState(() {
+      _url = url;
+      _failed = url == null;
+    });
+    if (url != null) _watch(NetworkImage(url));
+  }
+
+  void _watch(ImageProvider base) {
+    final stream = ResizeImage(
+      base,
+      width: 720,
+    ).resolve(const ImageConfiguration());
+    final listener = ImageStreamListener(
+      (info, _) {
+        final h = info.image.height.toDouble();
+        if (mounted && h > 0) {
+          setState(() => _aspect = info.image.width.toDouble() / h);
+        }
+      },
+      onError: (_, __) {
+        if (mounted) setState(() => _failed = true);
+      },
+    );
+    _stream = stream;
+    _listener = listener;
+    stream.addListener(listener);
+  }
+
+  Widget _placeholder({bool broken = false}) => Container(
+    color: AppTheme.softGoldBg,
+    alignment: Alignment.center,
+    child: broken
+        ? Icon(
+            Icons.broken_image_outlined,
+            color: AppTheme.secondaryText,
+            size: 36,
+          )
+        : const SizedBox(
+            width: 26,
+            height: 26,
+            child: CircularProgressIndicator(strokeWidth: 2.4),
+          ),
+  );
+
+  Widget _image() {
+    final local = widget.localBytes;
+    final ImageProvider? base = local != null
+        ? MemoryImage(local)
+        : (_url != null ? NetworkImage(_url!) : null);
+    if (base == null) return _placeholder(broken: _failed);
+    return Image(
+      image: ResizeImage(base, width: 720),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      gaplessPlayback: true,
+      excludeFromSemantics: true,
+      errorBuilder: (context, error, stack) => _placeholder(broken: true),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.width,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: AspectRatio(
+          aspectRatio: chatClampAspect(_aspect),
+          child: _image(),
+        ),
+      ),
+    );
+  }
+}
+
 /// Inline image inside a chat bubble. Fills the bubble edge-to-edge (the
 /// bubble clips the rounded corners), keeps the aspect ratio of the decoded
 /// image (portrait stays vertical, landscape horizontal) and uses BoxFit.cover.
@@ -80,6 +276,11 @@ class ChatInlineImage extends StatefulWidget {
 }
 
 class _ChatInlineImageState extends State<ChatInlineImage> {
+  /// Last resolved signed URL per message id. A freshly built tile (e.g. the
+  /// long-press overlay snapshot) starts from this so the thumbnail is visible
+  /// immediately instead of a placeholder.
+  static final Map<String, String> _urlMemo = <String, String>{};
+
   String? _url;
   bool _failed = false;
   bool _refreshed = false;
@@ -87,9 +288,18 @@ class _ChatInlineImageState extends State<ChatInlineImage> {
   ImageStream? _stream;
   ImageStreamListener? _listener;
 
+  /// Decode width (logical px * dpr) so large originals are never decoded at
+  /// full resolution for a ~300 px wide chat tile.
+  static const int _decodeWidth = 720;
+
   @override
   void initState() {
     super.initState();
+    final memo = _urlMemo[widget.message.id];
+    if (memo != null) {
+      _url = memo;
+      _resolveAspect(memo);
+    }
     _load();
   }
 
@@ -109,18 +319,25 @@ class _ChatInlineImageState extends State<ChatInlineImage> {
   Future<void> _load({bool force = false}) async {
     final url = await widget.resolveUrl(forceRefresh: force);
     if (!mounted) return;
+    if (url != null) _urlMemo[widget.message.id] = url;
+    final changed = url != _url;
     setState(() {
       _url = url;
       _failed = url == null;
     });
-    if (url != null) _resolveAspect(url);
+    if (url != null && (changed || _stream == null)) _resolveAspect(url);
   }
 
   /// Learns the real image size from the (cached) decoded image so the tile
   /// can match portrait / landscape without distortion.
   void _resolveAspect(String url) {
     _detach();
-    final stream = NetworkImage(url).resolve(const ImageConfiguration());
+    // Same provider (and cache key) as the Image widget below, so the bytes
+    // are downloaded and decoded ONCE and shared via the image cache.
+    final stream = ResizeImage(
+      NetworkImage(url),
+      width: _decodeWidth,
+    ).resolve(const ImageConfiguration());
     final listener = ImageStreamListener(
       (info, _) {
         final w = info.image.width.toDouble();
@@ -188,15 +405,27 @@ class _ChatInlineImageState extends State<ChatInlineImage> {
     } else {
       body = GestureDetector(
         onTap: widget.onOpenViewer,
-        child: Image.network(
-          _url!,
+        child: Image(
+          image: ResizeImage(NetworkImage(_url!), width: _decodeWidth),
           fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,
           gaplessPlayback: true,
-          semanticLabel: widget.message.fileName,
-          loadingBuilder: (context, child, progress) =>
-              progress == null ? child : _mediaPlaceholder(),
+          excludeFromSemantics: true,
+          frameBuilder: (context, child, frame, wasSync) {
+            if (wasSync) return child;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                if (frame == null) _mediaPlaceholder(),
+                AnimatedOpacity(
+                  opacity: frame == null ? 0 : 1,
+                  duration: const Duration(milliseconds: 180),
+                  child: child,
+                ),
+              ],
+            );
+          },
           errorBuilder: (context, error, stack) {
             WidgetsBinding.instance.addPostFrameCallback(
               (_) => _onImageError(),

@@ -36,6 +36,7 @@ class ChatStrings {
     'ar': 'رسائل سريعة',
     'ru': 'Быстрые сообщения',
     'ka': 'სწრაფი შეტყობინებები',
+    'az': 'Sürətli mesajlar',
   });
   String get viewOriginal => _t({
     'en': 'View Original',
@@ -850,28 +851,56 @@ class ChatStrings {
       'ar': 'أنا في الطريق.',
       'ru': 'Я уже в пути.',
       'ka': 'გზაში ვარ.',
+      'az': 'Yoldayam.',
     },
     "I'll arrive in 10 minutes.": {
       'ar': 'سأصل خلال 10 دقائق.',
       'ru': 'Буду через 10 минут.',
       'ka': '10 წუთში მივალ.',
+      'az': '10 dəqiqəyə çatacağam.',
     },
-    "I've arrived.": {'ar': 'لقد وصلت.', 'ru': 'Я приехал.', 'ka': 'მივედი.'},
+    "I've arrived.": {
+      'ar': 'لقد وصلت.',
+      'ru': 'Я приехал.',
+      'ka': 'მივედი.',
+      'az': 'Çatdım.',
+    },
     "I'm waiting outside.": {
       'ar': 'أنا أنتظر في الخارج.',
       'ru': 'Я жду снаружи.',
       'ka': 'გარეთ გელოდებით.',
+      'az': 'Çöldə gözləyirəm.',
     },
     'Please share your location.': {
       'ar': 'من فضلك شارك موقعك.',
       'ru': 'Пожалуйста, поделитесь геолокацией.',
       'ka': 'გთხოვთ, გააზიაროთ ლოკაცია.',
+      'az': 'Zəhmət olmasa, məkanınızı paylaşın.',
     },
     "I'll be ready in 5 minutes.": {
       'ar': 'سأكون جاهزًا خلال 5 دقائق.',
       'ru': 'Буду готов через 5 минут.',
       'ka': '5 წუთში მზად ვიქნები.',
+      'az': '5 dəqiqəyə hazır olacağam.',
     },
-    'Where are you?': {'ar': 'أين أنت؟', 'ru': 'Где вы?', 'ka': 'სად ხართ?'},
+    'Where are you?': {
+      'ar': 'أين أنت؟',
+      'ru': 'Где вы?',
+      'ka': 'სად ხართ?',
+      'az': 'Haradasınız?',
+    },
+    "I'm waiting for you.": {
+      'ar': 'أنا في انتظارك.',
+      'ru': 'Я вас жду.',
+      'ka': 'გელოდებით.',
+      'az': 'Sizi gözləyirəm.',
+    },
+    'OK.': {'ar': 'حسنًا.', 'ru': 'Хорошо.', 'ka': 'კარგით.', 'az': 'Yaxşı.'},
+    'When will you arrive?': {
+      'ar': 'متى ستصل؟',
+      'ru': 'Когда вы приедете?',
+      'ka': 'როდის ჩამოხვალთ?',
+      'az': 'Nə vaxt çatacaqsınız?',
+    },
   };
 }

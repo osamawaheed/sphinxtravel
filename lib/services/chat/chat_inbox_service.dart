@@ -2,6 +2,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/customer_bootstrap_model.dart';
+import './odoo/odoo_chat_config.dart';
+import './odoo/odoo_chat_models.dart';
+import './odoo/odoo_chat_secure_session.dart';
 
 /// A single driver-side inbox entry: exactly ONE per booking.
 class ChatInboxItem {
@@ -27,6 +30,9 @@ class ChatInboxItem {
   final int customerId;
   final String customerPhotoUrl;
 
+  /// Customer phone from /driver/trips (same source as the customer card).
+  final String customerPhone;
+
   const ChatInboxItem({
     required this.tripId,
     required this.bookingReference,
@@ -40,6 +46,7 @@ class ChatInboxItem {
     required this.isCompleted,
     this.customerId = 0,
     this.customerPhotoUrl = '',
+    this.customerPhone = '',
   });
 
   bool get hasConversation => conversationId != null;
@@ -78,8 +85,20 @@ class ChatInboxService {
   }
 
   /// Trip is completed from the calendar day after departure (Asia/Tbilisi).
-  static bool isTripCompleted(DriverTripListItem trip) {
-    final raw = trip.departureDate.trim();
+  static bool isTripCompleted(DriverTripListItem trip) =>
+      isClosedByDeparture(trip.departureDate);
+
+  /// Single chat-closure rule shared by every chat entry point: the
+  /// conversation is closed when Odoo reports the trip as completed, or from
+  /// the calendar day after the departure date (Asia/Tbilisi).
+  static bool isChatClosed({String? odooStatus, String? departureDate}) {
+    final st = (odooStatus ?? '').trim().toLowerCase();
+    if (st == 'completed' || st == 'done') return true;
+    return isClosedByDeparture(departureDate ?? '');
+  }
+
+  static bool isClosedByDeparture(String departureDate) {
+    final raw = departureDate.trim();
     if (raw.isEmpty) return false;
     final m = RegExp(r'(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(raw);
     if (m == null) return false;
@@ -142,9 +161,35 @@ class ChatInboxService {
 
     final client = _client;
     final convByRef = <String, Map<String, dynamic>>{};
+    // Secure client per booking reference (JWT path). Never shared across
+    // bookings and never replaced by the anonymous client.
+    final secureByRef = <String, SupabaseClient>{};
     String? error;
 
-    if (client == null) {
+    if (OdooChatConfig.isEnabled) {
+      for (final entry in byRef.entries) {
+        final trip = entry.value;
+        if (trip.id <= 0) continue;
+        try {
+          final session = await ChatSecureSession.open(trip.id);
+          final rows = await session.client
+              .from('chat_conversations')
+              .select('id, odoo_booking_id, booking_reference, updated_at')
+              .eq('odoo_booking_id', trip.id)
+              .eq('booking_reference', entry.key)
+              .order('created_at', ascending: true);
+          secureByRef[entry.key] = session.client;
+          for (final r in rows) {
+            final ref = (r['booking_reference'] as String?) ?? '';
+            convByRef.putIfAbsent(ref, () => Map<String, dynamic>.from(r));
+          }
+        } on OdooChatException catch (e) {
+          error ??= 'Chat session unavailable (${e.failure.name})';
+        } catch (e) {
+          error ??= _errorText(e);
+        }
+      }
+    } else if (client == null) {
       error = 'Supabase is not initialized (SUPABASE_URL / SUPABASE_ANON_KEY).';
     } else if (byRef.isNotEmpty) {
       try {
@@ -167,14 +212,25 @@ class ChatInboxService {
     final convIds = [for (final c in convByRef.values) c['id'] as String];
     final lastByConv = <String, Map<String, dynamic>>{};
     final unreadCandidates = <String, List<DateTime>>{};
-    if (client != null && convIds.isNotEmpty && error == null) {
+    final msgSources = <SupabaseClient, List<String>>{};
+    if (OdooChatConfig.isEnabled) {
+      convByRef.forEach((ref, conv) {
+        final c = secureByRef[ref];
+        if (c != null) {
+          msgSources.putIfAbsent(c, () => []).add(conv['id'] as String);
+        }
+      });
+    } else if (client != null && convIds.isNotEmpty && error == null) {
+      msgSources[client] = convIds;
+    }
+    for (final src in msgSources.entries) {
       try {
-        final rows = await client
+        final rows = await src.key
             .from('chat_messages')
             .select(
               'conversation_id, sender_role, message_type, original_text, created_at, read_at',
             )
-            .inFilter('conversation_id', convIds)
+            .inFilter('conversation_id', src.value)
             .order('created_at', ascending: false)
             .limit(1000);
         for (final raw in rows) {
@@ -190,7 +246,7 @@ class ChatInboxService {
           }
         }
       } catch (e) {
-        error = _errorText(e);
+        error ??= _errorText(e);
       }
     }
 
@@ -232,6 +288,7 @@ class ChatInboxService {
           isCompleted: isTripCompleted(trip),
           customerId: trip.customerId,
           customerPhotoUrl: trip.customerPhotoUrl,
+          customerPhone: trip.customerPhone,
         ),
       );
     });
@@ -283,7 +340,23 @@ class ChatInboxService {
     required String conversationId,
     required String viewerRole,
     required int viewerOdooId,
+    int? bookingId,
   }) async {
+    if (OdooChatConfig.isEnabled) {
+      // JWT path: identity comes from the booking token, never arguments.
+      if (bookingId == null || bookingId <= 0) {
+        throw Exception('The booking id is required to delete securely.');
+      }
+      final session = await ChatSecureSession.open(bookingId);
+      final ok = await session.client.rpc(
+        'chat_delete_conversation_for_me_v2',
+        params: {'p_conversation_id': conversationId},
+      );
+      if (ok != true) {
+        throw Exception('The conversation could not be deleted.');
+      }
+      return;
+    }
     final client = _client;
     if (client == null) {
       throw Exception('Supabase is not initialized.');

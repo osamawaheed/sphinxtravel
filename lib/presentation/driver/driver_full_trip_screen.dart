@@ -119,7 +119,9 @@ class _DriverFullTripScreenState extends State<DriverFullTripScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              l10n.simMarkedDelivered,
+              extra.isFlowers
+                  ? l10n.flowersMarkedDelivered
+                  : l10n.simMarkedDelivered,
               style: GoogleFonts.inter(color: Colors.white),
             ),
             backgroundColor: AppTheme.successGreen,
@@ -615,6 +617,7 @@ class _DriverFullTripScreenState extends State<DriverFullTripScreen> {
 
   bool _isOperationalExtra(ExtraServiceModel e) =>
       e.serviceType == 'sim_card' ||
+      e.serviceType == 'flowers' ||
       e.serviceType == 'insurance' ||
       e.serviceType == 'visa' ||
       e.serviceType == 'transfer' ||
@@ -1363,7 +1366,9 @@ class _ExtraServiceCard extends StatelessWidget {
               child: Center(
                 child: Icon(
                   isSimCard
-                      ? Icons.sim_card_outlined
+                      ? (extra.isFlowers
+                            ? Icons.local_florist_outlined
+                            : Icons.sim_card_outlined)
                       : Icons.add_circle_outline_rounded,
                   size: 20,
                   color: isSimCard ? AppTheme.brandNavy : AppTheme.luxuryAccent,
@@ -1500,7 +1505,9 @@ class _SimDeliveryBottomSheet extends StatelessWidget {
                 ),
                 child: Center(
                   child: Icon(
-                    Icons.sim_card_outlined,
+                    extra.isFlowers
+                        ? Icons.local_florist_outlined
+                        : Icons.sim_card_outlined,
                     size: 20,
                     color: AppTheme.navyText,
                   ),
@@ -1509,7 +1516,9 @@ class _SimDeliveryBottomSheet extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  l10n.confirmSimDeliveredTitle,
+                  extra.isFlowers
+                      ? l10n.confirmFlowersDeliveredTitle
+                      : l10n.confirmSimDeliveredTitle,
                   style: GoogleFonts.inter(
                     color: textColor,
                     fontSize: 16,
@@ -1545,8 +1554,11 @@ class _SimDeliveryBottomSheet extends StatelessWidget {
                 ),
                 Divider(color: border, height: 16),
                 _SheetDetailRow(
-                  label: l10n.simQuantity,
-                  value: '${extra.quantity} ${l10n.simCardsCount}',
+                  label: extra.isFlowers
+                      ? l10n.flowersQuantityLabel
+                      : l10n.simQuantity,
+                  value:
+                      '${extra.quantity} ${extra.isFlowers ? l10n.flowersCount : l10n.simCardsCount}',
                   textColor: textColor,
                   subColor: subColor,
                 ),

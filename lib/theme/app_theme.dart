@@ -7,7 +7,7 @@ class AppTheme {
   AppTheme._();
 
   // ─── Locale-aware font helper ─────────────────────────────────────────────
-  /// Returns a [TextStyle] using Tajawal for Arabic locale, Inter otherwise.
+  /// Returns a [TextStyle] using IBM Plex Sans Arabic for Arabic locale, Inter otherwise.
   /// Use this in every widget instead of hardcoding GoogleFonts.inter().
   static TextStyle appFont(
     BuildContext context, {
@@ -19,9 +19,9 @@ class AppTheme {
   }) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     if (isArabic) {
-      return GoogleFonts.tajawal(
+      return GoogleFonts.ibmPlexSansArabic(
         fontSize: fontSize,
-        fontWeight: fontWeight,
+        fontWeight: _arabicWeight(fontWeight),
         color: color,
         letterSpacing: letterSpacing,
         height: height,
@@ -100,17 +100,55 @@ class AppTheme {
     return _buildDarkTheme(isArabic: false);
   }
 
-  /// Returns a locale-aware light theme — Arabic uses Tajawal.
+  /// Returns a locale-aware light theme — Arabic uses IBM Plex Sans Arabic.
   static ThemeData lightThemeForLocale(Locale locale) {
     return _buildLightTheme(isArabic: locale.languageCode == 'ar');
   }
 
-  /// Returns a locale-aware dark theme — Arabic uses Tajawal.
+  /// Returns a locale-aware dark theme — Arabic uses IBM Plex Sans Arabic.
   static ThemeData darkThemeForLocale(Locale locale) {
     return _buildDarkTheme(isArabic: locale.languageCode == 'ar');
   }
 
   // ─── Internal builders ────────────────────────────────────────────────────
+
+  /// Maps any weight onto the supported IBM Plex Sans Arabic weights
+  /// (400 Regular, 500 Medium, 600 SemiBold, 700 Bold).
+  static FontWeight? _arabicWeight(FontWeight? w) {
+    if (w == null) return null;
+    if (w.value <= 400) return FontWeight.w400;
+    if (w.value == 500) return FontWeight.w500;
+    if (w.value == 600) return FontWeight.w600;
+    return FontWeight.w700;
+  }
+
+  /// Applies IBM Plex Sans Arabic as the fallback family for Arabic glyphs on
+  /// every text style in the theme, so widgets that set Latin-only fonts
+  /// (e.g. GoogleFonts.inter) still render Arabic in IBM Plex Sans Arabic.
+  /// Latin text keeps its original font.
+  static TextTheme _withArabicFallback(TextTheme base, bool isArabic) {
+    if (!isArabic) return base;
+    final family = GoogleFonts.ibmPlexSansArabic().fontFamily;
+    if (family == null) return base;
+    TextStyle? f(TextStyle? s) => s?.copyWith(fontFamilyFallback: [family]);
+    return base.copyWith(
+      displayLarge: f(base.displayLarge),
+      displayMedium: f(base.displayMedium),
+      displaySmall: f(base.displaySmall),
+      headlineLarge: f(base.headlineLarge),
+      headlineMedium: f(base.headlineMedium),
+      headlineSmall: f(base.headlineSmall),
+      titleLarge: f(base.titleLarge),
+      titleMedium: f(base.titleMedium),
+      titleSmall: f(base.titleSmall),
+      bodyLarge: f(base.bodyLarge),
+      bodyMedium: f(base.bodyMedium),
+      bodySmall: f(base.bodySmall),
+      labelLarge: f(base.labelLarge),
+      labelMedium: f(base.labelMedium),
+      labelSmall: f(base.labelSmall),
+    );
+  }
 
   static TextStyle _body(
     double size,
@@ -120,9 +158,9 @@ class AppTheme {
     double? letterSpacing,
   }) {
     if (isArabic) {
-      return GoogleFonts.tajawal(
+      return GoogleFonts.ibmPlexSansArabic(
         fontSize: size,
-        fontWeight: weight,
+        fontWeight: _arabicWeight(weight),
         color: color,
         letterSpacing: letterSpacing,
       );
@@ -269,7 +307,10 @@ class AppTheme {
           isArabic: isArabic,
         ),
       ),
-      textTheme: _buildLightTextTheme(isArabic: isArabic),
+      textTheme: _withArabicFallback(
+        _buildLightTextTheme(isArabic: isArabic),
+        isArabic,
+      ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: brandNavy,
       ),
@@ -421,7 +462,10 @@ class AppTheme {
           isArabic: isArabic,
         ),
       ),
-      textTheme: _buildDarkTextTheme(isArabic: isArabic),
+      textTheme: _withArabicFallback(
+        _buildDarkTextTheme(isArabic: isArabic),
+        isArabic,
+      ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: luxuryAccent,
       ),

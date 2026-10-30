@@ -275,7 +275,7 @@ class ChatReactionsRow extends StatelessWidget {
                     Text(
                       e.key,
                       textScaler: TextScaler.noScaling,
-                      style: const TextStyle(fontSize: 15),
+                      style: GoogleFonts.notoColorEmoji(fontSize: 15),
                     ),
                     if (e.value > 1) ...[
                       const SizedBox(width: 4),
@@ -539,6 +539,38 @@ class _ChatMessageOverlay extends StatelessWidget {
     final barLeft = clampLeft(barW, right: alignRight);
     final menuLeft = clampLeft(_menuWidth, right: alignRight);
 
+    // The dialog route has no Material ancestor, so every Text (emojis in the
+    // reaction pill, menu rows) falls back to the debug yellow double
+    // underline. A transparent Material + explicit no-decoration text style
+    // removes it without touching any reaction / long-press behaviour.
+    return Material(
+      type: MaterialType.transparency,
+      child: DefaultTextStyle.merge(
+        style: const TextStyle(decoration: TextDecoration.none),
+        child: _buildStack(
+          context,
+          size: size,
+          barTop: barTop,
+          barLeft: barLeft,
+          barW: barW,
+          bubbleTop: bubbleTop,
+          menuTop: menuTop,
+          menuLeft: menuLeft,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStack(
+    BuildContext context, {
+    required Size size,
+    required double barTop,
+    required double barLeft,
+    required double barW,
+    required double bubbleTop,
+    required double menuTop,
+    required double menuLeft,
+  }) {
     return Stack(
       children: [
         Positioned.fill(
@@ -583,7 +615,15 @@ class _ChatMessageOverlay extends StatelessWidget {
           top: bubbleTop,
           left: anchor.left.clamp(0.0, size.width),
           width: anchor.width,
-          child: IgnorePointer(child: snapshot),
+          child: IgnorePointer(
+            child: Material(
+              type: MaterialType.transparency,
+              child: DefaultTextStyle.merge(
+                style: const TextStyle(decoration: TextDecoration.none),
+                child: snapshot,
+              ),
+            ),
+          ),
         ),
         Positioned(
           top: menuTop,
@@ -812,7 +852,7 @@ class _ReactionEmojiButtonState extends State<_ReactionEmojiButton> {
                   height: 1.2,
                   forceStrutHeight: true,
                 ),
-                style: const TextStyle(fontSize: 24, height: 1.2),
+                style: GoogleFonts.notoColorEmoji(fontSize: 24, height: 1.2),
               ),
             ),
           ),

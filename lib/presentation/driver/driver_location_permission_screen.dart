@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -97,8 +98,7 @@ class _DriverLocationPermissionScreenState
     );
 
     if (status.isGranted) {
-      final serviceOn =
-          await Permission.locationWhenInUse.serviceStatus.isEnabled;
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
       if (!mounted) return;
       debugPrint(
         '[DRIVER ROUTE] DriverLocationPermissionScreen: permission granted, locationServicesEnabled=$serviceOn',
@@ -145,8 +145,7 @@ class _DriverLocationPermissionScreenState
     try {
       // If already granted (state == granted), just verify services and proceed.
       if (_locationState == _LocationState.granted) {
-        final serviceOn =
-            await Permission.locationWhenInUse.serviceStatus.isEnabled;
+        final serviceOn = await Geolocator.isLocationServiceEnabled();
         if (!mounted) return;
         if (serviceOn) {
           debugPrint(
@@ -160,8 +159,7 @@ class _DriverLocationPermissionScreenState
       }
 
       // First check if location services are enabled.
-      final serviceOn =
-          await Permission.locationWhenInUse.serviceStatus.isEnabled;
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
       if (!mounted) return;
       debugPrint(
         '[DRIVER ROUTE] DriverLocationPermissionScreen: _requestPermission — locationServicesEnabled=$serviceOn',

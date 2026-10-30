@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import './odoo/odoo_chat_config.dart';
+import './odoo/odoo_chat_secure_session.dart';
+
 /// Real unread-message counts for the Today-screen badges.
 ///
 /// Source of truth: `chat_messages` where `read_at IS NULL`, the conversation
@@ -20,6 +23,10 @@ class ChatUnreadService {
 
   /// Tracked scope per viewer role: booking references currently assigned.
   final Map<String, Set<String>> _refs = {};
+
+  /// Booking id per tracked reference (needed for the booking-scoped secure
+  /// session). Never shared between bookings.
+  final Map<String, Map<String, int>> _bookingIds = {};
 
   /// Last confirmed count per viewer role ('customer' | 'driver').
   final Map<String, ValueNotifier<int>> _counts = {};
@@ -47,14 +54,27 @@ class ChatUnreadService {
   /// Sets the booking references this viewer should count and refreshes.
   /// Customer: the displayed driver-pickup booking. Driver: currently
   /// assigned (non-completed) bookings only.
-  void track({required String role, required Iterable<String> references}) {
+  void track({
+    required String role,
+    required Iterable<String> references,
+    Map<String, int> bookingIds = const {},
+  }) {
     final next = references
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toSet();
     final prev = _refs[role];
-    final changed = prev == null || !setEquals(prev, next);
+    final prevIds = _bookingIds[role];
+    final nextIds = <String, int>{
+      for (final e in bookingIds.entries)
+        if (next.contains(e.key.trim()) && e.value > 0) e.key.trim(): e.value,
+    };
+    final changed =
+        prev == null ||
+        !setEquals(prev, next) ||
+        !mapEquals(prevIds ?? const <String, int>{}, nextIds);
     _refs[role] = next;
+    _bookingIds[role] = nextIds;
     _ensureChannel();
     if (changed) refresh(role);
   }
@@ -62,6 +82,7 @@ class ChatUnreadService {
   /// Stops tracking [role] (sign-out / screen disposed). Keeps channel shared.
   void untrack(String role) {
     _refs.remove(role);
+    _bookingIds.remove(role);
     _retry[role]?.cancel();
     _retry[role] = null;
     _retryAttempt[role] = 0;
@@ -120,10 +141,12 @@ class ChatUnreadService {
     final refs = _refs[role];
     if (refs == null) return;
     final client = _client;
-    if (client == null) return;
+    if (client == null && !OdooChatConfig.isEnabled) return;
     _inFlight[role] = true;
     try {
-      final n = await _count(client, role, refs);
+      final n = OdooChatConfig.isEnabled
+          ? await _countSecure(role, refs, _bookingIds[role] ?? const {})
+          : await _count(client!, role, refs);
       countFor(role).value = n;
       _retry[role]?.cancel();
       _retry[role] = null;
@@ -139,6 +162,47 @@ class ChatUnreadService {
         refresh(role);
       }
     }
+  }
+
+  /// JWT path: each booking is counted through ITS OWN secure client. A
+  /// missing/expired/denied session throws (last confirmed count is kept);
+  /// the anonymous client is never used for protected chat reads.
+  Future<int> _countSecure(
+    String role,
+    Set<String> refs,
+    Map<String, int> ids,
+  ) async {
+    if (refs.isEmpty) return 0;
+    var total = 0;
+    Object? firstError;
+    for (final ref in refs) {
+      final bookingId = ids[ref];
+      if (bookingId == null || bookingId <= 0) {
+        firstError ??= StateError('missing booking id for tracked reference');
+        continue;
+      }
+      try {
+        final session = await ChatSecureSession.open(bookingId);
+        final convRows = await session.client
+            .from('chat_conversations')
+            .select('id')
+            .eq('odoo_booking_id', bookingId)
+            .eq('booking_reference', ref);
+        final convIds = [for (final r in convRows) r['id'] as String];
+        if (convIds.isEmpty) continue;
+        final rows = await session.client
+            .from('chat_messages')
+            .select('id')
+            .inFilter('conversation_id', convIds)
+            .neq('sender_role', role)
+            .isFilter('read_at', null);
+        total += rows.length;
+      } catch (e) {
+        firstError ??= e;
+      }
+    }
+    if (firstError != null) throw firstError;
+    return total;
   }
 
   Future<int> _count(

@@ -220,26 +220,32 @@ class _ChatTextBubbleState extends State<ChatTextBubble> {
                   fontSize: 17,
                   fontWeight: FontWeight.w500,
                   height: 1.35,
-                ),
+                ).copyWith(fontFamilyFallback: const ['Noto Color Emoji']),
               ),
             ),
           ),
           const SizedBox(height: 6),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                widget.timeLabel,
-                style: GoogleFonts.inter(
-                  color: AppTheme.secondaryText,
-                  fontSize: 12,
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text(
+                    widget.timeLabel,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.secondaryText,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
-              ),
-              if (mine) ...[
-                const SizedBox(width: 6),
-                ChatStatusTicks(status: m.status),
+                if (mine) ...[
+                  const SizedBox(width: 6),
+                  ChatStatusTicks(status: m.status),
+                ],
               ],
-            ],
+            ),
           ),
           if (!canToggle &&
               !unavailable &&

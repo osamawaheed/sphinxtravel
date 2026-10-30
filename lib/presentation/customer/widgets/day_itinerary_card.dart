@@ -6,6 +6,7 @@ import '../../../models/customer_bootstrap_model.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/auth_network_image.dart';
 import '../../driver/hotel_details_screen.dart';
+import './hotel_contact_actions.dart';
 
 /// One trip day rendered as an independent rounded card:
 /// Day header -> hotel card -> tour description -> tour image -> driver.
@@ -210,6 +211,17 @@ class _HotelCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (hotel.address.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      hotel.address,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.secondaryText,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 if (hotel.city.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
@@ -225,6 +237,11 @@ class _HotelCard extends StatelessWidget {
                   dateLine(l10n.checkIn, hotel.checkIn),
                 if (hotel.checkOut.isNotEmpty)
                   dateLine(l10n.checkOut, hotel.checkOut),
+                HotelContactActions(
+                  phone: hotel.phone,
+                  mapUrl: hotel.googleMapUrl,
+                  l10n: l10n,
+                ),
               ],
             ),
           ),

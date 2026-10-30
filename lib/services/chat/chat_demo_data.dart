@@ -184,4 +184,12 @@ class ChatDemoData {
     ChatQuickMessage('qm-6', "I'll be ready in 5 minutes."),
     ChatQuickMessage('qm-7', 'Where are you?'),
   ];
+
+  /// Customer quick replies (English source keys).
+  static const List<ChatQuickMessage> customerQuickMessages = [
+    ChatQuickMessage('cqm-1', "I'm waiting for you."),
+    ChatQuickMessage('cqm-2', 'OK.'),
+    ChatQuickMessage('cqm-3', 'When will you arrive?'),
+    ChatQuickMessage('cqm-4', 'Where are you?'),
+  ];
 }

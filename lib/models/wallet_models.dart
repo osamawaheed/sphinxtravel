@@ -63,10 +63,41 @@ class WalletBalance {
   }
 }
 
+/// Per-booking amounts inside the wallet (payouts are requested per booking).
+class WalletBooking {
+  final String bookingId;
+  final String bookingReference;
+  final String currency;
+  final double earned;
+  final double requested;
+  final double available;
+
+  const WalletBooking({
+    required this.bookingId,
+    required this.bookingReference,
+    required this.currency,
+    required this.earned,
+    required this.requested,
+    required this.available,
+  });
+
+  factory WalletBooking.fromJson(Map<String, dynamic> json) {
+    return WalletBooking(
+      bookingId: json['booking_id']?.toString() ?? '',
+      bookingReference: json['booking_reference']?.toString() ?? '',
+      currency: (json['currency']?.toString() ?? 'GEL').toUpperCase(),
+      earned: _toDouble(json['earned']),
+      requested: _toDouble(json['requested']),
+      available: _toDouble(json['available']),
+    );
+  }
+}
+
 class WalletSummary {
   final List<WalletBalance> balances;
+  final List<WalletBooking> bookings;
 
-  const WalletSummary({required this.balances});
+  const WalletSummary({required this.balances, this.bookings = const []});
 
   factory WalletSummary.fromJson(Map<String, dynamic> json) {
     final raw = json['balances'];
@@ -76,7 +107,14 @@ class WalletSummary {
               .map((e) => WalletBalance.fromJson(Map<String, dynamic>.from(e)))
               .toList()
         : <WalletBalance>[];
-    return WalletSummary(balances: list);
+    final rawBookings = json['bookings'];
+    final bookings = rawBookings is List
+        ? rawBookings
+              .whereType<Map>()
+              .map((e) => WalletBooking.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+        : <WalletBooking>[];
+    return WalletSummary(balances: list, bookings: bookings);
   }
 
   /// Balance for [currency]; returns a zero balance if Odoo reports none.
@@ -207,11 +245,15 @@ class PayoutResult {
   final String payoutId;
   final String status;
   final double availableAfter;
+  final String bookingId;
+  final String bookingReference;
 
   const PayoutResult({
     required this.payoutId,
     required this.status,
     required this.availableAfter,
+    this.bookingId = '',
+    this.bookingReference = '',
   });
 
   factory PayoutResult.fromJson(Map<String, dynamic> json) {
@@ -219,6 +261,8 @@ class PayoutResult {
       payoutId: json['payout_id']?.toString() ?? '',
       status: (json['status']?.toString() ?? '').toLowerCase(),
       availableAfter: _toDouble(json['available_after']),
+      bookingId: json['booking_id']?.toString() ?? '',
+      bookingReference: json['booking_reference']?.toString() ?? '',
     );
   }
 }

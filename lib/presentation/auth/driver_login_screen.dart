@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -8,7 +9,6 @@ import '../../models/driver_profile_model.dart';
 import '../../routes/app_routes.dart';
 import '../../services/api_client.dart';
 import '../../services/driver_auth_service.dart';
-import '../../services/driver_passkey_service.dart';
 import '../../services/token_manager.dart';
 import '../../theme/app_theme.dart';
 
@@ -29,12 +29,11 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _error;
-  bool _showPasskeyButton = false;
+  int _failedAttempts = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadPasskeyAvailability();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -49,40 +48,6 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadPasskeyAvailability() async {
-    final can = await DriverPasskeyService.instance.canSignInWithPasskey();
-    if (mounted && can != _showPasskeyButton) {
-      setState(() => _showPasskeyButton = can);
-    }
-  }
-
-  /// Passkey sign-in. Succeeds ONLY when the trusted backend verified the
-  /// assertion and returned tokens; otherwise the password form stays usable.
-  Future<void> _signInWithPasskey() async {
-    final l10n = AppLocalizations.of(context);
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-    try {
-      final result = await DriverPasskeyService.instance.signIn();
-      if (result == null) {
-        if (mounted) setState(() => _error = l10n.passkeyFailed);
-        return;
-      }
-      await TokenManager.saveTokens(
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-        role: 'driver',
-      );
-      if (mounted) context.go(AppRoutes.driverLocationPermission);
-    } catch (_) {
-      if (mounted) setState(() => _error = l10n.passkeyFailed);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
 
   Future<void> _login() async {
@@ -116,6 +81,7 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
           ApiClient(),
         ).login(username: username, password: password);
       }
+      _failedAttempts = 0;
       if (mounted) {
         // profile_completed == false → Complete Profile → Enable Location → home
         // profile_completed == true  → Enable Location → home
@@ -133,10 +99,24 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
         }
       }
     } catch (e) {
+      if (!mounted) return;
       final l = AppLocalizations.of(context);
-      setState(
-        () => _error = ApiException.messageOf(e) ?? l.invalidCredentials,
-      );
+      final isAuthFailure =
+          e is ApiException && (e.statusCode == 400 || e.statusCode == 401);
+      final isMock = MockApiDataSource.useMock;
+      if (isAuthFailure || isMock) {
+        _failedAttempts++;
+        setState(() {
+          _error = _failedAttempts >= 3
+              ? l.driverLoginFailedMultiple
+              : l.driverLoginFailedMessage;
+          _passwordController.clear();
+        });
+      } else {
+        setState(
+          () => _error = ApiException.messageOf(e) ?? l.invalidCredentials,
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -243,49 +223,85 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                 const SizedBox(height: 28),
                 _buildLabel(l10n.username),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: _usernameController,
-                  keyboardType: TextInputType.text,
-                  // Native keyboard hint only; the entered text is never
-                  // rewritten, so the exact username is sent to Odoo.
-                  textCapitalization: TextCapitalization.sentences,
-                  style: GoogleFonts.inter(
-                    color: AppTheme.primaryText,
-                    fontSize: 15,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: l10n.enterUsername,
-                    prefixIcon: Icon(
-                      Icons.person_outline_rounded,
-                      color: AppTheme.secondaryText,
-                      size: 20,
+                Focus(
+                  canRequestFocus: false,
+                  onKeyEvent: (node, event) {
+                    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                    final key = event.logicalKey;
+                    final kb = HardwareKeyboard.instance;
+                    // Select all (Cmd+A / Ctrl+A): select the full text,
+                    // including Arabic and mixed RTL/LTR content.
+                    if (key == LogicalKeyboardKey.keyA &&
+                        (kb.isMetaPressed || kb.isControlPressed)) {
+                      final len = _usernameController.text.length;
+                      _usernameController.selection = TextSelection(
+                        baseOffset: 0,
+                        extentOffset: len,
+                      );
+                      return KeyEventResult.handled;
+                    }
+                    // Backspace / Delete with a non-collapsed selection:
+                    // remove the whole selection at once.
+                    if (key == LogicalKeyboardKey.backspace ||
+                        key == LogicalKeyboardKey.delete) {
+                      final v = _usernameController.value;
+                      final sel = v.selection;
+                      if (sel.isValid && !sel.isCollapsed) {
+                        final start = sel.start;
+                        final end = sel.end;
+                        _usernameController.value = TextEditingValue(
+                          text: v.text.replaceRange(start, end, ''),
+                          selection: TextSelection.collapsed(offset: start),
+                        );
+                        return KeyEventResult.handled;
+                      }
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: TextField(
+                    controller: _usernameController,
+                    keyboardType: TextInputType.text,
+                    // Native keyboard hint only; the entered text is never
+                    // rewritten, so the exact username is sent to Odoo.
+                    textCapitalization: TextCapitalization.sentences,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.primaryText,
+                      fontSize: 15,
                     ),
-                    filled: true,
-                    fillColor: AppTheme.cardWhite,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: AppTheme.borderColor,
-                        width: 1.5,
+                    decoration: InputDecoration(
+                      hintText: l10n.enterUsername,
+                      prefixIcon: Icon(
+                        Icons.person_outline_rounded,
+                        color: AppTheme.secondaryText,
+                        size: 20,
                       ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: AppTheme.borderColor,
-                        width: 1.5,
+                      filled: true,
+                      fillColor: AppTheme.cardWhite,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: AppTheme.borderColor,
+                          width: 1.5,
+                        ),
                       ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: AppTheme.navyText,
-                        width: 1.5,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: AppTheme.borderColor,
+                          width: 1.5,
+                        ),
                       ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: AppTheme.navyText,
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
                     ),
                   ),
                 ),
@@ -390,31 +406,6 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                           ),
                   ),
                 ),
-                if (_showPasskeyButton) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _isLoading ? null : _signInWithPasskey,
-                      icon: const Icon(Icons.fingerprint_rounded, size: 20),
-                      label: Text(
-                        l10n.signInWithPasskey,
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.brandNavy,
-                        side: BorderSide(color: AppTheme.borderColor),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 40),
               ],
             ),

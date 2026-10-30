@@ -33,6 +33,73 @@
 // ======================================================
 
 const LANGUAGES = ["ar", "en", "ru", "ka", "az"];
+
+// ---- Inlined booking-scoped Odoo JWT guard (no external module import) ----
+type GuardResult = { ok: true } | { ok: false; status: number; error: string };
+
+function jwtAuthEnabled(): boolean {
+  return (Deno.env.get("ODOO_CHAT_AUTH_ENABLED") ?? "").toLowerCase() === "true";
+}
+
+function callerJwt(req: Request): string {
+  const h = req.headers.get("authorization") ?? "";
+  return h.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : "";
+}
+
+async function callPredicate(
+  fn: "chat_sec_can_view" | "chat_sec_can_send",
+  conversationId: string,
+  jwt: string,
+): Promise<boolean | "unauthorized" | "error"> {
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  if (!url || !anon) return "error";
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: {
+        apikey: anon,
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_conversation_id: conversationId }),
+    });
+    if (res.status === 401 || res.status === 403) return "unauthorized";
+    if (!res.ok) return "error";
+    return (await res.json()) === true;
+  } catch (_) {
+    return "error";
+  }
+}
+
+async function guardConversation(
+  req: Request,
+  conversationId: string,
+  needSend: boolean,
+): Promise<GuardResult> {
+  const jwt = callerJwt(req);
+  if (!jwt) return { ok: false, status: 401, error: "Unauthorized" };
+
+  const view = await callPredicate("chat_sec_can_view", conversationId, jwt);
+  if (view === "unauthorized") {
+    return { ok: false, status: 401, error: "Unauthorized" };
+  }
+  if (view === "error") {
+    return { ok: false, status: 503, error: "Authorization unavailable" };
+  }
+  if (view !== true) return { ok: false, status: 403, error: "Forbidden" };
+
+  if (needSend) {
+    const send = await callPredicate("chat_sec_can_send", conversationId, jwt);
+    if (send === "error") {
+      return { ok: false, status: 503, error: "Authorization unavailable" };
+    }
+    if (send !== true) return { ok: false, status: 403, error: "Forbidden" };
+  }
+  return { ok: true };
+}
+// ---- end inlined guard ----
+
 const TTS_BUCKET = "chat-tts";
 const STALE_SECONDS = 120;
 const MAX_ATTEMPTS = 3;
@@ -598,7 +665,9 @@ Deno.serve(async (req: Request) => {
   if (!SUPABASE_URL || !SERVICE_KEY || PROJECT_KEYS.length === 0) {
     return json({ error: "Function not configured" }, 503);
   }
-  if (!hasProjectKey(req)) return json({ error: "Unauthorized" }, 401);
+  if (!jwtAuthEnabled() && !hasProjectKey(req)) {
+    return json({ error: "Unauthorized" }, 401);
+  }
 
   let body: Row;
   try {
@@ -620,8 +689,9 @@ Deno.serve(async (req: Request) => {
   if (
     typeof messageId !== "string" || !UUID_RE.test(messageId) ||
     typeof target !== "string" || !LANGUAGES.includes(target) ||
-    (viewerRole !== "customer" && viewerRole !== "driver") ||
-    !Number.isInteger(viewerId) || viewerId === 0
+    (!jwtAuthEnabled() &&
+      ((viewerRole !== "customer" && viewerRole !== "driver") ||
+        !Number.isInteger(viewerId) || viewerId === 0))
   ) {
     return json({ error: "Invalid request" }, 400);
   }
@@ -647,7 +717,20 @@ Deno.serve(async (req: Request) => {
     const msg = rows[0] as Row;
 
     // 2. AUTHORIZE (Phase 3.1 rules) before any paid / private operation.
-    const authz = await authorize(msg, viewerRole, viewerId);
+    // JWT mode: the database decides from the booking token. Paid TTS
+    // generation requires can_send, so a replaced driver is refused.
+    const jwtMode = jwtAuthEnabled();
+    const authz: Authz = jwtMode
+      ? await (async (): Promise<Authz> => {
+        const g = await guardConversation(req, String(msg.conversation_id), true);
+        if (!g.ok) return { ok: false, status: g.status, error: g.error };
+        // Own-message detection needs the verified id, which only the
+        // database knows; a sender never needs translated audio of their
+        // own voice, so compare against the message sender via the DB-checked
+        // conversation: the caller cannot supply an id on this path.
+        return { ok: true, isSender: false };
+      })()
+      : await authorize(msg, viewerRole as string, viewerId);
     if (!authz.ok) {
       console.error(
         "authorize denied:",

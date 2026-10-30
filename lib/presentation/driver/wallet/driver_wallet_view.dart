@@ -79,6 +79,7 @@ class _DriverWalletViewState extends State<DriverWalletView> {
         builder: (_) => PayoutRequestScreen(
           service: service,
           balance: summary.forCurrency(_currency),
+          bookings: summary.bookings,
           strings: s,
           isDark: isDark,
         ),

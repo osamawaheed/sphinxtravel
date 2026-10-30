@@ -32,6 +32,8 @@
 	<string>TourOps needs your location to support live trip operations and driver tracking.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>TourOps needs the microphone to record voice messages in the trip chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>TourOps needs access to your photos so you can attach pictures in the trip chat.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

@@ -313,16 +313,26 @@ double? _d(dynamic v) {
 
 class HomeMyRating {
   final int rating;
+  final int rating10;
   final String comment;
 
-  const HomeMyRating({required this.rating, required this.comment});
+  const HomeMyRating({
+    required this.rating,
+    this.rating10 = 0,
+    required this.comment,
+  });
 
   static HomeMyRating? fromJsonOrNull(dynamic v) {
     final m = _map(v);
     if (m == null) return null;
     final r = _i(m['rating']);
-    if (r <= 0) return null;
-    return HomeMyRating(rating: r.clamp(1, 5), comment: _s(m['comment']));
+    final r10 = _i(m['rating_10']);
+    if (r <= 0 && r10 <= 0) return null;
+    return HomeMyRating(
+      rating: r.clamp(0, 5),
+      rating10: r10.clamp(0, 10),
+      comment: _s(m['comment']),
+    );
   }
 }
 
@@ -331,6 +341,7 @@ class HomeDriver {
   final String photoUrl;
   final String name;
   final double? rating;
+  final double? rating10;
   final int? ratingCount;
   final int? tripCount;
   final String vehicleModel;
@@ -350,6 +361,7 @@ class HomeDriver {
     required this.photoUrl,
     required this.name,
     this.rating,
+    this.rating10,
     this.ratingCount,
     this.tripCount,
     required this.vehicleModel,
@@ -460,6 +472,7 @@ class HomeDriver {
     photoUrl: _s(j['photo_url']),
     name: _s(j['name']),
     rating: _d(j['rating']),
+    rating10: _d(j['rating_10']),
     ratingCount: j['rating_count'] == null ? null : _i(j['rating_count']),
     tripCount: j['trip_count'] == null ? null : _i(j['trip_count']),
     vehicleModel: _s(j['vehicle_model']),
@@ -812,6 +825,7 @@ class HomeHotel {
   final String checkOut;
   final String phone;
   final String googleMapUrl;
+  final String address;
   final HomeMyRating? myRating;
 
   const HomeHotel({
@@ -826,6 +840,7 @@ class HomeHotel {
     required this.checkOut,
     this.phone = '',
     this.googleMapUrl = '',
+    this.address = '',
     this.myRating,
   });
 
@@ -841,6 +856,7 @@ class HomeHotel {
     checkOut: _s(j['check_out']),
     phone: _firstOf(j, _hotelPhoneKeys),
     googleMapUrl: _firstOf(j, _hotelMapKeys),
+    address: _s(j['address']).trim(),
     myRating: HomeMyRating.fromJsonOrNull(j['my_rating']),
   );
 }
@@ -901,6 +917,7 @@ class HomeStayHotel {
   final String checkOut;
   final String phone;
   final String googleMapUrl;
+  final String address;
 
   const HomeStayHotel({
     this.id = 0,
@@ -910,6 +927,7 @@ class HomeStayHotel {
     this.checkOut = '',
     this.phone = '',
     this.googleMapUrl = '',
+    this.address = '',
   });
 
   factory HomeStayHotel.fromJson(Map<String, dynamic> j) {
@@ -926,6 +944,7 @@ class HomeStayHotel {
       ).trim(),
       phone: _firstOf(j, _hotelPhoneKeys),
       googleMapUrl: _firstOf(j, _hotelMapKeys),
+      address: _s(j['address']).trim(),
     );
   }
 }
@@ -999,7 +1018,9 @@ class HomeExtraService {
 
   bool get isSimCard {
     final t = type.toLowerCase();
-    if (t == 'sim_card' || t == 'esim' || t == 'sim') return true;
+    if (t == 'sim_card' || t == 'esim' || t == 'sim' || t == 'flowers') {
+      return true;
+    }
     final n = title.toLowerCase();
     return n.contains('esim') || n.contains('e-sim') || n.contains('sim card');
   }
@@ -1009,6 +1030,8 @@ class HomeExtraService {
     final n = title.toLowerCase();
     return t == 'esim' || n.contains('esim') || n.contains('e-sim');
   }
+
+  bool get isFlowers => type.toLowerCase() == 'flowers';
 
   bool get isDelivered => status.toLowerCase() == 'delivered';
 
@@ -1094,6 +1117,10 @@ class DriverTripListItem {
   final int customerId;
   final String customerPhotoUrl;
 
+  /// Customer phone from the same `customer.phone` key [HomeCustomer] reads
+  /// (empty when the list endpoint does not return it).
+  final String customerPhone;
+
   const DriverTripListItem({
     required this.id,
     required this.reference,
@@ -1105,6 +1132,7 @@ class DriverTripListItem {
     required this.customerName,
     this.customerId = 0,
     this.customerPhotoUrl = '',
+    this.customerPhone = '',
   });
 
   factory DriverTripListItem.fromJson(Map<String, dynamic> j) {
@@ -1122,6 +1150,7 @@ class DriverTripListItem {
       departureDate: _s(j['departure_date']),
       customerName: cust != null ? _s(cust['name']) : '',
       customerId: cust != null ? _i(cust['id']) : 0,
+      customerPhone: cust != null ? _s(cust['phone']) : '',
       customerPhotoUrl: avatar.isNotEmpty
           ? avatar
           : (photo.isNotEmpty ? photo : image),
@@ -1140,6 +1169,7 @@ class DriverRatingItem {
   final String tripReference;
   final String customer;
   final double rating;
+  final double rating10;
   final String comment;
   final String date;
 
@@ -1147,6 +1177,7 @@ class DriverRatingItem {
     required this.tripReference,
     required this.customer,
     required this.rating,
+    this.rating10 = 0,
     required this.comment,
     required this.date,
   });
@@ -1155,6 +1186,7 @@ class DriverRatingItem {
     tripReference: _s(j['trip_reference']),
     customer: _s(j['customer']),
     rating: _d(j['rating']) ?? 0,
+    rating10: _d(j['rating_10']) ?? 0,
     comment: _s(j['comment']),
     date: _s(j['date']),
   );
@@ -1164,11 +1196,13 @@ class DriverRatingItem {
 /// {rating, rating_count, ratings:[{trip_reference, customer, rating, comment, date}]}
 class DriverRatingsResult {
   final double rating;
+  final double rating10;
   final int ratingCount;
   final List<DriverRatingItem> ratings;
 
   const DriverRatingsResult({
     required this.rating,
+    this.rating10 = 0,
     required this.ratingCount,
     required this.ratings,
   });
@@ -1179,6 +1213,7 @@ class DriverRatingsResult {
     ).map(DriverRatingItem.fromJson).toList();
     return DriverRatingsResult(
       rating: _d(j['rating']) ?? 0,
+      rating10: _d(j['rating_10']) ?? 0,
       ratingCount: j['rating_count'] == null
           ? items.length
           : _i(j['rating_count']),
@@ -1213,6 +1248,9 @@ class CustomerHomeTrip {
   final List<HomeStayHotel> hotels;
   final List<HomePlanItem> activities;
 
+  /// Trip status exactly as returned by Odoo (empty when not provided).
+  final String tripStatus;
+
   const CustomerHomeTrip({
     this.id = 0,
     required this.reference,
@@ -1238,6 +1276,7 @@ class CustomerHomeTrip {
     this.extraServices = const [],
     this.hotels = const [],
     this.activities = const [],
+    this.tripStatus = '',
   });
 
   factory CustomerHomeTrip.fromJson(Map<String, dynamic> t) {
@@ -1323,6 +1362,7 @@ class CustomerHomeTrip {
         t['extra_services'],
       ).map(HomeExtraService.fromJson).toList(),
       hotels: hotelStays,
+      tripStatus: _s(t['status'] ?? t['trip_status'] ?? t['trip_state']),
     );
   }
 }

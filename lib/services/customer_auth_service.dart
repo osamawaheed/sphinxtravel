@@ -1,6 +1,7 @@
 import '../models/customer_bootstrap_model.dart';
 import './api_client.dart';
 import './token_manager.dart';
+import './chat/odoo/odoo_chat_secure_session.dart';
 import './driver_review_notifications.dart';
 import './sim_delivery_notifications.dart';
 
@@ -47,7 +48,7 @@ class CustomerAuthService {
   Future<DriverReviewEvent?> rateDriver({
     required int tripId,
     required int driverId,
-    required int rating,
+    required int rating10,
     required String comment,
     int? transportationId,
   }) async {
@@ -55,7 +56,7 @@ class CustomerAuthService {
       '/api/v1/customer/trips/$tripId/rate-driver',
       data: {
         'driver_id': driverId,
-        'rating': rating,
+        'rating_10': rating10,
         'comment': comment,
         if (transportationId != null && transportationId > 0)
           'transportation_id': transportationId,
@@ -143,6 +144,7 @@ class CustomerAuthService {
     try {
       await _apiClient.post('/api/v1/auth/logout');
     } catch (_) {}
+    await ChatSecureSession.clearAll();
     await TokenManager.clearTokens();
   }
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../theme/app_theme.dart';
-import '../../../models/customer_bootstrap_model.dart';
+
 import '../../../l10n/app_localizations.dart';
+import '../../../models/customer_bootstrap_model.dart';
+import '../../../theme/app_theme.dart';
 import '../../../widgets/auth_network_image.dart';
+import './hotel_contact_actions.dart';
 
 class CurrentHotelCard extends StatelessWidget {
   final HomeHotel hotel;
@@ -130,6 +132,18 @@ class CurrentHotelCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (hotel.address.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        hotel.address,
+                        style: GoogleFonts.inter(
+                          color: AppTheme.secondaryText,
+                          fontSize: 13,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                     if (place.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Row(
@@ -177,6 +191,11 @@ class CurrentHotelCard extends StatelessWidget {
                         ],
                       ),
                     ],
+                    HotelContactActions(
+                      phone: hotel.phone,
+                      mapUrl: hotel.googleMapUrl,
+                      l10n: l10n,
+                    ),
                   ],
                 ),
               ),

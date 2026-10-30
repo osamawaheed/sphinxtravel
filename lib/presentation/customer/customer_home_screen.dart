@@ -217,7 +217,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            received ? l10n.simReceiptSaved : l10n.simReportSaved,
+            received
+                ? (service.isFlowers
+                      ? l10n.flowersReceiptSaved
+                      : l10n.simReceiptSaved)
+                : l10n.simReportSaved,
             style: GoogleFonts.inter(color: Colors.white),
           ),
           backgroundColor: AppTheme.successGreen,
@@ -229,7 +233,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            ApiException.messageOf(e) ?? l10n.simActionFailed,
+            ApiException.messageOf(e) ??
+                (service.isFlowers
+                    ? l10n.flowersActionFailed
+                    : l10n.simActionFailed),
             style: GoogleFonts.inter(color: Colors.white),
           ),
           backgroundColor: Colors.red.shade700,
@@ -274,12 +281,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
     final ok = await DriverReviewDialog.show(
       context,
       driverName: driver.name,
+      initial: driver.myRating,
       l10n: l10n,
       onSubmit: (rating, comment) =>
           CustomerAuthService(ApiClient()).rateDriver(
             tripId: tripId,
             driverId: driver.id,
-            rating: rating,
+            rating10: rating,
             comment: comment,
             transportationId: transportationId,
           ),
@@ -875,7 +883,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          s.isSimCard
+                          s.isFlowers
+                              ? Icons.local_florist_outlined
+                              : s.isSimCard
                               ? Icons.sim_card_outlined
                               : Icons.star_outline_rounded,
                           color: AppTheme.luxuryAccent,

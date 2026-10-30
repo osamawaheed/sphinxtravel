@@ -7,6 +7,11 @@ import '../../models/chat_models.dart';
 import './chat_audio_diagnostics.dart';
 import './chat_services.dart';
 import './chat_voice_io.dart';
+import './odoo/odoo_chat_config.dart';
+import './odoo/chat_driver_sync_service.dart';
+import './odoo/odoo_chat_diagnostics.dart';
+import './odoo/odoo_chat_models.dart';
+import './odoo/odoo_chat_secure_session.dart';
 
 /// Why a Supabase chat operation failed. The exact backend message is kept in
 /// [detail] so it can be reported (RLS / auth / missing row) instead of being
@@ -50,7 +55,9 @@ class SupabaseChatRepository {
     required this.viewerName,
     required String viewerLanguage,
     required this.senderId,
-  }) : _viewerLanguage = viewerLanguage;
+    int? odooBookingId,
+  }) : _viewerLanguage = viewerLanguage,
+       _odooBookingId = odooBookingId;
 
   final ChatRole viewerRole;
   final String viewerName;
@@ -64,11 +71,27 @@ class SupabaseChatRepository {
   /// Null => sending is refused (no impersonation / invented identity).
   final int? senderId;
 
+  /// Odoo booking id used to open the booking-scoped JWT session. Only read
+  /// when [OdooChatConfig.isEnabled] is true.
+  final int? _odooBookingId;
+
+  /// Booking-scoped secure session (null on the legacy anon path).
+  ChatSecureSession? _secure;
+
+  /// Set by the chat screen once the conversation is known to be closed
+  /// (completed trip). Every send path refuses while true.
+  bool closed = false;
+
+  /// True when this repository talks to Supabase with the Odoo booking JWT.
+  bool get isSecure => OdooChatConfig.isEnabled && _secure != null;
+
   RealtimeChannel? _channel;
   final StreamController<ChatMessage> _incoming =
       StreamController<ChatMessage>.broadcast();
 
-  SupabaseClient get _client => Supabase.instance.client;
+  /// Secure (booking JWT) client when enabled, otherwise the legacy anon
+  /// client. Flag off => identical to the previous behaviour.
+  SupabaseClient get _client => _secure?.client ?? Supabase.instance.client;
 
   bool get isConfigured {
     try {
@@ -152,6 +175,9 @@ class SupabaseChatRepository {
     String bookingReference, {
     int? odooBookingId,
   }) async {
+    if (OdooChatConfig.isEnabled) {
+      return _ensureSecureConversation(bookingReference, odooBookingId);
+    }
     try {
       return await findConversationId(bookingReference);
     } on ChatBackendException catch (e) {
@@ -168,6 +194,96 @@ class SupabaseChatRepository {
         );
       }
       return _createConversation(bookingReference, bookingId);
+    }
+  }
+
+  /// JWT path: Odoo authorizes the booking and returns the conversation id in
+  /// the token. The client NEVER inserts into `chat_conversations`
+  /// (creation is server-side via `chat_sec_ensure_conversation`).
+  Future<String> _ensureSecureConversation(
+    String bookingReference,
+    int? odooBookingId,
+  ) async {
+    final bookingId = odooBookingId ?? _odooBookingId;
+    if (bookingId == null || bookingId <= 0) {
+      throw ChatBackendException(
+        ChatBackendIssue.missingBookingId,
+        'The Odoo booking id is required to open "$bookingReference" '
+        'securely. It is never guessed.',
+      );
+    }
+    try {
+      // Phase 1: synchronize the authoritative Odoo driver into Supabase and
+      // WAIT for it before opening the conversation. Sends only booking_id
+      // (the driver id is resolved server-side from Odoo). Fails closed.
+      final syncedConversationId = await ChatDriverSyncService().syncDriver(
+        bookingId,
+      );
+      final session = await ChatSecureSession.open(bookingId);
+      _secure = session;
+      final convId = session.conversationId;
+      if (convId != null &&
+          convId.toLowerCase() == syncedConversationId.toLowerCase()) {
+        return syncedConversationId;
+      }
+      // Token had no (or a different) uuid: resolve it under RLS with the JWT.
+      List<dynamic> rows = const [];
+      String? clientError;
+      try {
+        rows = await session.client
+            .from('chat_conversations')
+            .select('id')
+            .eq('odoo_booking_id', bookingId)
+            .limit(1);
+      } on PostgrestException catch (e) {
+        clientError = '[${e.code}] ${e.message}';
+        await _runJwtDiagnostic(session, bookingId, null, clientError);
+        rethrow;
+      }
+      if (rows.isEmpty) {
+        // The synchronized conversation exists server-side; the JWT could
+        // not see it (RLS). Report honestly, never substitute demo data.
+        final report = await _runJwtDiagnostic(session, bookingId, 0, null);
+        throw ChatBackendException(
+          ChatBackendIssue.conversationNotFound,
+          'Conversation $syncedConversationId was synchronized for '
+          '"$bookingReference" but is not visible to the current chat '
+          'session.\n$report',
+        );
+      }
+      return rows.first['id'] as String;
+    } on OdooChatException catch (e) {
+      throw ChatBackendException(
+        e.failure == OdooChatFailure.network
+            ? ChatBackendIssue.network
+            : ChatBackendIssue.rlsOrAuthBlocked,
+        'Chat access was not granted (${e.failure.name}).',
+        code: e.statusCode?.toString(),
+      );
+    } on ChatBackendException {
+      rethrow;
+    } catch (e) {
+      throw _map(e);
+    }
+  }
+
+  /// TEMPORARY: read-only JWT/Supabase runtime diagnostic. Never throws.
+  Future<String> _runJwtDiagnostic(
+    ChatSecureSession session,
+    int bookingId,
+    int? rowCount,
+    String? clientError,
+  ) async {
+    try {
+      return await OdooChatDiagnostics.run(
+        bookingId: bookingId,
+        accessToken: session.diagnosticAccessToken(),
+        tokenConversationId: session.diagnosticTokenConversationId(),
+        supabaseClientError: clientError,
+        supabaseClientRowCount: rowCount,
+      );
+    } catch (_) {
+      return '[JWT-DIAG] diagnostic failed to run';
     }
   }
 
@@ -784,6 +900,7 @@ class SupabaseChatRepository {
         'was not sent (identity is never invented).',
       );
     }
+    await _assertCanSend();
     final bytes = await readRecordedBytes(localSource);
     if (bytes == null || bytes.isEmpty) {
       throw const ChatBackendException(
@@ -958,6 +1075,7 @@ class SupabaseChatRepository {
         'sent (identity is never invented).',
       );
     }
+    await _assertCanSend();
     final dot = fileName.lastIndexOf('.');
     final ext = dot < 0 ? '' : fileName.substring(dot + 1).toLowerCase();
     final mime = _attachmentMimeByExt[ext];
@@ -1501,14 +1619,19 @@ class SupabaseChatRepository {
     final id = senderId;
     if (id == null) return <String>{};
     try {
-      final res = await _client.rpc(
-        'chat_get_hidden_message_ids',
-        params: {
-          'p_conversation_id': conversationId,
-          'p_actor_role': _roleName,
-          'p_actor_odoo_id': id,
-        },
-      );
+      final res = OdooChatConfig.isEnabled
+          ? await _client.rpc(
+              'chat_get_hidden_message_ids_v2',
+              params: {'p_conversation_id': conversationId},
+            )
+          : await _client.rpc(
+              'chat_get_hidden_message_ids',
+              params: {
+                'p_conversation_id': conversationId,
+                'p_actor_role': _roleName,
+                'p_actor_odoo_id': id,
+              },
+            );
       final out = <String>{};
       if (res is List) {
         for (final r in res) {
@@ -1536,14 +1659,19 @@ class SupabaseChatRepository {
       );
     }
     try {
-      final ok = await _client.rpc(
-        'chat_delete_message_for_me',
-        params: {
-          'p_message_id': messageId,
-          'p_actor_role': _roleName,
-          'p_actor_odoo_id': id,
-        },
-      );
+      final ok = OdooChatConfig.isEnabled
+          ? await _client.rpc(
+              'chat_delete_message_for_me_v2',
+              params: {'p_message_id': messageId},
+            )
+          : await _client.rpc(
+              'chat_delete_message_for_me',
+              params: {
+                'p_message_id': messageId,
+                'p_actor_role': _roleName,
+                'p_actor_odoo_id': id,
+              },
+            );
       if (ok != true) {
         throw const ChatBackendException(
           ChatBackendIssue.unknown,
@@ -1567,14 +1695,19 @@ class SupabaseChatRepository {
       );
     }
     try {
-      final ok = await _client.rpc(
-        'chat_delete_message_for_everyone',
-        params: {
-          'p_message_id': messageId,
-          'p_actor_role': _roleName,
-          'p_actor_odoo_id': id,
-        },
-      );
+      final ok = OdooChatConfig.isEnabled
+          ? await _client.rpc(
+              'chat_delete_message_for_everyone_v2',
+              params: {'p_message_id': messageId},
+            )
+          : await _client.rpc(
+              'chat_delete_message_for_everyone',
+              params: {
+                'p_message_id': messageId,
+                'p_actor_role': _roleName,
+                'p_actor_odoo_id': id,
+              },
+            );
       if (ok != true) {
         throw const ChatBackendException(
           ChatBackendIssue.rlsOrAuthBlocked,
@@ -1599,14 +1732,19 @@ class SupabaseChatRepository {
       );
     }
     try {
-      final ok = await _client.rpc(
-        'chat_delete_conversation_for_me',
-        params: {
-          'p_conversation_id': conversationId,
-          'p_actor_role': _roleName,
-          'p_actor_odoo_id': id,
-        },
-      );
+      final ok = OdooChatConfig.isEnabled
+          ? await _client.rpc(
+              'chat_delete_conversation_for_me_v2',
+              params: {'p_conversation_id': conversationId},
+            )
+          : await _client.rpc(
+              'chat_delete_conversation_for_me',
+              params: {
+                'p_conversation_id': conversationId,
+                'p_actor_role': _roleName,
+                'p_actor_odoo_id': id,
+              },
+            );
       if (ok != true) {
         throw const ChatBackendException(
           ChatBackendIssue.unknown,
@@ -1655,14 +1793,19 @@ class SupabaseChatRepository {
     if (id == null) return 0;
     final role = viewerRole == ChatRole.driver ? 'driver' : 'customer';
     try {
-      final res = await _client.rpc(
-        'chat_mark_messages_delivered',
-        params: {
-          'p_conversation_id': conversationId,
-          'p_reader_role': role,
-          'p_reader_odoo_id': id,
-        },
-      );
+      final res = OdooChatConfig.isEnabled
+          ? await _client.rpc(
+              'chat_mark_messages_delivered_v2',
+              params: {'p_conversation_id': conversationId},
+            )
+          : await _client.rpc(
+              'chat_mark_messages_delivered',
+              params: {
+                'p_conversation_id': conversationId,
+                'p_reader_role': role,
+                'p_reader_odoo_id': id,
+              },
+            );
       final count = _rpcRowCount(res);
       debugPrint(
         '[chat] chat_mark_messages_delivered ok: conversation=$conversationId '
@@ -1701,14 +1844,19 @@ class SupabaseChatRepository {
     }
     final role = viewerRole == ChatRole.driver ? 'driver' : 'customer';
     try {
-      final res = await _client.rpc(
-        'chat_mark_messages_read',
-        params: {
-          'p_conversation_id': conversationId,
-          'p_reader_role': role,
-          'p_reader_odoo_id': id,
-        },
-      );
+      final res = OdooChatConfig.isEnabled
+          ? await _client.rpc(
+              'chat_mark_messages_read_v2',
+              params: {'p_conversation_id': conversationId},
+            )
+          : await _client.rpc(
+              'chat_mark_messages_read',
+              params: {
+                'p_conversation_id': conversationId,
+                'p_reader_role': role,
+                'p_reader_odoo_id': id,
+              },
+            );
       final count = _rpcRowCount(res);
       lastMarkReadCount = count;
       debugPrint(
@@ -1814,6 +1962,39 @@ class SupabaseChatRepository {
     return int.tryParse('$res') ?? 0;
   }
 
+  /// Fail-closed send guard for the JWT path. A replaced driver gets
+  /// `can_send=false` from Odoo and is stopped here; the database enforces
+  /// the same rule on the insert, so this is only the fast, friendly layer.
+  Future<void> _assertCanSend() async {
+    if (closed) {
+      throw const ChatBackendException(
+        ChatBackendIssue.rlsOrAuthBlocked,
+        'This conversation is closed. Messages can no longer be sent.',
+        code: '403',
+      );
+    }
+    final s = _secure;
+    if (!OdooChatConfig.isEnabled || s == null) return;
+    if (!s.canSend || !await s.refreshCanSend()) {
+      throw const ChatBackendException(
+        ChatBackendIssue.rlsOrAuthBlocked,
+        'You are no longer assigned to this booking, so you cannot send '
+        'messages in this conversation.',
+        code: '403',
+      );
+    }
+  }
+
+  /// Identity fields for Edge Function bodies. On the JWT path the server
+  /// derives identity from the verified booking token, so NO client-supplied
+  /// viewer id/role is sent. Legacy path unchanged.
+  Map<String, dynamic> _viewerBody() => OdooChatConfig.isEnabled
+      ? const <String, dynamic>{}
+      : <String, dynamic>{
+          'viewer_role': viewerRole == ChatRole.driver ? 'driver' : 'customer',
+          'viewer_id': senderId,
+        };
+
   /// Inserts a text message. The original text is stored untouched; the
   /// translation is produced server-side and read back later.
   Future<ChatMessage> sendText({
@@ -1830,6 +2011,7 @@ class SupabaseChatRepository {
         'not sent (identity is never invented).',
       );
     }
+    await _assertCanSend();
     try {
       final row = await _client
           .from('chat_messages')
@@ -1957,15 +2139,21 @@ class SupabaseChatRepository {
       );
     }
     try {
-      final ok = await _client.rpc(
-        'chat_set_message_reaction',
-        params: {
-          'p_message_id': messageId,
-          'p_actor_role': _roleName,
-          'p_actor_odoo_id': id,
-          'p_emoji': emoji,
-        },
-      );
+      await _assertCanSend();
+      final ok = OdooChatConfig.isEnabled
+          ? await _client.rpc(
+              'chat_set_message_reaction_v2',
+              params: {'p_message_id': messageId, 'p_emoji': emoji},
+            )
+          : await _client.rpc(
+              'chat_set_message_reaction',
+              params: {
+                'p_message_id': messageId,
+                'p_actor_role': _roleName,
+                'p_actor_odoo_id': id,
+                'p_emoji': emoji,
+              },
+            );
       if (ok != true) {
         throw const ChatBackendException(
           ChatBackendIssue.unknown,

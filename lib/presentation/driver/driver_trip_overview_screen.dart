@@ -9,6 +9,7 @@ import '../../routes/app_routes.dart';
 import '../../services/api_client.dart';
 import '../../services/driver_api_service.dart';
 import '../../services/driver_auth_service.dart';
+import '../../services/chat/chat_inbox_service.dart';
 import '../../services/localization_service.dart';
 import '../../theme/app_theme.dart';
 import '../customer/widgets/day_itinerary_card.dart';
@@ -95,6 +96,10 @@ class _DriverTripOverviewScreenState extends State<DriverTripOverviewScreen> {
       myPhoto = b.driverPhotoUrl;
     } catch (_) {}
     if (!mounted) return;
+    final closed = ChatInboxService.isChatClosed(
+      odooStatus: trip.tripStatus,
+      departureDate: trip.departureDate,
+    );
     context.push(
       AppRoutes.smartChat,
       extra: {
@@ -108,6 +113,8 @@ class _DriverTripOverviewScreenState extends State<DriverTripOverviewScreen> {
         'counterpartPhoto': cust.photoUrl.isNotEmpty ? cust.photoUrl : null,
         'counterpartOdooId': cust.id > 0 ? cust.id : null,
         'counterpartPhone': cust.phone,
+        'odooBookingId': trip.id > 0 ? trip.id : null,
+        'readOnly': closed,
       },
     );
   }
@@ -764,7 +771,9 @@ class _ServiceRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              service.isSimCard
+              service.isFlowers
+                  ? Icons.local_florist_outlined
+                  : service.isSimCard
                   ? Icons.sim_card_outlined
                   : Icons.star_outline_rounded,
               color: AppTheme.luxuryAccent,

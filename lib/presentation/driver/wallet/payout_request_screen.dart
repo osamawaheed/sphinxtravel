@@ -12,6 +12,7 @@ import './wallet_transaction_card.dart';
 class PayoutRequestScreen extends StatefulWidget {
   final DriverWalletService service;
   final WalletBalance balance;
+  final List<WalletBooking> bookings;
   final WalletStrings strings;
   final bool isDark;
 
@@ -19,6 +20,7 @@ class PayoutRequestScreen extends StatefulWidget {
     super.key,
     required this.service,
     required this.balance,
+    this.bookings = const [],
     required this.strings,
     required this.isDark,
   });
@@ -34,9 +36,20 @@ class _PayoutRequestScreenState extends State<PayoutRequestScreen> {
   final _ibanCtrl = TextEditingController();
   final _taxCtrl = TextEditingController();
   WalletBank? _bank;
+  WalletBooking? _booking;
   bool _loadingDetails = true;
   bool _submitting = false;
   String? _error;
+
+  /// Bookings of this currency that still have something available.
+  List<WalletBooking> get _bookingOptions => widget.bookings
+      .where((b) => b.available > 0 && b.currency == widget.balance.currency)
+      .toList();
+
+  bool get _bookingRequired => widget.bookings.isNotEmpty;
+
+  /// Max payable amount: the chosen booking's available, else the balance.
+  double get _maxAmount => _booking?.available ?? widget.balance.available;
 
   /// One key per screen session so retries of the same request are idempotent.
   final String _idempotencyKey =
@@ -85,7 +98,7 @@ class _PayoutRequestScreenState extends State<PayoutRequestScreen> {
 
   double get _remaining {
     final a = _amount ?? 0;
-    final r = widget.balance.available - a;
+    final r = _maxAmount - a;
     return r < 0 ? 0 : r;
   }
 
@@ -111,15 +124,23 @@ class _PayoutRequestScreenState extends State<PayoutRequestScreen> {
         currency: widget.balance.currency,
         details: details,
         idempotencyKey: _idempotencyKey,
+        bookingId: _booking?.bookingId,
       );
       if (!mounted) return;
       if (result.payoutId.isEmpty) {
         setState(() => _error = s.requestFailed);
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(s.requestSubmitted)));
+      final ref = result.bookingReference.isNotEmpty
+          ? result.bookingReference
+          : (_booking?.bookingReference ?? '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ref.isNotEmpty ? s.requestSubmittedFor(ref) : s.requestSubmitted,
+          ),
+        ),
+      );
       Navigator.of(context).pop(true);
     } on WalletUnavailableException {
       if (mounted) setState(() => _error = s.unavailableBody);
@@ -224,6 +245,52 @@ class _PayoutRequestScreenState extends State<PayoutRequestScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    if (_bookingRequired) ...[
+                      DropdownButtonFormField<WalletBooking>(
+                        initialValue: _booking,
+                        isExpanded: true,
+                        dropdownColor: isDark
+                            ? AppTheme.darkCard
+                            : AppTheme.cardWhite,
+                        style: inputStyle,
+                        decoration: _decoration(s.booking),
+                        hint: Text(
+                          s.selectBooking,
+                          style: GoogleFonts.inter(
+                            color: subColor,
+                            fontSize: 15,
+                          ),
+                        ),
+                        items: _bookingOptions
+                            .map(
+                              (b) => DropdownMenuItem<WalletBooking>(
+                                value: b,
+                                child: Text(
+                                  s.bookingAvailable(
+                                    b.bookingReference,
+                                    WalletTransactionCard.formatAmount(
+                                      b.available,
+                                    ),
+                                    b.currency,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _submitting
+                            ? null
+                            : (b) => setState(() {
+                                _booking = b;
+                                if (b != null) {
+                                  _amountCtrl.text = b.available
+                                      .toStringAsFixed(2);
+                                }
+                              }),
+                        validator: (v) => v == null ? s.fieldRequired : null,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     TextFormField(
                       controller: _amountCtrl,
                       enabled: !_submitting,
@@ -238,7 +305,7 @@ class _PayoutRequestScreenState extends State<PayoutRequestScreen> {
                           (v ?? '').trim().replaceAll(',', '.'),
                         );
                         if (a == null || a <= 0) return s.invalidAmount;
-                        if (a > widget.balance.available) {
+                        if (a > _maxAmount) {
                           return s.amountExceeds;
                         }
                         return null;

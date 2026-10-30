@@ -4,7 +4,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -13,6 +15,7 @@ import '../../models/chat_models.dart';
 import '../../services/chat/chat_audio_diagnostics.dart';
 import '../../services/chat/chat_demo_data.dart';
 import '../../services/chat/chat_device_audio_service.dart';
+import '../../services/chat/chat_inbox_service.dart';
 import '../../services/chat/chat_local_services.dart';
 import '../../services/chat/chat_presence_service.dart';
 import '../../services/chat/chat_services.dart';
@@ -20,12 +23,15 @@ import '../../services/chat/chat_supabase_service.dart';
 import '../../services/chat/chat_test_config.dart';
 import '../../services/chat/chat_translation_prefs.dart';
 import '../../services/chat/chat_unread_service.dart';
+import '../../services/api_client.dart';
+import '../../services/driver_api_service.dart';
 import '../../theme/app_theme.dart';
 import './chat_inbox_strings.dart';
 import './chat_strings.dart';
 import './widgets/chat_input_widgets.dart';
 import './widgets/chat_audio_diagnostics_panel.dart';
 import './widgets/chat_file_bubble.dart';
+import './widgets/chat_media_widgets.dart';
 import './widgets/chat_message_interactions.dart';
 import './widgets/chat_text_bubble.dart';
 import './widgets/chat_voice_bubble.dart';
@@ -108,6 +114,11 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   StreamSubscription<ChatAudioFailure>? _playbackErrorSub;
   String? _backendError;
   bool _isTestBooking = false;
+
+  /// Closure resolved from Odoo (trip status / dates) when the caller did not
+  /// already pass `readOnly`. Closed conversations are read-only everywhere.
+  bool _closedByOdoo = false;
+  bool get _readOnly => widget.readOnly || _closedByOdoo;
 
   // Read-receipt state: only true while the app is in the foreground.
   bool _foreground = true;
@@ -201,6 +212,9 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Preload the modern emoji font so emojis in bubbles, the picker and the
+    // reaction bar share one consistent style.
+    GoogleFonts.pendingFonts([GoogleFonts.notoColorEmoji()]);
     // TEMPORARY: audio diagnostics are available for any booking in the TEST
     // build only (AUDIO_DIAGNOSTICS flag, off for production builds). Enabled
     // here (not after async loading) so the button is always visible.
@@ -225,7 +239,32 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     _load();
   }
 
+  /// Enforces the closure rule for entry points that did not pass `readOnly`
+  /// (direct navigation, notifications, ...). Uses the Odoo driver trips list
+  /// as the source of truth and fails open only when Odoo is unreachable (the
+  /// server enforces closure on every insert regardless).
+  Future<void> _resolveClosure() async {
+    if (widget.readOnly || widget.role != ChatRole.driver) return;
+    final ref = (widget.bookingReference ?? '').trim();
+    final bid = widget.odooBookingId ?? 0;
+    if (ref.isEmpty && bid <= 0) return;
+    try {
+      final trips = await DriverApiService(ApiClient()).loadTrips();
+      for (final t in trips) {
+        if ((bid > 0 && t.id == bid) ||
+            (ref.isNotEmpty && t.reference == ref)) {
+          if (ChatInboxService.isTripCompleted(t) && mounted) {
+            _live?.closed = true;
+            setState(() => _closedByOdoo = true);
+          }
+          return;
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _load() async {
+    _resolveClosure();
     final localHistory = await _repo.loadHistory(
       conversationId: _conversation.id,
     );
@@ -264,6 +303,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
       viewerName: _conversation.currentUser.name,
       viewerLanguage: chatLang,
       senderId: senderId,
+      odooBookingId: widget.odooBookingId,
     );
 
     try {
@@ -277,6 +317,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
         await live.dispose();
         return;
       }
+      live.closed = _readOnly;
       _live = live;
       _liveConversationId = convId;
       // Make sure this user is publishing presence for the booking this chat
@@ -767,6 +808,10 @@ class _SmartChatScreenState extends State<SmartChatScreen>
                   dense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                   onTap: () => Navigator.of(ctx).pop(code),
+                  leading: Text(
+                    ChatTranslationLanguages.flags[code] ?? '',
+                    style: const TextStyle(fontSize: 22),
+                  ),
                   title: Text(
                     code == 'en'
                         ? 'English'
@@ -1067,18 +1112,23 @@ class _SmartChatScreenState extends State<SmartChatScreen>
               const ChatAudioDiagnosticsPanel(),
               _buildTripCard(s),
               _buildDemoBanner(s),
+              if (_readOnly && widget.role == ChatRole.driver && !_loading)
+                _buildCompletedBanner(l10n.locale),
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : _buildMessages(s),
               ),
-              if (widget.readOnly)
+              if (_readOnly)
                 _buildReadOnlyNotice(l10n.locale)
               else ...[
                 ChatQuickMessagesBar(
-                  items: ChatDemoData.quickMessages,
-                  strings: s,
-                  onSelect: (q) => _sendText(s.quick(q.key)),
+                  items: widget.role == ChatRole.customer
+                      ? ChatDemoData.customerQuickMessages
+                      : ChatDemoData.quickMessages,
+                  strings: ChatStrings(_translationLang),
+                  onSelect: (q) =>
+                      _sendText(ChatStrings(_translationLang).quick(q.key)),
                 ),
                 if (_replyTo != null) _buildReplyPreview(s),
                 ChatInputBar(
@@ -1136,6 +1186,41 @@ class _SmartChatScreenState extends State<SmartChatScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Blue "Completed" status banner (same blue as the blue trip status badge).
+  Widget _buildCompletedBanner(String locale) {
+    const blue = Color(0xFF1565C0);
+    final label = ChatInboxStrings(locale).statusCompleted;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: blue.withAlpha(26),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: blue.withAlpha(64)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.check_circle_rounded, size: 18, color: blue),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                color: blue,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1206,8 +1291,45 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   // ---------------------------------------------------------------------
   bool _sendingFile = false;
 
+  /// Local (compressed) bytes of attachments still uploading, keyed by the
+  /// optimistic `pending-…` message id. Lets the tile render instantly.
+  final Map<String, Uint8List> _pendingFileBytes = <String, Uint8List>{};
+
+  static const Set<String> _compressibleExt = {
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'heic',
+  };
+
+  /// Downscales big camera photos (the real upload/display bottleneck:
+  /// multi-MB originals) to max 1600 px / q80. Falls back to the original
+  /// bytes on any failure or when it would not shrink the file.
+  Future<Uint8List> _optimizeImage(Uint8List bytes, String name) async {
+    if (kIsWeb) return bytes;
+    final dot = name.lastIndexOf('.');
+    final ext = dot < 0 ? '' : name.substring(dot + 1).toLowerCase();
+    if (!_compressibleExt.contains(ext) || bytes.length < 200 * 1024) {
+      return bytes;
+    }
+    try {
+      final out = await FlutterImageCompress.compressWithList(
+        bytes,
+        minWidth: 1600,
+        minHeight: 1600,
+        quality: 80,
+        format: ext == 'png' ? CompressFormat.png : CompressFormat.jpeg,
+      );
+      if (out.isNotEmpty && out.length < bytes.length) return out;
+    } catch (e) {
+      debugPrint('[chat] image compress skipped: $e');
+    }
+    return bytes;
+  }
+
   Future<void> _onAttach() async {
-    if (widget.readOnly || _sendingFile) return;
+    if (_readOnly || _sendingFile) return;
     final s = _s;
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -1287,6 +1409,41 @@ class _SmartChatScreenState extends State<SmartChatScreen>
 
   Future<void> _pickAttachment({required String kind}) async {
     final s = _s;
+    // Photos open the native gallery (PHPicker on iOS) instead of the Files
+    // app. Video / documents keep using the file picker.
+    if (kind == 'image' && !kIsWeb) {
+      try {
+        final picked = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+        );
+        if (picked == null || !mounted) return;
+        final imgBytes = await picked.readAsBytes();
+        if (imgBytes.isEmpty) {
+          _toast(s.attachReadFailed);
+          return;
+        }
+        var imgName = picked.name.trim();
+        if (imgName.isEmpty) imgName = 'photo.jpg';
+        final imgDot = imgName.lastIndexOf('.');
+        final imgExt = imgDot < 0
+            ? ''
+            : imgName.substring(imgDot + 1).toLowerCase();
+        if (!SupabaseChatRepository.attachmentExtensions.contains(imgExt)) {
+          // Gallery items without a usable extension are sent as JPEG.
+          final base = imgDot < 0 ? imgName : imgName.substring(0, imgDot);
+          imgName = '$base.jpg';
+        }
+        if (imgBytes.length > SupabaseChatRepository.maxAttachmentBytes) {
+          _toast(s.attachTooLarge);
+          return;
+        }
+        await _sendAttachment(imgBytes, imgName);
+      } catch (e) {
+        debugPrint('[chat] gallery picker failed: $e');
+        _toast(s.attachReadFailed);
+      }
+      return;
+    }
     FilePickerResult? result;
     try {
       result = await FilePicker.pickFiles(
@@ -1333,27 +1490,75 @@ class _SmartChatScreenState extends State<SmartChatScreen>
       _toast(s.attachNotDeployed);
       return;
     }
-    setState(() => _sendingFile = true);
-    _toast(s.attachSending);
+    // Optimistic tile first: the chat never blocks while compressing/uploading.
+    final pendingId = 'pending-${DateTime.now().microsecondsSinceEpoch}';
+    final dot = name.lastIndexOf('.');
+    final ext = dot < 0 ? '' : name.substring(dot + 1).toLowerCase();
+    final isImage = const {
+      'jpg',
+      'jpeg',
+      'png',
+      'webp',
+      'gif',
+      'heic',
+    }.contains(ext);
+    setState(() {
+      _sendingFile = true;
+      if (isImage) _pendingFileBytes[pendingId] = bytes;
+      _messages = [
+        ..._messages,
+        ChatMessage(
+          id: pendingId,
+          kind: ChatMessageKind.file,
+          sender: ChatParticipant(
+            id: '${live.senderId ?? ''}',
+            name: _conversation.currentUser.name,
+            role: widget.role,
+          ),
+          originalLanguage: _translationLang,
+          sentAt: DateTime.now(),
+          status: ChatDeliveryStatus.sending,
+          isDemo: false,
+          fileName: name,
+          fileMime: isImage ? 'image/$ext' : null,
+          fileSizeBytes: bytes.length,
+        ),
+      ];
+    });
+    _jumpToEnd();
     try {
+      final optimized = await _optimizeImage(bytes, name);
+      if (mounted && isImage && !identical(optimized, bytes)) {
+        setState(() => _pendingFileBytes[pendingId] = optimized);
+      }
       final sent = await live.sendFile(
         conversationId: convId,
-        bytes: bytes,
+        bytes: optimized,
         fileName: name,
         language: _translationLang,
       );
       if (!mounted) return;
+      // Warm the signed-URL cache so the final tile appears without a
+      // second round trip.
+      final p = sent.filePath;
+      if (p != null && p.isNotEmpty) {
+        unawaited(live.cachedSignedFileUrl(p, messageId: sent.id));
+      }
       setState(() {
-        if (_messages.every((x) => x.id != sent.id)) {
-          _messages = [..._messages, sent]
-            ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
-        }
+        final already = _messages.any((x) => x.id == sent.id);
+        _messages = [
+          for (final x in _messages)
+            if (x.id != pendingId) x,
+          if (!already) sent,
+        ]..sort((a, b) => a.sentAt.compareTo(b.sentAt));
+        _pendingFileBytes.remove(pendingId);
       });
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       _jumpToEnd();
     } on ChatBackendException catch (e) {
       debugPrint('[chat] attachment send failed: $e');
       if (!mounted) return;
+      _pendingFileBytes.remove(pendingId);
+      _failPending(pendingId);
       if (e.issue == ChatBackendIssue.attachmentsNotDeployed) {
         _toast(s.attachNotDeployed);
       } else if (e.issue == ChatBackendIssue.missingSenderIdentity) {
@@ -1363,7 +1568,11 @@ class _SmartChatScreenState extends State<SmartChatScreen>
       }
     } catch (e) {
       debugPrint('[chat] attachment send failed: $e');
-      if (mounted) _toast(s.attachSendFailed);
+      if (mounted) {
+        _pendingFileBytes.remove(pendingId);
+        _failPending(pendingId);
+        _toast(s.attachSendFailed);
+      }
     } finally {
       if (mounted) setState(() => _sendingFile = false);
     }
@@ -1387,6 +1596,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   }
 
   Future<void> _openFile(ChatMessage m) async {
+    if (m.id.startsWith('pending-')) return;
     final url = await _resolveFileUrl(m);
     if (!mounted) return;
     if (url == null) {
@@ -1413,7 +1623,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
 
   Future<void> _sendText(String text, {String? languageOverride}) async {
     final t = text.trim();
-    if (t.isEmpty || widget.readOnly) return;
+    if (t.isEmpty || _readOnly) return;
     final lang = languageOverride ?? AppLocalizations.of(context).locale;
     final replyId = _replyTargetId();
 
@@ -1516,7 +1726,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   }
 
   Future<void> _toggleRecording() async {
-    if (_busyRecording || widget.readOnly) return;
+    if (_busyRecording || _readOnly) return;
     _busyRecording = true;
     try {
       if (_pendingAudio != null) {
@@ -1537,7 +1747,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   /// really started. Refuses while another recording / send is in flight.
   Future<bool> _holdStart() async {
     if (_busyRecording || _recording || _pendingAudio != null) return false;
-    if (widget.readOnly) return false;
+    if (_readOnly) return false;
     _busyRecording = true;
     try {
       return await _beginRecording();
@@ -2038,7 +2248,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
                 ),
               ),
               const SizedBox(height: 16),
-              if (_live != null && !widget.readOnly) ...[
+              if (_live != null && !_readOnly) ...[
                 SizedBox(
                   width: double.infinity,
                   child: TextButton.icon(
@@ -2122,7 +2332,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   Future<void> _onMessageLongPress(ChatMessage m, bool mine) async {
     if (m.isSystem || m.deletedForEveryone) return;
     final s = _s;
-    final canEveryone = mine && _live != null && !widget.readOnly;
+    final canEveryone = mine && _live != null && !_readOnly;
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: AppTheme.cardWhite,
@@ -2215,7 +2425,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   }
 
   void _startReply(ChatMessage m) {
-    if (widget.readOnly || m.isSystem || m.deletedForEveryone) return;
+    if (_readOnly || m.isSystem || m.deletedForEveryone) return;
     if (m.id.startsWith('pending-')) return;
     setState(() => _replyTo = m);
     // Focus after the preview bar is laid out so the keyboard opens.
@@ -2415,7 +2625,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
   Future<void> _react(ChatMessage m, String emoji) async {
     final live = _live;
     final viewerId = _viewerId;
-    if (widget.readOnly || m.deletedForEveryone) return;
+    if (_readOnly || m.deletedForEveryone) return;
     if (live == null || viewerId == null || m.isDemo) {
       _toast(_s.featureNotAvailable);
       return;
@@ -2481,7 +2691,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
     final anchor = origin & box.size;
     final s = _s;
     HapticFeedback.mediumImpact();
-    final canInteract = !widget.readOnly && !m.id.startsWith('pending-');
+    final canInteract = !_readOnly && !m.id.startsWith('pending-');
     showChatMessageOverlay(
       context: context,
       anchor: anchor,
@@ -2865,13 +3075,28 @@ class _SmartChatScreenState extends State<SmartChatScreen>
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                message,
-                style: GoogleFonts.inter(
-                  color: AppTheme.navyText,
-                  fontSize: 12,
-                ),
-              ),
+              child: message.contains('[JWT-DIAG]')
+                  ? ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.4,
+                      ),
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          message,
+                          style: GoogleFonts.inter(
+                            color: AppTheme.navyText,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Text(
+                      message,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.navyText,
+                        fontSize: 12,
+                      ),
+                    ),
             ),
           ],
         ),
@@ -3015,6 +3240,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
             strings: s,
             timeLabel: _time(m.sentAt),
             onOpen: () => _openFile(m),
+            localBytes: _pendingFileBytes[m.id],
             resolveUrl: ({bool forceRefresh = false}) =>
                 _resolveFileUrl(m, forceRefresh: forceRefresh),
           )
@@ -3076,6 +3302,18 @@ class _SmartChatScreenState extends State<SmartChatScreen>
         return _overlayVoiceSnapshot(s, m, mine);
       }
       if (m.isFile) {
+        if (chatMediaKindOf(m) == ChatMediaKind.image) {
+          return ChatOverlayImage(
+            message: m,
+            localBytes: _pendingFileBytes[m.id],
+            width: (MediaQuery.of(context).size.width * 0.74).clamp(
+              180.0,
+              300.0,
+            ),
+            resolveUrl: ({bool forceRefresh = false}) =>
+                _resolveFileUrl(m, forceRefresh: forceRefresh),
+          );
+        }
         return _overlayFileSnapshot(s, m);
       }
       return Column(
@@ -3098,9 +3336,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
 
     final highlighted = _highlightId == m.id;
     final canSwipe =
-        !widget.readOnly &&
-        !m.deletedForEveryone &&
-        !m.id.startsWith('pending-');
+        !_readOnly && !m.deletedForEveryone && !m.id.startsWith('pending-');
 
     final Widget bubbleBody = Column(
       crossAxisAlignment: mine
@@ -3140,7 +3376,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
       ),
       child: Padding(
         key: ValueKey<String>('chat-row-${m.id}'),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsetsDirectional.only(bottom: 4, start: 4, end: 4),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisAlignment: mine
@@ -3158,10 +3394,10 @@ class _SmartChatScreenState extends State<SmartChatScreen>
                     : CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(
+                    padding: const EdgeInsetsDirectional.only(
                       bottom: 4,
-                      left: 4,
-                      right: 4,
+                      start: 4,
+                      end: 4,
                     ),
                     child: Text(
                       sender?.name ?? '',
