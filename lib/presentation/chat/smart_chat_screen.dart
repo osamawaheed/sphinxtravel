@@ -29,7 +29,6 @@ import '../../theme/app_theme.dart';
 import './chat_inbox_strings.dart';
 import './chat_strings.dart';
 import './widgets/chat_input_widgets.dart';
-import './widgets/chat_audio_diagnostics_panel.dart';
 import './widgets/chat_file_bubble.dart';
 import './widgets/chat_media_widgets.dart';
 import './widgets/chat_message_interactions.dart';
@@ -1108,8 +1107,6 @@ class _SmartChatScreenState extends State<SmartChatScreen>
           child: Column(
             children: [
               _buildHeader(s),
-              const ChatAudioDiagnosticsButton(),
-              const ChatAudioDiagnosticsPanel(),
               _buildTripCard(s),
               _buildDemoBanner(s),
               if (_readOnly && widget.role == ChatRole.driver && !_loading)
@@ -2300,6 +2297,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
         color: AppTheme.cardWhite,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3003,6 +3001,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
           color: AppTheme.cardWhite,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppTheme.borderColor),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Row(
           children: [
@@ -3045,19 +3044,13 @@ class _SmartChatScreenState extends State<SmartChatScreen>
 
   Widget _buildDemoBanner(ChatStrings s) {
     final live = _live != null;
-    if (_conversation.isDemo == false && !live) {
+    if (_loading || live) {
       return const SizedBox.shrink();
     }
-    final String message;
-    if (live) {
-      message = _isTestBooking
-          ? '${s.testBanner}\n${s.liveConnected}'
-          : s.liveConnected;
-    } else if (_backendError != null) {
-      message = '${s.backendBlockedTitle}: $_backendError\n${s.demoBanner}';
-    } else {
-      message = s.demoBanner;
+    if (_backendError == null) {
+      return const SizedBox.shrink();
     }
+    final String message = '${s.backendBlockedTitle}: $_backendError';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       child: Container(
@@ -3464,6 +3457,7 @@ class _SmartChatScreenState extends State<SmartChatScreen>
         color: AppTheme.cardWhite,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

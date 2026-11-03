@@ -245,6 +245,7 @@ class _DriverChatsViewState extends State<DriverChatsView> {
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: TextField(
         controller: _search,

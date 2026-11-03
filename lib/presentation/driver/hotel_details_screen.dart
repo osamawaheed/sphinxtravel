@@ -248,8 +248,8 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(

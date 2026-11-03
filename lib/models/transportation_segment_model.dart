@@ -37,6 +37,14 @@ class TransportationSegmentModel {
   final String? flightDate;
   final int? tripId;
 
+  // Optional exact pickup point (Odoo: pickup_address / pickup_lat /
+  // pickup_lng / pickup_map_url, or nested pickup.address / latitude /
+  // longitude). All may be empty.
+  final String? pickupAddress;
+  final double? pickupLat;
+  final double? pickupLng;
+  final String? pickupMapUrl;
+
   const TransportationSegmentModel({
     required this.id,
     required this.segmentType,
@@ -68,12 +76,29 @@ class TransportationSegmentModel {
     this.flightAirport,
     this.flightDate,
     this.tripId,
+    this.pickupAddress,
+    this.pickupLat,
+    this.pickupLng,
+    this.pickupMapUrl,
   });
 
   static String? _optStr(dynamic v) {
     if (v == null) return null;
     final s = v.toString();
     return s.isEmpty ? null : s;
+  }
+
+  static double? _optDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString());
+  }
+
+  /// Google Maps directions URL to the exact pickup point, or null when
+  /// no pickup latitude/longitude is available.
+  String? get pickupNavigateUrl {
+    if (pickupLat == null || pickupLng == null) return null;
+    return 'https://www.google.com/maps/dir/?api=1&destination=$pickupLat,$pickupLng';
   }
 
   static int _int(dynamic v) {
@@ -90,14 +115,22 @@ class TransportationSegmentModel {
     final flight = json['flight'] as Map<String, dynamic>?;
     final vehicle = json['vehicle'] as Map<String, dynamic>?;
     final customer = json['customer'] as Map<String, dynamic>?;
+    final pickupObj = json['pickup'] is Map<String, dynamic>
+        ? json['pickup'] as Map<String, dynamic>
+        : null;
 
     final vehicleModel = vehicle?['model'] ?? vehicle?['display_name'];
 
     return TransportationSegmentModel(
       id: _int(json['segment_id'] ?? json['id']),
       segmentType: json['segment_type']?.toString() ?? 'transfer',
-      pickupLocation: (json['pickup'] ?? json['pickup_location'] ?? '')
-          .toString(),
+      pickupLocation: pickupObj != null
+          ? (pickupObj['city'] ??
+                    pickupObj['name'] ??
+                    json['pickup_location'] ??
+                    '')
+                .toString()
+          : (json['pickup'] ?? json['pickup_location'] ?? '').toString(),
       dropoffLocation: (json['destination'] ?? json['dropoff_location'] ?? '')
           .toString(),
       pickupTime: (json['pickup_time'] ?? '').toString(),
@@ -155,6 +188,23 @@ class TransportationSegmentModel {
       tripId: json['trip_id'] != null
           ? _int(json['trip_id'])
           : (trip != null && trip['id'] != null ? _int(trip['id']) : null),
+      pickupAddress: _optStr(
+        json['pickup_address'] ??
+            (pickupObj != null ? pickupObj['address'] : null),
+      ),
+      pickupLat: _optDouble(
+        json['pickup_lat'] ??
+            (pickupObj != null
+                ? (pickupObj['latitude'] ?? pickupObj['lat'])
+                : null),
+      ),
+      pickupLng: _optDouble(
+        json['pickup_lng'] ??
+            (pickupObj != null
+                ? (pickupObj['longitude'] ?? pickupObj['lng'])
+                : null),
+      ),
+      pickupMapUrl: _optStr(json['pickup_map_url']),
     );
   }
 

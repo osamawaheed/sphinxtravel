@@ -49,7 +49,7 @@ class _UserTypeSelectionScreenState extends State<UserTypeSelectionScreen>
     return Directionality(
       textDirection: textDir,
       child: Scaffold(
-        backgroundColor: AppTheme.mainBackground,
+        backgroundColor: AppTheme.preLoginBackground,
         body: SafeArea(
           child: FadeTransition(
             opacity: _fadeIn,
@@ -81,7 +81,7 @@ class _UserTypeSelectionScreenState extends State<UserTypeSelectionScreen>
                         l10n.travelOperations,
                         style: AppTheme.appFont(
                           context,
-                          color: AppTheme.navyText,
+                          color: AppTheme.preLoginText,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.5,
@@ -98,7 +98,7 @@ class _UserTypeSelectionScreenState extends State<UserTypeSelectionScreen>
                     overflow: TextOverflow.ellipsis,
                     style: AppTheme.appFont(
                       context,
-                      color: AppTheme.primaryText,
+                      color: AppTheme.preLoginText,
                       fontSize: isArabic ? 22 : 26,
                       fontWeight: FontWeight.w700,
                       height: 1.25,
@@ -111,7 +111,7 @@ class _UserTypeSelectionScreenState extends State<UserTypeSelectionScreen>
                     textAlign: TextAlign.center,
                     style: AppTheme.appFont(
                       context,
-                      color: AppTheme.secondaryText,
+                      color: AppTheme.preLoginSubtext,
                       fontSize: 15,
                       fontWeight: FontWeight.w400,
                     ),
@@ -144,7 +144,7 @@ class _UserTypeSelectionScreenState extends State<UserTypeSelectionScreen>
                       l10n.copyright,
                       style: AppTheme.appFont(
                         context,
-                        color: AppTheme.secondaryText.withAlpha(153),
+                        color: AppTheme.preLoginSubtext.withAlpha(153),
                         fontSize: 11,
                       ),
                     ),
@@ -185,6 +185,18 @@ class _RoleCard extends StatefulWidget {
 class _RoleCardState extends State<_RoleCard> {
   bool _pressed = false;
 
+  Color get _titleColor =>
+      widget.isPrimary ? Colors.white : AppTheme.preLoginText;
+  Color get _subtitleColor =>
+      widget.isPrimary ? Colors.white.withAlpha(179) : AppTheme.preLoginSubtext;
+  Color get _chevronColor =>
+      widget.isPrimary ? Colors.white.withAlpha(153) : AppTheme.preLoginSubtext;
+  Color get _iconBg => widget.isPrimary
+      ? AppTheme.luxuryAccent.withAlpha(38)
+      : const Color(0xFFF6F1E7);
+  Color get _iconColor =>
+      widget.isPrimary ? AppTheme.luxuryAccent : AppTheme.preLoginText;
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -201,32 +213,18 @@ class _RoleCardState extends State<_RoleCard> {
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: widget.isPrimary ? AppTheme.brandNavy : AppTheme.cardWhite,
+            color: widget.isPrimary ? AppTheme.brandNavy : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: widget.isPrimary
-                  ? AppTheme.brandNavy
-                  : AppTheme.borderColor,
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.isPrimary
-                    ? AppTheme.brandNavy.withAlpha(51)
-                    : AppTheme.shadowColor,
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            boxShadow: widget.isPrimary
+                ? AppTheme.cardShadow
+                : AppTheme.softShadow,
           ),
           child: Row(
             children: [
               if (widget.isRTL) ...[
                 Icon(
                   Icons.arrow_back_ios_rounded,
-                  color: widget.isPrimary
-                      ? Colors.white.withAlpha(153)
-                      : AppTheme.secondaryText,
+                  color: _chevronColor,
                   size: 16,
                 ),
                 const SizedBox(width: 20),
@@ -239,9 +237,7 @@ class _RoleCardState extends State<_RoleCard> {
                         textAlign: TextAlign.right,
                         style: AppTheme.appFont(
                           context,
-                          color: widget.isPrimary
-                              ? Colors.white
-                              : AppTheme.primaryText,
+                          color: _titleColor,
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
@@ -252,9 +248,7 @@ class _RoleCardState extends State<_RoleCard> {
                         textAlign: TextAlign.right,
                         style: AppTheme.appFont(
                           context,
-                          color: widget.isPrimary
-                              ? Colors.white.withAlpha(179)
-                              : AppTheme.secondaryText,
+                          color: _subtitleColor,
                           fontSize: 13,
                           height: 1.5,
                         ),
@@ -267,36 +261,20 @@ class _RoleCardState extends State<_RoleCard> {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: widget.isPrimary
-                        ? AppTheme.luxuryAccent.withAlpha(38)
-                        : AppTheme.softGoldBg,
+                    color: _iconBg,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
-                    widget.icon,
-                    color: widget.isPrimary
-                        ? AppTheme.luxuryAccent
-                        : AppTheme.navyText,
-                    size: 28,
-                  ),
+                  child: Icon(widget.icon, color: _iconColor, size: 28),
                 ),
               ] else ...[
                 Container(
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: widget.isPrimary
-                        ? AppTheme.luxuryAccent.withAlpha(38)
-                        : AppTheme.softGoldBg,
+                    color: _iconBg,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
-                    widget.icon,
-                    color: widget.isPrimary
-                        ? AppTheme.luxuryAccent
-                        : AppTheme.navyText,
-                    size: 28,
-                  ),
+                  child: Icon(widget.icon, color: _iconColor, size: 28),
                 ),
                 const SizedBox(width: 20),
                 Expanded(
@@ -307,9 +285,7 @@ class _RoleCardState extends State<_RoleCard> {
                         widget.title,
                         style: AppTheme.appFont(
                           context,
-                          color: widget.isPrimary
-                              ? Colors.white
-                              : AppTheme.primaryText,
+                          color: _titleColor,
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
@@ -319,9 +295,7 @@ class _RoleCardState extends State<_RoleCard> {
                         widget.subtitle,
                         style: AppTheme.appFont(
                           context,
-                          color: widget.isPrimary
-                              ? Colors.white.withAlpha(179)
-                              : AppTheme.secondaryText,
+                          color: _subtitleColor,
                           fontSize: 13,
                           height: 1.5,
                         ),
@@ -331,9 +305,7 @@ class _RoleCardState extends State<_RoleCard> {
                 ),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
-                  color: widget.isPrimary
-                      ? Colors.white.withAlpha(153)
-                      : AppTheme.secondaryText,
+                  color: _chevronColor,
                   size: 16,
                 ),
               ],

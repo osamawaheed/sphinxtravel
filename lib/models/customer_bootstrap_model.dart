@@ -181,6 +181,10 @@ class CustomerBootstrapModel {
             endTime: _sOrNull(m['end_time']),
             city: _sOrNull(m['subtitle']),
             title: _sOrNull(m['title']),
+            pickupAddress: _sOrNull(m['pickup_address']),
+            pickupLat: _d(m['pickup_lat']),
+            pickupLng: _d(m['pickup_lng']),
+            pickupMapUrl: _sOrNull(m['pickup_map_url']),
           ),
         );
       }
@@ -201,6 +205,10 @@ class CustomerBootstrapModel {
             homeDriver: _homeDriverFrom(_map(nextPickup['driver'])),
             notes: _sOrNull(nextPickup['title']),
             title: _sOrNull(nextPickup['title']),
+            pickupAddress: _sOrNull(nextPickup['pickup_address']),
+            pickupLat: _d(nextPickup['pickup_lat']),
+            pickupLng: _d(nextPickup['pickup_lng']),
+            pickupMapUrl: _sOrNull(nextPickup['pickup_map_url']),
           ),
         );
       }
@@ -528,6 +536,8 @@ class HomeNextPickup {
   final double? pickupLng;
   final int transportationId;
   final bool? canRate;
+  final String pickupAddress;
+  final String pickupMapUrl;
 
   /// Optional live-tracking scheduling data. Only values Odoo actually sends
   /// are stored; nothing is assumed.
@@ -545,6 +555,8 @@ class HomeNextPickup {
     this.pickupLng,
     this.transportationId = 0,
     this.canRate,
+    this.pickupAddress = '',
+    this.pickupMapUrl = '',
     this.trackingInfo = const HomePickupTrackingInfo(),
   });
 
@@ -575,6 +587,8 @@ class HomeNextPickup {
       pickupLng:
           _d(j['pickup_lng'] ?? j['pickup_longitude']) ??
           (pl != null ? _d(pl['longitude'] ?? pl['lng'] ?? pl['lon']) : null),
+      pickupAddress: _s(j['pickup_address']).trim(),
+      pickupMapUrl: _s(j['pickup_map_url']).trim(),
     );
   }
 
@@ -608,6 +622,8 @@ class HomeNextPickup {
       pickupLng:
           _d(m['pickup_lng'] ?? m['pickup_longitude']) ??
           (pl != null ? _d(pl['longitude'] ?? pl['lng'] ?? pl['lon']) : null),
+      pickupAddress: _s(m['pickup_address']).trim(),
+      pickupMapUrl: _s(m['pickup_map_url']).trim(),
     );
   }
 
@@ -624,6 +640,8 @@ class HomeNextPickup {
         pickupLng: pickupLng,
         transportationId: transportationId,
         canRate: canRate,
+        pickupAddress: pickupAddress,
+        pickupMapUrl: pickupMapUrl,
         trackingInfo: trackingInfo,
       );
 
@@ -640,6 +658,8 @@ class HomeNextPickup {
     pickupLng: pickupLng,
     transportationId: transportationId,
     canRate: canRate,
+    pickupAddress: pickupAddress,
+    pickupMapUrl: pickupMapUrl,
     trackingInfo: trackingInfo,
   );
 }
@@ -874,6 +894,10 @@ class HomePlanItem {
   final bool driverAssigned;
   final String driverName;
   final String date;
+  final String pickupAddress;
+  final double? pickupLat;
+  final double? pickupLng;
+  final String pickupMapUrl;
 
   const HomePlanItem({
     this.id = 0,
@@ -888,6 +912,10 @@ class HomePlanItem {
     this.driverAssigned = false,
     this.driverName = '',
     this.date = '',
+    this.pickupAddress = '',
+    this.pickupLat,
+    this.pickupLng,
+    this.pickupMapUrl = '',
   });
 
   factory HomePlanItem.fromJson(Map<String, dynamic> j) {
@@ -1343,6 +1371,10 @@ class CustomerHomeTrip {
           imageUrl: _s(m['image_url']),
           driverAssigned: drv != null && drv['assigned'] != false,
           driverName: drv == null ? '' : _s(drv['name']).trim(),
+          pickupAddress: _sOrNull(m['pickup_address']),
+          pickupLat: _d(m['pickup_lat']),
+          pickupLng: _d(m['pickup_lng']),
+          pickupMapUrl: _sOrNull(m['pickup_map_url']),
         );
       }).toList(),
       activities: _mapList(t['activities']).map((a) {
@@ -1364,5 +1396,62 @@ class CustomerHomeTrip {
       hotels: hotelStays,
       tripStatus: _s(t['status'] ?? t['trip_status'] ?? t['trip_state']),
     );
+  }
+}
+
+/// One row of GET /api/v1/customer/trips (all of the customer's bookings:
+/// past, current and future). `status` is exactly what Odoo returns.
+class CustomerTripListItem {
+  final int id;
+  final String reference;
+  final String city;
+  final String destination;
+  final String imageUrl;
+  final String arrivalDate;
+  final String departureDate;
+  final int totalDays;
+  final int passengers;
+  final String status;
+
+  const CustomerTripListItem({
+    required this.id,
+    required this.reference,
+    required this.city,
+    required this.destination,
+    required this.imageUrl,
+    required this.arrivalDate,
+    required this.departureDate,
+    required this.totalDays,
+    required this.passengers,
+    required this.status,
+  });
+
+  factory CustomerTripListItem.fromJson(Map<String, dynamic> j) {
+    final total = _i(j['total_days'], _i(j['days'], 0));
+    return CustomerTripListItem(
+      id: _i(j['id'] ?? j['booking_id']),
+      reference: _s(j['reference'] ?? j['booking_reference']),
+      city: _s(j['city']),
+      destination: _s(j['destination']),
+      imageUrl: _s(j['image_url']),
+      arrivalDate: _s(j['arrival_date'] ?? j['start_date']),
+      departureDate: _s(j['departure_date'] ?? j['end_date']),
+      totalDays: total < 0 ? 0 : total,
+      passengers: _i(j['passengers']),
+      status: _s(j['status'] ?? j['trip_status'] ?? j['trip_state']),
+    );
+  }
+
+  /// GET /api/v1/customer/trips -> {"trips": [...]} (or a bare list).
+  static List<CustomerTripListItem> listFromResponse(dynamic data) {
+    final raw = data is Map ? (data['trips'] ?? data['bookings']) : data;
+    return _mapList(
+      raw,
+    ).map(CustomerTripListItem.fromJson).where((t) => t.id > 0).toList();
+  }
+
+  bool get isCompleted {
+    final s = status.trim().toLowerCase();
+    return s == 'completed' || s == 'done';
   }
 }

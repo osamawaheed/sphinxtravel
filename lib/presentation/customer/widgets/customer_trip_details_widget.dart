@@ -130,6 +130,10 @@ class CustomerTripDetailsWidget extends StatelessWidget {
           imageUrl: s.imageUrl,
           type: 'transport',
           status: s.status,
+          pickupAddress: s.pickupAddress ?? '',
+          pickupLat: s.pickupLat,
+          pickupLng: s.pickupLng,
+          pickupMapUrl: s.pickupMapUrl ?? '',
         ),
       );
     }
@@ -263,6 +267,7 @@ class _ServiceRow extends StatelessWidget {
         color: AppTheme.cardWhite,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         children: [

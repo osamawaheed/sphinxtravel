@@ -17,6 +17,7 @@ import '../presentation/driver/driver_full_trip_screen.dart';
 import '../presentation/driver/driver_trip_overview_screen.dart';
 import '../presentation/driver/driver_ratings_screen.dart';
 import '../presentation/chat/smart_chat_screen.dart';
+import '../presentation/notifications/notifications_screen.dart';
 import '../models/trip_model.dart';
 import '../models/driver_bootstrap_model.dart';
 import '../models/driver_profile_model.dart';
@@ -35,6 +36,7 @@ class AppRoutes {
   static const String customerOtp = '/customer/otp';
   static const String driverLogin = '/driver/login';
   static const String customerHome = '/customer/home';
+  static const String customerNotifications = '/customer/notifications';
   static const String driverHome = '/driver/home';
   static const String driverTripDetails = '/driver/trip-details';
   static const String driverFullTrip = '/driver/full-trip';
@@ -149,6 +151,11 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.customerHome,
       builder: (context, state) => const CustomerHomeScreen(),
+    ),
+    // Customer notifications (pushed from the home bell; back pops to home)
+    GoRoute(
+      path: AppRoutes.customerNotifications,
+      builder: (context, state) => const NotificationsScreen(isDriver: false),
     ),
     // Driver home
     GoRoute(

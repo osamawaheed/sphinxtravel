@@ -17,16 +17,19 @@ import '../../services/customer_auth_service.dart';
 import '../../services/flight_visibility.dart';
 import '../../services/localization_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/supabase_notification_source.dart';
 import '../../services/session_manager.dart';
 import '../../theme/app_theme.dart';
 import '../driver/hotel_details_screen.dart';
 import './widgets/current_hotel_card.dart';
 import './widgets/customer_sim_card.dart';
-import './widgets/customer_trip_details_widget.dart';
+import './widgets/customer_my_trips_list.dart';
 import './widgets/driver_review_dialog.dart';
 import './widgets/flight_card.dart';
 import './widgets/language_picker_sheet.dart';
+import './widgets/management_team_section.dart';
 import './widgets/next_up_card.dart';
+import './widgets/support_contact_actions.dart';
 import './widgets/rating_sheet.dart';
 import './widgets/todays_plan_card.dart';
 import './widgets/tomorrow_preview_card.dart';
@@ -52,6 +55,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
   void initState() {
     super.initState();
     _loadData();
+    // Authenticated customers read real notifications (read-only).
+    if (NotificationService.instance.source is! SupabaseNotificationSource) {
+      NotificationService.instance.source = SupabaseNotificationSource();
+    }
     NotificationService.instance.refresh();
     LocalizationService.instance.addListener(_onLocaleChanged);
     initFlightVisibility();
@@ -746,18 +753,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
   }
 
   Widget _buildMyTripTab(AppLocalizations l10n) {
-    final trip = _bootstrap?.homeTrip;
-    if (trip == null) {
-      return _buildEmptyState(l10n.noActiveTrips);
-    }
-
-    return RefreshIndicator(
-      color: AppTheme.brandNavy,
-      onRefresh: _loadData,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: CustomerTripDetailsWidget(trip: trip, l10n: l10n),
-      ),
+    // One list with every booking (past, current, future). Today/Home keep
+    // using the active trip only.
+    return CustomerMyTripsList(
+      key: ValueKey('my-trips-${_bootstrap?.homeTrip?.id ?? 0}'),
+      fallbackTrip: _bootstrap?.homeTrip,
+      l10n: l10n,
     );
   }
 
@@ -956,6 +957,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
     );
   }
 
+  static const String _supportEmail = 'support@tour-operations.net';
+
   Widget _buildSupportTab(AppLocalizations l10n) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -967,22 +970,22 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
           _SupportItem(
             icon: Icons.phone_outlined,
             title: l10n.callUs,
-            subtitle: '+971 4 123 4567',
-            onTap: () {},
+            subtitle: SupportContactActions.callNumber,
+            onTap: () => SupportContactActions.call(context),
           ),
           const SizedBox(height: 12),
           _SupportItem(
             icon: Icons.chat_bubble_outline_rounded,
             title: l10n.whatsapp,
             subtitle: l10n.chatWithTeam,
-            onTap: () {},
+            onTap: () => SupportContactActions.whatsapp(context),
           ),
           const SizedBox(height: 12),
           _SupportItem(
             icon: Icons.email_outlined,
             title: l10n.email,
-            subtitle: 'support@sphinxtravel.com',
-            onTap: () {},
+            subtitle: _supportEmail,
+            onTap: () => SupportContactActions.email(context, _supportEmail),
           ),
           const SizedBox(height: 12),
           _SupportItem(
@@ -991,6 +994,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
             subtitle: l10n.faqSubtitle,
             onTap: () {},
           ),
+          const SizedBox(height: 28),
+          const ManagementTeamSection(),
         ],
       ),
     );
@@ -1319,6 +1324,7 @@ class _SupportItem extends StatelessWidget {
           color: AppTheme.cardWhite,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppTheme.borderColor),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Row(
           children: [
@@ -1326,7 +1332,7 @@ class _SupportItem extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppTheme.mainBackground,
+                color: AppTheme.softSurface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: AppTheme.navyText, size: 22),

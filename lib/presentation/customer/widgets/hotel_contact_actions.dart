@@ -5,9 +5,19 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 
+/// Single source of truth for the height of itinerary action buttons
+/// (Call Hotel, Maps and "View / Update status"). The height is enforced
+/// explicitly so it can never drift due to theme padding / minimum sizes.
+const double kItineraryActionButtonHeight = 38;
+
 /// "Call hotel" / "Open in Maps" buttons. Each button is hidden when its
 /// value is empty; renders nothing when both are empty.
 class HotelContactActions extends StatelessWidget {
+  static const double buttonRadius = 12;
+  static const double buttonIconSize = 13;
+  static const double buttonFontSize = 13;
+  static const double buttonBorderWidth = 1;
+
   final String phone;
   final String mapUrl;
   final AppLocalizations l10n;
@@ -40,24 +50,63 @@ class HotelContactActions extends StatelessWidget {
     required String label,
     required VoidCallback onTap,
   }) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 16, color: AppTheme.luxuryAccent),
-      label: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.inter(
-          color: AppTheme.luxuryAccent,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(buttonRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        minimumSize: const Size(0, 38),
-        side: const BorderSide(color: AppTheme.luxuryAccent),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: SizedBox(
+        height: kItineraryActionButtonHeight,
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: onTap,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, kItineraryActionButtonHeight),
+            maximumSize: const Size(
+              double.infinity,
+              kItineraryActionButtonHeight,
+            ),
+            fixedSize: const Size.fromHeight(kItineraryActionButtonHeight),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.standard,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            side: const BorderSide(
+              color: AppTheme.luxuryAccent,
+              width: buttonBorderWidth,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(buttonRadius),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: buttonIconSize, color: AppTheme.luxuryAccent),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: GoogleFonts.inter(
+                    color: AppTheme.luxuryAccent,
+                    fontSize: buttonFontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -69,24 +118,30 @@ class HotelContactActions extends StatelessWidget {
     if (!hasPhone && !hasMap) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          if (hasPhone)
-            _button(
-              icon: Icons.call_rounded,
-              label: l10n.callHotel,
-              onTap: _call,
-            ),
-          if (hasMap)
-            _button(
-              icon: Icons.map_outlined,
-              label: l10n.trackingOpenInMaps,
-              onTap: _openMap,
-            ),
-        ],
+      padding: const EdgeInsets.only(top: 12),
+      child: SizedBox(
+        width: double.infinity,
+        child: Row(
+          children: [
+            if (hasPhone)
+              Expanded(
+                child: _button(
+                  icon: Icons.call_rounded,
+                  label: l10n.callHotel,
+                  onTap: _call,
+                ),
+              ),
+            if (hasPhone && hasMap) const SizedBox(width: 10),
+            if (hasMap)
+              Expanded(
+                child: _button(
+                  icon: Icons.map_outlined,
+                  label: l10n.hotelMapsShort,
+                  onTap: _openMap,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

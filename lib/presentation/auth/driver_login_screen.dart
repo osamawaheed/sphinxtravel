@@ -126,7 +126,7 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.mainBackground,
+      backgroundColor: AppTheme.preLoginBackground,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeIn,
@@ -142,14 +142,14 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.cardWhite,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderColor),
+                      boxShadow: AppTheme.softShadow,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 16,
-                      color: AppTheme.primaryText,
+                      color: AppTheme.preLoginText,
                     ),
                   ),
                 ),
@@ -160,6 +160,7 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                   width: double.infinity,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
+                    boxShadow: AppTheme.softShadow,
                     image: const DecorationImage(
                       image: NetworkImage(
                         'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800&q=80',
@@ -207,7 +208,7 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                 Text(
                   l10n.signIn,
                   style: GoogleFonts.inter(
-                    color: AppTheme.primaryText,
+                    color: AppTheme.preLoginText,
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                   ),
@@ -216,7 +217,7 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                 Text(
                   l10n.driverAccountSubtitle,
                   style: GoogleFonts.inter(
-                    color: AppTheme.secondaryText,
+                    color: AppTheme.preLoginSubtext,
                     fontSize: 14,
                   ),
                 ),
@@ -258,49 +259,28 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                     }
                     return KeyEventResult.ignored;
                   },
-                  child: TextField(
-                    controller: _usernameController,
-                    keyboardType: TextInputType.text,
-                    // Native keyboard hint only; the entered text is never
-                    // rewritten, so the exact username is sent to Odoo.
-                    textCapitalization: TextCapitalization.sentences,
-                    style: GoogleFonts.inter(
-                      color: AppTheme.primaryText,
-                      fontSize: 15,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: AppTheme.softShadow,
                     ),
-                    decoration: InputDecoration(
-                      hintText: l10n.enterUsername,
-                      prefixIcon: Icon(
-                        Icons.person_outline_rounded,
-                        color: AppTheme.secondaryText,
-                        size: 20,
+                    child: TextField(
+                      controller: _usernameController,
+                      keyboardType: TextInputType.text,
+                      // Native keyboard hint only; the entered text is never
+                      // rewritten, so the exact username is sent to Odoo.
+                      textCapitalization: TextCapitalization.sentences,
+                      style: GoogleFonts.inter(
+                        color: AppTheme.preLoginText,
+                        fontSize: 15,
                       ),
-                      filled: true,
-                      fillColor: AppTheme.cardWhite,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(
-                          color: AppTheme.borderColor,
-                          width: 1.5,
+                      decoration: _fieldDecoration(
+                        hint: l10n.enterUsername,
+                        prefix: const Icon(
+                          Icons.person_outline_rounded,
+                          color: AppTheme.preLoginSubtext,
+                          size: 20,
                         ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(
-                          color: AppTheme.borderColor,
-                          width: 1.5,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(
-                          color: AppTheme.navyText,
-                          width: 1.5,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
                       ),
                     ),
                   ),
@@ -308,61 +288,41 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                 const SizedBox(height: 16),
                 _buildLabel(l10n.password),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  textCapitalization: TextCapitalization.none,
-                  style: GoogleFonts.inter(
-                    color: AppTheme.primaryText,
-                    fontSize: 15,
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: AppTheme.softShadow,
                   ),
-                  decoration: InputDecoration(
-                    hintText: l10n.enterPassword,
-                    prefixIcon: Icon(
-                      Icons.lock_outline_rounded,
-                      color: AppTheme.secondaryText,
-                      size: 20,
+                  child: TextField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    textCapitalization: TextCapitalization.none,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.preLoginText,
+                      fontSize: 15,
                     ),
-                    suffixIcon: GestureDetector(
-                      onTap: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                      child: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: AppTheme.secondaryText,
+                    decoration: _fieldDecoration(
+                      hint: l10n.enterPassword,
+                      prefix: const Icon(
+                        Icons.lock_outline_rounded,
+                        color: AppTheme.preLoginSubtext,
                         size: 20,
                       ),
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.cardWhite,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: AppTheme.borderColor,
-                        width: 1.5,
+                      suffix: GestureDetector(
+                        onTap: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                        child: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: AppTheme.preLoginSubtext,
+                          size: 20,
+                        ),
                       ),
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: AppTheme.borderColor,
-                        width: 1.5,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: AppTheme.navyText,
-                        width: 1.5,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
+                    onSubmitted: (_) => _login(),
                   ),
-                  onSubmitted: (_) => _login(),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
@@ -377,33 +337,39 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
                 const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandNavy,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: AppTheme.softShadow,
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.brandNavy,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              l10n.signIn,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          )
-                        : Text(
-                            l10n.signIn,
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -415,11 +381,43 @@ class _DriverLoginScreenState extends State<DriverLoginScreen>
     );
   }
 
+  InputDecoration _fieldDecoration({
+    required String hint,
+    required Widget prefix,
+    Widget? suffix,
+  }) {
+    final hasError = _error != null;
+    final side = hasError
+        ? const BorderSide(color: AppTheme.errorRed, width: 1.2)
+        : BorderSide.none;
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.inter(color: AppTheme.preLoginHint, fontSize: 15),
+      prefixIcon: prefix,
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: side,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: side,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppTheme.brandNavy, width: 1.2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    );
+  }
+
   Widget _buildLabel(String text) {
     return Text(
       text,
       style: GoogleFonts.inter(
-        color: AppTheme.primaryText,
+        color: AppTheme.preLoginText,
         fontSize: 14,
         fontWeight: FontWeight.w600,
       ),

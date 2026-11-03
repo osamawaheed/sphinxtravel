@@ -45,6 +45,27 @@ class CustomerAuthService {
     );
   }
 
+  /// GET /api/v1/customer/trips -> every booking of the customer (past,
+  /// current and future, including completed ones).
+  Future<List<CustomerTripListItem>> loadTrips() async {
+    final response = await _apiClient.get('/api/v1/customer/trips');
+    return CustomerTripListItem.listFromResponse(response.data);
+  }
+
+  /// GET /api/v1/customer/trips/{id} -> full trip (itinerary, hotels,
+  /// transfers, drivers, extra services) at the root or under `trip`.
+  Future<CustomerHomeTrip> loadTripDetail(int id) async {
+    final response = await _apiClient.get('/api/v1/customer/trips/$id');
+    final data = response.data;
+    Map<String, dynamic> json = <String, dynamic>{};
+    if (data is Map) {
+      final root = Map<String, dynamic>.from(data);
+      final inner = root['trip'] ?? root['active_trip'];
+      json = inner is Map ? Map<String, dynamic>.from(inner) : root;
+    }
+    return CustomerHomeTrip.fromJson(json);
+  }
+
   Future<DriverReviewEvent?> rateDriver({
     required int tripId,
     required int driverId,

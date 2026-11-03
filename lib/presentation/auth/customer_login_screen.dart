@@ -436,7 +436,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.mainBackground,
+      backgroundColor: AppTheme.preLoginBackground,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeIn,
@@ -452,14 +452,14 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.cardWhite,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderColor),
+                      boxShadow: AppTheme.softShadow,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 16,
-                      color: AppTheme.primaryText,
+                      color: AppTheme.preLoginText,
                     ),
                   ),
                 ),
@@ -470,6 +470,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                   width: double.infinity,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
+                    boxShadow: AppTheme.softShadow,
                     image: const DecorationImage(
                       image: NetworkImage(
                         'https://images.unsplash.com/photo-1565008447742-97f6f38c985c?w=800&q=80',
@@ -520,7 +521,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                   l10n.yourPhoneNumber,
                   style: AppTheme.appFont(
                     context,
-                    color: AppTheme.primaryText,
+                    color: AppTheme.preLoginText,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                   ),
@@ -530,7 +531,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                   l10n.phoneSubtitle,
                   style: AppTheme.appFont(
                     context,
-                    color: AppTheme.secondaryText,
+                    color: AppTheme.preLoginSubtext,
                     fontSize: 14,
                   ),
                 ),
@@ -540,21 +541,12 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                   textDirection: TextDirection.ltr,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: AppTheme.cardWhite,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _error != null
-                            ? AppTheme.errorRed
-                            : AppTheme.borderColor,
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.shadowColor,
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      border: _error != null
+                          ? Border.all(color: AppTheme.errorRed, width: 1.5)
+                          : null,
+                      boxShadow: AppTheme.softShadow,
                     ),
                     child: Row(
                       textDirection: TextDirection.ltr,
@@ -567,11 +559,11 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                               horizontal: 16,
                               vertical: 18,
                             ),
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               border: Border(
                                 right: BorderSide(
-                                  color: AppTheme.borderColor,
-                                  width: 1.5,
+                                  color: AppTheme.preLoginBorder,
+                                  width: 1,
                                 ),
                               ),
                             ),
@@ -588,16 +580,16 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                                   _selectedCountry.dialCode,
                                   textDirection: TextDirection.ltr,
                                   style: GoogleFonts.inter(
-                                    color: AppTheme.primaryText,
+                                    color: AppTheme.preLoginText,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Icon(
+                                const Icon(
                                   Icons.keyboard_arrow_down_rounded,
                                   size: 18,
-                                  color: AppTheme.secondaryText,
+                                  color: AppTheme.preLoginSubtext,
                                 ),
                               ],
                             ),
@@ -617,14 +609,14 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                               ),
                             ],
                             style: GoogleFonts.inter(
-                              color: AppTheme.primaryText,
+                              color: AppTheme.preLoginText,
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
                             decoration: InputDecoration(
                               hintText: '50 123 4567',
                               hintStyle: GoogleFonts.inter(
-                                color: AppTheme.secondaryText.withAlpha(128),
+                                color: AppTheme.preLoginHint,
                                 fontSize: 16,
                               ),
                               border: InputBorder.none,
@@ -657,44 +649,52 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                 // WhatsApp OTP button
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _requestOtp,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandNavy,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: AppTheme.softShadow,
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation(Colors.white),
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.chat_bubble_outline_rounded,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                AppLocalizations.of(context).sendOtpWhatsapp,
-                                style: AppTheme.appFont(
-                                  context,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _requestOtp,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.brandNavy,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation(
+                                  Colors.white,
                                 ),
                               ),
-                            ],
-                          ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  AppLocalizations.of(context).sendOtpWhatsapp,
+                                  style: AppTheme.appFont(
+                                    context,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -702,11 +702,9 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.softGoldBg,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppTheme.luxuryAccent.withAlpha(77),
-                    ),
+                    boxShadow: AppTheme.softShadow,
                   ),
                   child: Row(
                     children: [
@@ -721,7 +719,7 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                           AppLocalizations.of(context).accountLinkedToBooking,
                           style: AppTheme.appFont(
                             context,
-                            color: AppTheme.navyText,
+                            color: AppTheme.preLoginText,
                             fontSize: 12,
                             height: 1.5,
                           ),
@@ -781,9 +779,9 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: BoxDecoration(
-        color: AppTheme.mainBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: const BoxDecoration(
+        color: AppTheme.preLoginBackground,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
@@ -792,7 +790,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppTheme.borderColor,
+              color: AppTheme.preLoginBorder,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -805,56 +803,74 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                   widget.title,
                   style: AppTheme.appFont(
                     context,
-                    color: AppTheme.primaryText,
+                    color: AppTheme.preLoginText,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _searchController,
-                  focusNode: _searchFocusNode,
-                  keyboardType: TextInputType.text,
-                  textCapitalization: TextCapitalization.sentences,
-                  inputFormatters: const [FirstLetterCapitalizeFormatter()],
-                  textInputAction: TextInputAction.search,
-                  onChanged: (v) => setState(() => _query = v),
-                  decoration: InputDecoration(
-                    hintText: widget.searchHint,
-                    hintStyle: AppTheme.appFont(
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: AppTheme.softShadow,
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    keyboardType: TextInputType.text,
+                    textCapitalization: TextCapitalization.sentences,
+                    inputFormatters: const [FirstLetterCapitalizeFormatter()],
+                    textInputAction: TextInputAction.search,
+                    onChanged: (v) => setState(() => _query = v),
+                    style: AppTheme.appFont(
                       context,
-                      color: AppTheme.secondaryText.withAlpha(128),
+                      color: AppTheme.preLoginText,
                       fontSize: 16,
                     ),
-                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 20),
-                            color: AppTheme.secondaryText,
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _query = '');
-                              _searchFocusNode.requestFocus();
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: AppTheme.cardWhite,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.borderColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.borderColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppTheme.navyText),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 18,
+                    decoration: InputDecoration(
+                      hintText: widget.searchHint,
+                      hintStyle: AppTheme.appFont(
+                        context,
+                        color: AppTheme.preLoginHint,
+                        fontSize: 16,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        size: 20,
+                        color: AppTheme.preLoginSubtext,
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              color: AppTheme.preLoginSubtext,
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _query = '');
+                                _searchFocusNode.requestFocus();
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppTheme.brandNavy,
+                          width: 1.2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 18,
+                      ),
                     ),
                   ),
                 ),
@@ -863,7 +879,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
           ),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               itemCount: _filtered.length,
               itemBuilder: (_, i) {
                 final c = _filtered[i];
@@ -871,21 +887,17 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                 return GestureDetector(
                   onTap: () => widget.onSelect(c),
                   child: Container(
-                    margin: const EdgeInsets.only(bottom: 8),
+                    margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 14,
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppTheme.softGoldBg
-                          : AppTheme.cardWhite,
+                          ? const Color(0xFFF6F1E7)
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppTheme.luxuryAccent
-                            : AppTheme.borderColor,
-                      ),
+                      boxShadow: AppTheme.softShadow,
                     ),
                     child: Row(
                       children: [
@@ -896,7 +908,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                             c.name,
                             style: AppTheme.appFont(
                               context,
-                              color: AppTheme.primaryText,
+                              color: AppTheme.preLoginText,
                               fontSize: 15,
                               fontWeight: isSelected
                                   ? FontWeight.w600
@@ -910,7 +922,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                             context,
                             color: isSelected
                                 ? AppTheme.luxuryAccent
-                                : AppTheme.secondaryText,
+                                : AppTheme.preLoginSubtext,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),

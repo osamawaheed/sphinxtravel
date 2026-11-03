@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../theme/app_theme.dart';
 import '../../../models/customer_bootstrap_model.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../driver/models/trip_status_display.dart';
 
 class TomorrowPreviewCard extends StatelessWidget {
   final List<HomePlanItem> items;
@@ -139,7 +140,7 @@ class _TomorrowItem extends StatelessWidget {
                     if (item.status.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        item.status,
+                        formatTripStatusDisplay(item.status),
                         style: GoogleFonts.inter(
                           color: AppTheme.secondaryText,
                           fontSize: 12,

@@ -6,6 +6,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/customer_bootstrap_model.dart';
 import '../../models/transportation_segment_model.dart';
 import '../../routes/app_routes.dart';
+import 'models/trip_status_display.dart';
 import '../../services/api_client.dart';
 import '../../services/driver_api_service.dart';
 import '../../services/driver_auth_service.dart';
@@ -14,10 +15,13 @@ import '../../services/localization_service.dart';
 import '../../theme/app_theme.dart';
 import '../customer/widgets/day_itinerary_card.dart';
 import '../customer/widgets/flight_card.dart';
+import '../customer/widgets/hotel_contact_actions.dart'
+    show kItineraryActionButtonHeight;
 import '../customer/widgets/sim_delivery_status_block.dart';
 import '../customer/widgets/trip_hero_card.dart';
 import './widgets/driver_customer_card.dart';
 import './hotel_details_screen.dart';
+import '../customer/widgets/driver_navigate_button.dart';
 
 class DriverTripOverviewScreen extends StatefulWidget {
   final int tripId;
@@ -383,6 +387,10 @@ class _DriverTripOverviewScreenState extends State<DriverTripOverviewScreen> {
         driverAssigned: s.driverAssigned,
         driverName: s.driverName,
         driver: s.homeDriver,
+        pickupAddress: s.pickupAddress ?? '',
+        pickupLat: s.pickupLat,
+        pickupLng: s.pickupLng,
+        pickupMapUrl: s.pickupMapUrl ?? '',
       );
       bucketFor(_parseDate(s.date)).transport.add(item);
     }
@@ -540,6 +548,7 @@ class _HotelRow extends StatelessWidget {
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -643,6 +652,7 @@ class _TransportRow extends StatelessWidget {
           color: isMine ? AppTheme.luxuryAccent : border,
           width: isMine ? 1.5 : 1,
         ),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -681,10 +691,16 @@ class _TransportRow extends StatelessWidget {
                         style: GoogleFonts.inter(color: subColor, fontSize: 13),
                       ),
                     ],
+                    DriverPickupPointInfo(
+                      address: s.pickupAddress,
+                      navigateUrl: s.pickupNavigateUrl,
+                      buttonLabel: l10n.pickupNavigate,
+                      addressColor: subColor,
+                    ),
                     if (s.status.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(
-                        s.status,
+                        formatTripStatusDisplay(s.status),
                         style: GoogleFonts.inter(color: subColor, fontSize: 12),
                       ),
                     ],
@@ -697,12 +713,19 @@ class _TransportRow extends StatelessWidget {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
+              height: kItineraryActionButtonHeight,
               child: ElevatedButton(
                 onPressed: onTap,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandNavy,
                   foregroundColor: Colors.white,
                   elevation: 0,
+                  minimumSize: const Size(0, kItineraryActionButtonHeight),
+                  fixedSize: const Size.fromHeight(
+                    kItineraryActionButtonHeight,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -760,6 +783,7 @@ class _ServiceRow extends StatelessWidget {
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Row(
         children: [

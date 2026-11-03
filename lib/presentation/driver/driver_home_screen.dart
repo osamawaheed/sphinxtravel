@@ -24,7 +24,11 @@ import '../../theme/app_theme.dart';
 import '../../widgets/auth_network_image.dart';
 import '../customer/widgets/flight_card.dart';
 import '../customer/widgets/day_itinerary_card.dart' show TripHotelCard;
+import '../customer/widgets/hotel_contact_actions.dart'
+    show kItineraryActionButtonHeight;
 import '../customer/widgets/language_picker_sheet.dart';
+import '../customer/widgets/management_team_section.dart';
+import '../customer/widgets/support_contact_actions.dart';
 import '../customer/widgets/today_timeline_widget.dart';
 import '../chat/chat_inbox_strings.dart';
 import '../chat/driver_chats_view.dart';
@@ -1075,43 +1079,141 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                                 : null,
                           ),
                           const SizedBox(height: 20),
-                          // Open in Google Maps button
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () async {
-                                final address = hotel.address ?? hotel.name;
-                                final encoded = Uri.encodeComponent(address);
-                                final uri = Uri.parse(
-                                  'https://www.google.com/maps/search/?api=1&query=$encoded',
+                          // Call Hotel + Maps buttons (one row)
+                          Builder(
+                            builder: (context) {
+                              const gap = 10.0;
+                              final hasHotelPhone =
+                                  hotel.phone != null &&
+                                  hotel.phone!.isNotEmpty;
+                              Widget hotelBtn({
+                                required IconData icon,
+                                required String label,
+                                required VoidCallback onTap,
+                              }) {
+                                return DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withAlpha(15),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: SizedBox(
+                                    height: kItineraryActionButtonHeight,
+                                    width: double.infinity,
+                                    child: OutlinedButton(
+                                      onPressed: onTap,
+                                      style: OutlinedButton.styleFrom(
+                                        minimumSize: const Size(
+                                          0,
+                                          kItineraryActionButtonHeight,
+                                        ),
+                                        maximumSize: const Size(
+                                          double.infinity,
+                                          kItineraryActionButtonHeight,
+                                        ),
+                                        fixedSize: const Size.fromHeight(
+                                          kItineraryActionButtonHeight,
+                                        ),
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                        side: const BorderSide(
+                                          color: AppTheme.luxuryAccent,
+                                          width: 1,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            icon,
+                                            size: 13,
+                                            color: AppTheme.luxuryAccent,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Flexible(
+                                            child: Text(
+                                              label,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.inter(
+                                                color: AppTheme.luxuryAccent,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 );
-                                if (await canLaunchUrl(uri)) {
-                                  await launchUrl(
-                                    uri,
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.map_rounded, size: 18),
-                              label: Text(
-                                l10n.openInGoogleMaps,
-                                style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
+                              }
+
+                              return SizedBox(
+                                width: double.infinity,
+                                child: Row(
+                                  children: [
+                                    if (hasHotelPhone) ...[
+                                      Expanded(
+                                        child: hotelBtn(
+                                          icon: Icons.call_rounded,
+                                          label: l10n.callHotel,
+                                          onTap: () async {
+                                            final uri = Uri.parse(
+                                              'tel:${hotel.phone}',
+                                            );
+                                            if (await canLaunchUrl(uri)) {
+                                              await launchUrl(uri);
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: gap),
+                                    ],
+                                    Expanded(
+                                      child: hotelBtn(
+                                        icon: Icons.map_outlined,
+                                        label: l10n.hotelMapsShort,
+                                        onTap: () async {
+                                          final address =
+                                              hotel.address ?? hotel.name;
+                                          final encoded = Uri.encodeComponent(
+                                            address,
+                                          );
+                                          final uri = Uri.parse(
+                                            'https://www.google.com/maps/search/?api=1&query=$encoded',
+                                          );
+                                          if (await canLaunchUrl(uri)) {
+                                            await launchUrl(
+                                              uri,
+                                              mode: LaunchMode
+                                                  .externalApplication,
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.luxuryAccent,
-                                foregroundColor: AppTheme.brandNavy,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                elevation: 0,
-                              ),
-                            ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -1416,6 +1518,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               color: cardBg,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: border),
+              boxShadow: isDark ? null : AppTheme.cardShadow,
             ),
             child: Column(
               children: [
@@ -1493,6 +1596,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
             color: cardBg,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: border),
+            boxShadow: isDark ? null : AppTheme.cardShadow,
           ),
           child: Row(
             children: [
@@ -1580,6 +1684,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           color: cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: border),
+          boxShadow: isDark ? null : AppTheme.cardShadow,
         ),
         child: Row(
           children: [
@@ -1618,14 +1723,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
 
   // ─── Support Tab (content reused by the Profile → Support page) ───────────
 
-  static const String _supportPhone = '+995555551560';
   static const String _supportEmail = 'info@sphinx-travel.com';
-
-  Future<void> _launchSupportUri(Uri uri) async {
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {}
-  }
 
   Widget _buildSupportTab(AppLocalizations l10n, bool isDark) {
     final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
@@ -1646,10 +1744,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           _DriverSupportItem(
             icon: Icons.phone_outlined,
             title: l10n.callUs,
-            subtitle: _supportPhone,
+            subtitle: SupportContactActions.callNumber,
             isDark: isDark,
-            onTap: () =>
-                _launchSupportUri(Uri(scheme: 'tel', path: _supportPhone)),
+            onTap: () => SupportContactActions.call(context),
           ),
           const SizedBox(height: 12),
           _DriverSupportItem(
@@ -1657,9 +1754,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
             title: l10n.whatsapp,
             subtitle: l10n.chatWithTeam,
             isDark: isDark,
-            onTap: () => _launchSupportUri(
-              Uri.parse('https://wa.me/${_supportPhone.replaceAll('+', '')}'),
-            ),
+            onTap: () => SupportContactActions.whatsapp(context),
           ),
           const SizedBox(height: 12),
           _DriverSupportItem(
@@ -1667,8 +1762,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
             title: l10n.email,
             subtitle: _supportEmail,
             isDark: isDark,
-            onTap: () =>
-                _launchSupportUri(Uri(scheme: 'mailto', path: _supportEmail)),
+            onTap: () => SupportContactActions.email(context, _supportEmail),
           ),
           const SizedBox(height: 12),
           _DriverSupportItem(
@@ -1682,6 +1776,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                 ..showSnackBar(SnackBar(content: Text(l10n.supportComingSoon)));
             },
           ),
+          const SizedBox(height: 28),
+          ManagementTeamSection(isDark: isDark),
         ],
       ),
     );
@@ -2049,6 +2145,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                 color: cardBg,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: border),
+                boxShadow: isDark ? null : AppTheme.cardShadow,
               ),
               child: Row(
                 children: [
@@ -2058,7 +2155,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                     decoration: BoxDecoration(
                       color: isDark
                           ? AppTheme.darkBackground
-                          : AppTheme.mainBackground,
+                          : AppTheme.softSurface,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -2315,7 +2412,7 @@ class _DriverSupportItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
     final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
-    final iconBg = isDark ? AppTheme.darkBackground : AppTheme.mainBackground;
+    final iconBg = isDark ? AppTheme.darkBackground : AppTheme.softSurface;
     final iconColor = isDark ? AppTheme.darkPrimaryText : AppTheme.navyText;
     final titleColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
     final subColor = isDark
@@ -2329,6 +2426,7 @@ class _DriverSupportItem extends StatelessWidget {
           color: cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: border),
+          boxShadow: isDark ? null : AppTheme.cardShadow,
         ),
         child: Row(
           children: [
@@ -2588,6 +2686,7 @@ class _HomeServiceRow extends StatelessWidget {
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Material(
         color: Colors.transparent,
@@ -5018,7 +5117,7 @@ class _ThemeOptionBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = selected
         ? AppTheme.brandNavy
-        : (isDark ? AppTheme.darkBackground : AppTheme.mainBackground);
+        : (isDark ? AppTheme.darkBackground : AppTheme.softSurface);
     final fg = selected
         ? Colors.white
         : (isDark ? AppTheme.darkSecondaryText : AppTheme.secondaryText);
@@ -5079,6 +5178,7 @@ class _InfoCard extends StatelessWidget {
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(
         children: children.asMap().entries.map((e) {
@@ -5119,6 +5219,7 @@ class _PhotoThumbRow extends StatelessWidget {
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: border),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

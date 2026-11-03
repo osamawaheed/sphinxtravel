@@ -5,6 +5,125 @@ import '../../routes/app_routes.dart';
 import '../../services/localization_service.dart';
 import '../../l10n/app_localizations.dart';
 
+// ─── Shared helpers (pre-login: white background, soft shadows) ────────────
+
+class _BackButtonBox extends StatelessWidget {
+  final VoidCallback onTap;
+  const _BackButtonBox({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: AppTheme.softShadow,
+        ),
+        child: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 16,
+          color: AppTheme.preLoginText,
+        ),
+      ),
+    );
+  }
+}
+
+class _LanguageScreenBody extends StatelessWidget {
+  final Animation<double> fadeIn;
+  final VoidCallback onBack;
+  final IconData headerIcon;
+  final List<Map<String, String>> languages;
+  final String? selecting;
+  final ValueChanged<String> onSelect;
+
+  const _LanguageScreenBody({
+    required this.fadeIn,
+    required this.onBack,
+    required this.headerIcon,
+    required this.languages,
+    required this.selecting,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
+      backgroundColor: AppTheme.preLoginBackground,
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: fadeIn,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 24),
+                _BackButtonBox(onTap: onBack),
+                const SizedBox(height: 40),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandNavy,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: AppTheme.softShadow,
+                  ),
+                  child: Icon(
+                    headerIcon,
+                    color: AppTheme.luxuryAccent,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  l10n.selectLanguage,
+                  style: AppTheme.appFont(
+                    context,
+                    color: AppTheme.preLoginText,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.selectLanguageSubtitle,
+                  style: AppTheme.appFont(
+                    context,
+                    color: AppTheme.preLoginSubtext,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 48),
+                ...languages.map(
+                  (lang) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _LanguageCard(
+                      code: lang['code']!,
+                      label: lang['label']!,
+                      sublabel: lang['sublabel']!,
+                      flag: lang['flag']!,
+                      isLoading: selecting == lang['code'],
+                      onTap: () => onSelect(lang['code']!),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Customer Language Screen ──────────────────────────────────────────────
 
 class CustomerLanguageScreen extends StatefulWidget {
@@ -54,89 +173,13 @@ class _CustomerLanguageScreenState extends State<CustomerLanguageScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppTheme.mainBackground,
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeIn,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: () => context.go(AppRoutes.userTypeSelection),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardWhite,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderColor),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 16,
-                      color: AppTheme.primaryText,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandNavy,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.flight_takeoff_rounded,
-                    color: AppTheme.luxuryAccent,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  l10n.selectLanguage,
-                  style: AppTheme.appFont(
-                    context,
-                    color: AppTheme.primaryText,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.selectLanguageSubtitle,
-                  style: AppTheme.appFont(
-                    context,
-                    color: AppTheme.secondaryText,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 48),
-                ..._languages.map(
-                  (lang) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _LanguageCard(
-                      code: lang['code']!,
-                      label: lang['label']!,
-                      sublabel: lang['sublabel']!,
-                      flag: lang['flag']!,
-                      isLoading: _selecting == lang['code'],
-                      onTap: () => _selectLanguage(lang['code']!),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return _LanguageScreenBody(
+      fadeIn: _fadeIn,
+      onBack: () => context.go(AppRoutes.userTypeSelection),
+      headerIcon: Icons.flight_takeoff_rounded,
+      languages: _languages,
+      selecting: _selecting,
+      onSelect: _selectLanguage,
     );
   }
 }
@@ -190,89 +233,13 @@ class _DriverLanguageScreenState extends State<DriverLanguageScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppTheme.mainBackground,
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeIn,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: () => context.go(AppRoutes.userTypeSelection),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardWhite,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderColor),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 16,
-                      color: AppTheme.primaryText,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandNavy,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.directions_car_outlined,
-                    color: AppTheme.luxuryAccent,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  l10n.selectLanguage,
-                  style: AppTheme.appFont(
-                    context,
-                    color: AppTheme.primaryText,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.selectLanguageSubtitle,
-                  style: AppTheme.appFont(
-                    context,
-                    color: AppTheme.secondaryText,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 48),
-                ..._languages.map(
-                  (lang) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _LanguageCard(
-                      code: lang['code']!,
-                      label: lang['label']!,
-                      sublabel: lang['sublabel']!,
-                      flag: lang['flag']!,
-                      isLoading: _selecting == lang['code'],
-                      onTap: () => _selectLanguage(lang['code']!),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return _LanguageScreenBody(
+      fadeIn: _fadeIn,
+      onBack: () => context.go(AppRoutes.userTypeSelection),
+      headerIcon: Icons.directions_car_outlined,
+      languages: _languages,
+      selecting: _selecting,
+      onSelect: _selectLanguage,
     );
   }
 }
@@ -319,16 +286,9 @@ class _LanguageCardState extends State<_LanguageCard> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppTheme.cardWhite,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppTheme.borderColor, width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.shadowColor,
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            boxShadow: AppTheme.softShadow,
           ),
           child: Row(
             children: [
@@ -342,7 +302,7 @@ class _LanguageCardState extends State<_LanguageCard> {
                       widget.label,
                       style: AppTheme.appFont(
                         context,
-                        color: AppTheme.primaryText,
+                        color: AppTheme.preLoginText,
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
@@ -351,7 +311,7 @@ class _LanguageCardState extends State<_LanguageCard> {
                       widget.sublabel,
                       style: AppTheme.appFont(
                         context,
-                        color: AppTheme.secondaryText,
+                        color: AppTheme.preLoginSubtext,
                         fontSize: 13,
                       ),
                     ),
@@ -368,10 +328,10 @@ class _LanguageCardState extends State<_LanguageCard> {
                   ),
                 )
               else
-                Icon(
+                const Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 16,
-                  color: AppTheme.secondaryText,
+                  color: AppTheme.preLoginSubtext,
                 ),
             ],
           ),

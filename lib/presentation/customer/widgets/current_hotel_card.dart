@@ -23,10 +23,7 @@ class CurrentHotelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final place = [
-      hotel.city,
-      hotel.country,
-    ].where((e) => e.trim().isNotEmpty).join(', ');
+    final place = hotel.city.trim();
     final nightText =
         '${l10n.night} ${hotel.night} ${l10n.ofLabel} ${hotel.totalNights}';
 
@@ -132,18 +129,6 @@ class CurrentHotelCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (hotel.address.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        hotel.address,
-                        style: GoogleFonts.inter(
-                          color: AppTheme.secondaryText,
-                          fontSize: 13,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
                     if (place.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Row(

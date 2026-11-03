@@ -782,6 +782,7 @@ class _DriverProfileCompletionScreenState
           decoration: BoxDecoration(
             color: AppTheme.mainBackground,
             borderRadius: BorderRadius.circular(12),
+            boxShadow: AppTheme.iconShadow,
             border: Border.all(
               color: _selectedVehicleType != null
                   ? AppTheme.navyText
@@ -871,33 +872,39 @@ class _DriverProfileCompletionScreenState
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          textCapitalization: textCapitalization,
-          inputFormatters: inputFormatters,
-          onChanged: (_) => setState(() {}),
-          style: GoogleFonts.inter(color: AppTheme.primaryText, fontSize: 15),
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, color: AppTheme.secondaryText, size: 20),
-            filled: true,
-            fillColor: AppTheme.mainBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppTheme.borderColor, width: 1.5),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppTheme.borderColor, width: 1.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppTheme.navyText, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: AppTheme.iconShadow,
+          ),
+          child: TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            textCapitalization: textCapitalization,
+            inputFormatters: inputFormatters,
+            onChanged: (_) => setState(() {}),
+            style: GoogleFonts.inter(color: AppTheme.primaryText, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: hint,
+              prefixIcon: Icon(icon, color: AppTheme.secondaryText, size: 20),
+              filled: true,
+              fillColor: AppTheme.mainBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppTheme.borderColor, width: 1.5),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppTheme.borderColor, width: 1.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppTheme.navyText, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
           ),
         ),
@@ -1277,6 +1284,7 @@ class _PhotoSlot extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.mainBackground,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: AppTheme.iconShadow,
         border: Border.all(
           color: highlight ? AppTheme.errorRed : AppTheme.borderColor,
           width: 1.5,
@@ -1333,6 +1341,7 @@ class _BottomSheetOption extends StatelessWidget {
               ? AppTheme.errorRed.withAlpha(10)
               : AppTheme.mainBackground,
           borderRadius: BorderRadius.circular(14),
+          boxShadow: AppTheme.iconShadow,
           border: Border.all(
             color: isDestructive
                 ? AppTheme.errorRed.withAlpha(51)

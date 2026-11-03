@@ -6,7 +6,10 @@ import '../../../models/customer_bootstrap_model.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/auth_network_image.dart';
 import '../../driver/hotel_details_screen.dart';
+import '../../driver/models/trip_status_display.dart';
+import './driver_navigate_button.dart';
 import './hotel_contact_actions.dart';
+import './pickup_point_info.dart';
 
 /// One trip day rendered as an independent rounded card:
 /// Day header -> hotel card -> tour description -> tour image -> driver.
@@ -172,78 +175,73 @@ class _HotelCard extends StatelessWidget {
         color: AppTheme.cardWhite,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.borderColor),
+        boxShadow: AppTheme.cardShadow,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.softGoldBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.hotel_rounded,
-              color: AppTheme.luxuryAccent,
-              size: 20,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.softGoldBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.hotel_rounded,
+                  color: AppTheme.luxuryAccent,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => HotelDetailsScreen.show(
+                        context,
+                        name: hotel.name,
+                        phone: hotel.phone,
+                        googleMapUrl: hotel.googleMapUrl,
+                      ),
+                      child: Text(
+                        hotel.name,
+                        style: GoogleFonts.inter(
+                          color: AppTheme.luxuryAccent,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (hotel.city.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          hotel.city,
+                          style: GoogleFonts.inter(
+                            color: AppTheme.secondaryText,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    if (hotel.checkIn.isNotEmpty)
+                      dateLine(l10n.checkIn, hotel.checkIn),
+                    if (hotel.checkOut.isNotEmpty)
+                      dateLine(l10n.checkOut, hotel.checkOut),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => HotelDetailsScreen.show(
-                    context,
-                    name: hotel.name,
-                    phone: hotel.phone,
-                    googleMapUrl: hotel.googleMapUrl,
-                  ),
-                  child: Text(
-                    hotel.name,
-                    style: GoogleFonts.inter(
-                      color: AppTheme.luxuryAccent,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (hotel.address.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      hotel.address,
-                      style: GoogleFonts.inter(
-                        color: AppTheme.secondaryText,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                if (hotel.city.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      hotel.city,
-                      style: GoogleFonts.inter(
-                        color: AppTheme.secondaryText,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                if (hotel.checkIn.isNotEmpty)
-                  dateLine(l10n.checkIn, hotel.checkIn),
-                if (hotel.checkOut.isNotEmpty)
-                  dateLine(l10n.checkOut, hotel.checkOut),
-                HotelContactActions(
-                  phone: hotel.phone,
-                  mapUrl: hotel.googleMapUrl,
-                  l10n: l10n,
-                ),
-              ],
-            ),
+          HotelContactActions(
+            phone: hotel.phone,
+            mapUrl: hotel.googleMapUrl,
+            l10n: l10n,
           ),
         ],
       ),
@@ -317,6 +315,22 @@ class _ItemBlock extends StatelessWidget {
             ),
           ),
         ],
+        if (item.type == 'transport')
+          driverMode
+              ? DriverPickupPointInfo(
+                  address: item.pickupAddress,
+                  navigateUrl: item.pickupLat == null || item.pickupLng == null
+                      ? null
+                      : 'https://www.google.com/maps/dir/?api=1&destination=${item.pickupLat},${item.pickupLng}',
+                  buttonLabel: l10n.pickupNavigate,
+                  addressColor: secondary,
+                )
+              : PickupPointInfo(
+                  address: item.pickupAddress,
+                  mapUrl: item.pickupMapUrl,
+                  buttonLabel: l10n.pickupOpenInMaps,
+                  addressColor: secondary,
+                ),
         if (item.imageUrl.isNotEmpty) ...[
           const SizedBox(height: 10),
           ClipRRect(
@@ -344,7 +358,7 @@ class _ItemBlock extends StatelessWidget {
             if (item.status.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                item.status,
+                formatTripStatusDisplay(item.status),
                 style: GoogleFonts.inter(
                   color: secondary,
                   fontSize: 13,
@@ -356,12 +370,19 @@ class _ItemBlock extends StatelessWidget {
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
+                height: kItineraryActionButtonHeight,
                 child: ElevatedButton(
                   onPressed: () => onTap!(item),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.brandNavy,
                     foregroundColor: Colors.white,
                     elevation: 0,
+                    minimumSize: const Size(0, kItineraryActionButtonHeight),
+                    fixedSize: const Size.fromHeight(
+                      kItineraryActionButtonHeight,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

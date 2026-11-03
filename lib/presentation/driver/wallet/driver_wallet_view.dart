@@ -269,6 +269,7 @@ class _DriverWalletViewState extends State<DriverWalletView> {
           color: cardBg,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: border),
+          boxShadow: isDark ? null : AppTheme.cardShadow,
         ),
         child: Column(
           children: [

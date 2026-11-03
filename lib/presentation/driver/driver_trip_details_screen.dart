@@ -237,11 +237,10 @@ class _DriverTripDetailsScreenState extends State<DriverTripDetailsScreen> {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: isDark
-                    ? AppTheme.darkBackground
-                    : AppTheme.mainBackground,
+                color: isDark ? AppTheme.darkBackground : AppTheme.cardWhite,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: border),
+                boxShadow: isDark ? null : AppTheme.iconShadow,
               ),
               child: Icon(
                 Icons.arrow_back_ios_new_rounded,

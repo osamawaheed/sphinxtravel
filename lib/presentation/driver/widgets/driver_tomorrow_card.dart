@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/customer_bootstrap_model.dart';
 import '../../../models/transportation_segment_model.dart';
 import '../../../theme/app_theme.dart';
+import '../models/trip_status_display.dart';
 
 /// One assignment shown in the Driver Home Tomorrow card.
 class DriverTomorrowEntry {
@@ -208,6 +209,10 @@ class DriverTomorrowBuilder {
       driverAssigned: s.driverAssigned,
       driverName: s.driverName,
       tripId: trip.id > 0 ? trip.id : null,
+      pickupAddress: s.pickupAddress,
+      pickupLat: s.pickupLat,
+      pickupLng: s.pickupLng,
+      pickupMapUrl: s.pickupMapUrl,
     );
   }
 }
@@ -549,7 +554,7 @@ class _TourEntry extends StatelessWidget {
               if (showStatus && status.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  status,
+                  formatTripStatusDisplay(status),
                   style: GoogleFonts.inter(
                     color: AppTheme.secondaryText,
                     fontSize: 12,

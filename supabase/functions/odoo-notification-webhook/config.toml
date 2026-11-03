@@ -1,0 +1,14 @@
+# Supabase config for the Odoo notification webhook ONLY.
+#
+# This function is a server-to-server HMAC webhook: Odoo has no Supabase
+# user JWT, so the platform JWT gate must be OFF for this function. Request
+# authenticity is enforced inside index.ts via HMAC-SHA256.
+#
+# Scope: applies ONLY to odoo-notification-webhook. All other functions
+# (chat-*) keep their existing configuration untouched.
+#
+# Deploy with (after approval):
+#   supabase functions deploy odoo-notification-webhook --no-verify-jwt \
+#     --project-ref uwllcyhmsletdflnrpcm
+[functions.odoo-notification-webhook]
+verify_jwt = false

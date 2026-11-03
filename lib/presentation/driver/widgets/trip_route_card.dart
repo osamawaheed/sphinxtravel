@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 import '../models/segment_detail.dart';
+import '../../customer/widgets/driver_navigate_button.dart';
 
 class TripRouteCard extends StatelessWidget {
   final SegmentDetail detail;
@@ -89,6 +90,12 @@ class TripRouteCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           height: 1.3,
                         ),
+                      ),
+                      DriverPickupPointInfo(
+                        address: detail.segment.pickupAddress,
+                        navigateUrl: detail.segment.pickupNavigateUrl,
+                        buttonLabel: l10n.pickupNavigate,
+                        addressColor: subColor,
                       ),
                       const SizedBox(height: 16),
                     ],

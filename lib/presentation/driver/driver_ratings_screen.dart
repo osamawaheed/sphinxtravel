@@ -169,6 +169,7 @@ class _AverageHeader extends StatelessWidget {
         border: Border.all(
           color: isDark ? AppTheme.darkBorderColor : AppTheme.borderColor,
         ),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(
         children: [
@@ -212,6 +213,7 @@ class _RatingCard extends StatelessWidget {
         border: Border.all(
           color: isDark ? AppTheme.darkBorderColor : AppTheme.borderColor,
         ),
+        boxShadow: isDark ? null : AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

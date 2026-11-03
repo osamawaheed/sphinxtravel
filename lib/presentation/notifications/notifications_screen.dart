@@ -27,8 +27,47 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _service.refresh();
   }
 
+  void _showReadOnlyNotice() {
+    final l10n = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(l10n.notificationsReadOnlyMessage)),
+      );
+  }
+
+  void _showMarkFailedNotice() {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l10n.notificationsMarkReadFailed)));
+  }
+
+  Future<void> _markRead(String id) async {
+    if (!_service.canMarkRead) {
+      _showReadOnlyNotice();
+      return;
+    }
+    if (_service.isMarking) return;
+    await _service.markAsRead(id);
+    if (_service.markFailed) _showMarkFailedNotice();
+  }
+
+  Future<void> _markAllRead() async {
+    if (!_service.canMarkRead) {
+      _showReadOnlyNotice();
+      return;
+    }
+    if (_service.isMarking) return;
+    await _service.markAllAsRead();
+    if (_service.markFailed) _showMarkFailedNotice();
+  }
+
   void _open(AppNotification n) {
-    _service.markAsRead(n.id);
+    if (_service.canMarkRead && !n.isRead && !_service.isMarking) {
+      _markRead(n.id);
+    }
     final route = NotificationService.validRouteFor(
       n,
       isDriver: widget.isDriver,
@@ -70,7 +109,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               animation: _service,
               builder: (context, _) => _service.unreadCount > 0
                   ? TextButton(
-                      onPressed: _service.markAllAsRead,
+                      onPressed: _service.isMarking ? null : _markAllRead,
                       child: Text(
                         l10n.markAllAsRead,
                         style: GoogleFonts.inter(
@@ -116,8 +155,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 l10n: l10n,
                                 isDark: isDark,
                                 onTap: () => _open(items[i]),
-                                onMarkRead: () =>
-                                    _service.markAsRead(items[i].id),
+                                onMarkRead: () => _markRead(items[i].id),
                               ),
                             ),
                           ),
@@ -225,9 +263,23 @@ class _NotificationTile extends StatelessWidget {
     final subColor = isDark
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
+    final String titleText;
+    final String messageText;
+    if (n.notificationType == null) {
+      titleText = n.title;
+      messageText = n.message;
+    } else if (n.notificationType == 'BOOKING_UPDATED') {
+      titleText = l10n.notificationBookingUpdatedTitle;
+      messageText = l10n.notificationBookingUpdatedMessage(n.bookingReference);
+    } else {
+      titleText = l10n.notificationGenericTitle;
+      messageText = l10n.notificationGenericMessage(n.bookingReference);
+    }
 
     return Material(
       color: cardBg,
+      elevation: isDark ? 0 : 3,
+      shadowColor: const Color(0x29123047),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -259,7 +311,7 @@ class _NotificationTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      n.title,
+                      titleText,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
@@ -270,10 +322,10 @@ class _NotificationTile extends StatelessWidget {
                             : FontWeight.w800,
                       ),
                     ),
-                    if (n.message.isNotEmpty) ...[
+                    if (messageText.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        n.message,
+                        messageText,
                         maxLines: 4,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(

@@ -37,7 +37,8 @@ class AppTheme {
   }
 
   // SPHINX TRAVEL Design System Colors — Light
-  static const Color _lightMainBackground = Color(0xFFF7F5F0);
+  static const Color _lightMainBackground = Color(0xFFFFFFFF);
+  static const Color _lightSoftSurface = Color(0xFFF7F5F0);
   static const Color _lightCardWhite = Color(0xFFFFFFFF);
   static const Color _lightPrimaryText = Color(0xFF172331);
   static const Color brandNavy = Color(0xFF123047);
@@ -76,6 +77,11 @@ class AppTheme {
 
   static Color get mainBackground =>
       isDarkActive ? darkBackground : _lightMainBackground;
+
+  /// Subtle tinted surface for inner chips / icon tiles / nested panels that
+  /// must stay distinguishable on top of a white page or white card.
+  static Color get softSurface =>
+      isDarkActive ? darkBackground : _lightSoftSurface;
   static Color get cardWhite => isDarkActive ? darkCard : _lightCardWhite;
   static Color get primaryText =>
       isDarkActive ? darkPrimaryText : _lightPrimaryText;
@@ -91,6 +97,58 @@ class AppTheme {
   /// Navy in Light Mode (unchanged), white in Dark Mode. Use for text/icons
   /// that were previously drawn in [brandNavy] on card surfaces.
   static Color get navyText => isDarkActive ? darkPrimaryText : brandNavy;
+
+  /// Pre-login screens: always pure white with a soft, diffused shadow.
+  static const Color preLoginBackground = Color(0xFFFFFFFF);
+  static const Color preLoginText = Color(0xFF123047);
+  static const Color preLoginSubtext = Color(0xFF68727D);
+  static const Color preLoginHint = Color(0xFF9AA3AD);
+  static const Color preLoginBorder = Color(0xFFE7E3DC);
+
+  static List<BoxShadow> get softShadow => const [
+    BoxShadow(
+      color: Color(0x14123047),
+      blurRadius: 18,
+      spreadRadius: 0,
+      offset: Offset(0, 6),
+    ),
+  ];
+
+  /// Brightness-aware soft card shadow for authenticated screens.
+  static List<BoxShadow> get cardShadow => isDarkActive
+      ? const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ]
+      : const [
+          BoxShadow(
+            color: Color(0x14123047),
+            blurRadius: 16,
+            spreadRadius: 0,
+            offset: Offset(0, 4),
+          ),
+        ];
+
+  /// Lighter shadow for small interactive icon containers / chips.
+  static List<BoxShadow> get iconShadow => isDarkActive
+      ? const [
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ]
+      : const [
+          BoxShadow(
+            color: Color(0x12123047),
+            blurRadius: 8,
+            spreadRadius: 0,
+            offset: Offset(0, 2),
+          ),
+        ];
 
   static ThemeData get lightTheme {
     return _buildLightTheme(isArabic: false);
@@ -220,7 +278,9 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: _lightCardWhite,
-        elevation: 0,
+        elevation: 3,
+        shadowColor: const Color(0x29123047),
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: _lightBorderColor, width: 1),
@@ -230,14 +290,15 @@ class AppTheme {
         backgroundColor: _lightCardWhite,
         selectedItemColor: brandNavy,
         unselectedItemColor: _lightSecondaryText,
-        elevation: 0,
+        elevation: 8,
         type: BottomNavigationBarType.fixed,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: brandNavy,
           foregroundColor: _lightCardWhite,
-          elevation: 0,
+          elevation: 3,
+          shadowColor: const Color(0x40123047),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),

@@ -171,9 +171,11 @@ class WalletStrings {
     switch (t) {
       case WalletTransactionType.tripEarning:
         return _t({
-          'en': 'Trip Earning',
-          'ru': 'Доход от поездки',
-          'ka': 'შემოსავალი მოგზაურობიდან',
+          'en': 'Trip Cost',
+          'ar': 'تكلفة الرحلة',
+          'ru': 'Стоимость поездки',
+          'ka': 'მგზავრობის ღირებულება',
+          'az': 'Səfərin dəyəri',
         });
       case WalletTransactionType.payoutRequest:
         return _t({

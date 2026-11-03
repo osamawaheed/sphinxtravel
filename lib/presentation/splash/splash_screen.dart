@@ -21,24 +21,27 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _slideUp;
   int _currentPage = 0;
 
-  static const String _mountainImage =
-      'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1200&q=80';
+  static const List<String> _slideImages = [
+    'assets/images/1-1793459154937.png',
+    'assets/images/2-1793459154925.png',
+    'assets/images/3-1793459154800.png',
+  ];
 
   List<_OnboardingData> _buildSlides(AppLocalizations l10n) => [
     _OnboardingData(
-      image: _mountainImage,
+      image: _slideImages[0],
       headline: l10n.splashHeadline1,
       subtitle: l10n.splashBody1,
       buttonLabel: l10n.splashButton1,
     ),
     _OnboardingData(
-      image: _mountainImage,
+      image: _slideImages[1],
       headline: l10n.splashHeadline2,
       subtitle: l10n.splashBody2,
       buttonLabel: l10n.splashButton2,
     ),
     _OnboardingData(
-      image: _mountainImage,
+      image: _slideImages[2],
       headline: l10n.splashHeadline3,
       subtitle: l10n.splashBody3,
       buttonLabel: l10n.splashButton3,
@@ -91,29 +94,51 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF0EDE8),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
           child: Column(
             children: [
-              // Rounded full-height image card
+              // Rounded elevated card
               Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(32),
-                  child: PageView.builder(
-                    controller: _pageController,
-                    onPageChanged: _onPageChanged,
-                    itemCount: 3,
-                    itemBuilder: (context, index) {
-                      return _OnboardingPage(
-                        data: _buildSlides(l10n)[index],
-                        isActive: index == _currentPage,
-                        fadeIn: _fadeIn,
-                        slideUp: _slideUp,
-                      );
-                    },
-                  ),
+                child: PageView.builder(
+                  controller: _pageController,
+                  onPageChanged: _onPageChanged,
+                  itemCount: 3,
+                  clipBehavior: Clip.none,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
+                      ),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x1F000000),
+                              blurRadius: 24,
+                              spreadRadius: 1,
+                              offset: Offset(0, 0),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(28),
+                          clipBehavior: Clip.antiAlias,
+                          child: _OnboardingPage(
+                            data: _buildSlides(l10n)[index],
+                            isActive: index == _currentPage,
+                            fadeIn: _fadeIn,
+                            slideUp: _slideUp,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 28),
@@ -197,37 +222,30 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
+    return Column(
       children: [
-        Image.network(
-          data.image,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              Container(color: const Color(0xFF0B0F14)),
-        ),
-        // Dark gradient overlay fading to black at the bottom
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0x66000000),
-                Colors.transparent,
-                Color(0x66000000),
-                Color(0xE6000000),
-                Color(0xFF000000),
-              ],
-              stops: [0.0, 0.25, 0.60, 0.80, 1.0],
+        Expanded(
+          child: SizedBox(
+            width: double.infinity,
+            child: ClipRect(
+              child: Transform.scale(
+                scale: 1.12,
+                alignment: Alignment.topCenter,
+                child: Image.asset(
+                  data.image,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
             ),
           ),
         ),
-        // Right-aligned headline + subtitle at the bottom of the card
-        Positioned(
-          left: 28,
-          right: 28,
-          bottom: 28,
+        Container(
+          width: double.infinity,
+          color: Colors.white,
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
           child: FadeTransition(
             opacity: fadeIn,
             child: AnimatedBuilder(
@@ -245,21 +263,21 @@ class _OnboardingPage extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontFamily: 'Inter',
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1B2D45),
+                      fontSize: 30,
+                      fontWeight: FontWeight.w600,
                       height: 1.1,
-                      letterSpacing: -1.0,
+                      letterSpacing: -0.8,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Text(
                     data.subtitle,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: 'Inter',
-                      color: Colors.white.withAlpha(190),
-                      fontSize: 16,
+                      color: Color(0xFF1B2D45),
+                      fontSize: 15,
                       fontWeight: FontWeight.w400,
                       height: 1.5,
                     ),

@@ -274,10 +274,7 @@ class ChatInboxService {
           tripId: trip.id,
           bookingReference: ref,
           customerName: trip.customerName,
-          tripTitle: [
-            trip.city,
-            trip.destination,
-          ].where((e) => e.trim().isNotEmpty).join(', '),
+          tripTitle: trip.destination.trim(),
           conversationId: cid,
           lastMessagePreview: isVoice
               ? ''

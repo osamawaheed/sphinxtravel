@@ -655,7 +655,7 @@ class AppLocalizations {
     'ka': 'მძღოლი ჩამოვა $min წუთში',
   });
   String get tripStatusAssigned => _t({
-    'en': 'Assigned',
+    'en': 'Ready',
     'ar': 'تم التعيين',
     'ru': 'Назначен',
     'ka': 'დანიშნულია',
@@ -1249,6 +1249,8 @@ class AppLocalizations {
     'ru': 'Позвонить в отель',
     'ka': 'სასტუმროში დარეკვა',
   });
+  String get hotelMapsShort =>
+      _t({'en': 'Maps', 'ar': 'الخرائط', 'ru': 'Карты', 'ka': 'რუკა'});
   String get hotelPhoneUnavailable => _t({
     'en': 'Phone number not available',
     'ar': 'رقم الهاتف غير متوفر',
@@ -2661,7 +2663,7 @@ class AppLocalizations {
   // ─── Driver trip status labels ─────────────────────────────────────────────
 
   String get statusAssigned => _t({
-    'en': 'Assigned',
+    'en': 'Ready',
     'ar': 'مُعيَّنة',
     'ru': 'Назначена',
     'ka': 'მინიჭებულია',
@@ -2817,6 +2819,58 @@ class AppLocalizations {
     'ru': 'Отметить как прочитанное',
     'ka': 'წაკითხულად მონიშვნა',
   });
+  String get notificationBookingUpdatedTitle => _t({
+    'en': 'Booking updated',
+    'ar': 'تم تحديث الحجز',
+    'ru': 'Бронирование обновлено',
+    'ka': 'ჯავშანი განახლდა',
+  });
+  String notificationBookingUpdatedMessage(String? ref) {
+    final hasRef = ref != null && ref.isNotEmpty;
+    return _t({
+      'en': hasRef
+          ? 'There is an update to your booking $ref.'
+          : 'There is an update to your booking.',
+      'ar': hasRef ? 'يوجد تحديث على حجزك $ref.' : 'يوجد تحديث على حجزك.',
+      'ru': hasRef
+          ? 'Есть обновление по вашему бронированию $ref.'
+          : 'Есть обновление по вашему бронированию.',
+      'ka': hasRef
+          ? 'თქვენს ჯავშანზე $ref არის განახლება.'
+          : 'თქვენს ჯავშანზე არის განახლება.',
+    });
+  }
+
+  String get notificationGenericTitle => _t({
+    'en': 'New notification',
+    'ar': 'إشعار جديد',
+    'ru': 'Новое уведомление',
+    'ka': 'ახალი შეტყობინება',
+  });
+  String notificationGenericMessage(String? ref) {
+    final hasRef = ref != null && ref.isNotEmpty;
+    return _t({
+      'en': hasRef ? 'Booking $ref' : 'You have a new notification.',
+      'ar': hasRef ? 'الحجز $ref' : 'لديك إشعار جديد.',
+      'ru': hasRef ? 'Бронирование $ref' : 'У вас новое уведомление.',
+      'ka': hasRef ? 'ჯავშანი $ref' : 'თქვენ გაქვთ ახალი შეტყობინება.',
+    });
+  }
+
+  String get notificationsReadOnlyMessage => _t({
+    'en': 'Marking notifications as read is not available yet.',
+    'ar': 'تحديد الإشعارات كمقروءة غير متاح بعد.',
+    'ru': 'Отметка уведомлений как прочитанных пока недоступна.',
+    'ka': 'შეტყობინებების წაკითხულად მონიშვნა ჯერ ხელმისაწვდომი არ არის.',
+  });
+
+  String get notificationsMarkReadFailed => _t({
+    'en': 'Could not update notifications. Please try again.',
+    'ar': 'تعذر تحديث الإشعارات. يرجى المحاولة مرة أخرى.',
+    'ru': 'Не удалось обновить уведомления. Попробуйте ещё раз.',
+    'ka': 'შეტყობინებების განახლება ვერ მოხერხდა. სცადეთ ხელახლა.',
+  });
+
   String get unreadLabel =>
       _t({'en': 'Unread', 'ar': 'غير مقروء', 'ru': 'Новое', 'ka': 'ახალი'});
   String get readLabel =>
@@ -2895,6 +2949,18 @@ class AppLocalizations {
     'ar': 'فتح في خرائط جوجل',
     'ru': 'Открыть в Google Maps',
     'ka': 'გახსნა Google Maps-ში',
+  });
+  String get pickupOpenInMaps => _t({
+    'en': 'Open in Maps',
+    'ar': 'فتح في الخرائط',
+    'ru': 'Открыть на карте',
+    'ka': 'რუკაზე გახსნა',
+  });
+  String get pickupNavigate => _t({
+    'en': 'Navigate',
+    'ar': 'ابدأ التنقل',
+    'ru': 'Навигация',
+    'ka': 'ნავიგაცია',
   });
   String get trackingLastUpdate => _t({
     'en': 'Last update',

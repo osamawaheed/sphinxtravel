@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/customer_bootstrap_model.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/auth_network_image.dart';
+import '../../driver/models/trip_status_display.dart';
 
 /// Premium, expandable "Today's Plan" for the Customer Home.
 ///
@@ -245,7 +246,7 @@ class _TodaysPlanCardState extends State<TodaysPlanCard> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
-        color: AppTheme.mainBackground,
+        color: AppTheme.softSurface,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
@@ -412,7 +413,7 @@ class _TodaysPlanCardState extends State<TodaysPlanCard> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              item.status,
+                              formatTripStatusDisplay(item.status),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(

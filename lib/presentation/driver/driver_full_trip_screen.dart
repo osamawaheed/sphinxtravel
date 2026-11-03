@@ -1095,6 +1095,7 @@ class _HotelDateChip extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: border),
+        boxShadow: isDark ? null : AppTheme.iconShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1533,7 +1534,7 @@ class _SimDeliveryBottomSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkBackground : AppTheme.mainBackground,
+              color: isDark ? AppTheme.darkBackground : AppTheme.softSurface,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: border),
             ),

@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/customer_bootstrap_model.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/auth_network_image.dart';
+import '../../driver/models/trip_status_display.dart';
 import './day_itinerary_card.dart';
 import 'day_itinerary_card.dart' show TripHotelCard;
 
@@ -258,7 +259,7 @@ class _TimelineRow extends StatelessWidget {
                     if (item.status.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
-                        item.status,
+                        formatTripStatusDisplay(item.status),
                         style: GoogleFonts.inter(
                           color: AppTheme.secondaryText,
                           fontSize: 13,

@@ -16,6 +16,15 @@ class AppNotification {
   /// Optional extra payload passed to the target route.
   final Map<String, dynamic>? targetExtra;
 
+  /// Structured fields (set for rows read from public.app_notifications).
+  /// When [notificationType] is set, the UI resolves a localized title and
+  /// message from it instead of using [title]/[message].
+  final String? notificationType;
+  final String? category;
+  final Map<String, dynamic> params;
+  final String? bookingReference;
+  final String? bookingId;
+
   const AppNotification({
     required this.id,
     required this.title,
@@ -24,6 +33,11 @@ class AppNotification {
     this.isRead = false,
     this.targetRoute,
     this.targetExtra,
+    this.notificationType,
+    this.category,
+    this.params = const {},
+    this.bookingReference,
+    this.bookingId,
   });
 
   AppNotification copyWith({bool? isRead}) => AppNotification(
@@ -34,6 +48,11 @@ class AppNotification {
     isRead: isRead ?? this.isRead,
     targetRoute: targetRoute,
     targetExtra: targetExtra,
+    notificationType: notificationType,
+    category: category,
+    params: params,
+    bookingReference: bookingReference,
+    bookingId: bookingId,
   );
 
   static bool _bool(dynamic v) {
@@ -41,6 +60,44 @@ class AppNotification {
     if (v is num) return v != 0;
     if (v is String) return v == 'true' || v == '1';
     return false;
+  }
+
+  static String? _str(dynamic v) {
+    if (v == null) return null;
+    final s = v.toString();
+    return s.isEmpty ? null : s;
+  }
+
+  /// Parses a row of public.app_notifications. Returns null when the row has
+  /// no id or no notification_type.
+  static AppNotification? fromSupabaseRow(dynamic raw) {
+    if (raw is! Map) return null;
+    final m = Map<String, dynamic>.from(raw);
+    final id = _str(m['id']);
+    final type = _str(m['notification_type']);
+    if (id == null || type == null) return null;
+
+    var params = <String, dynamic>{};
+    final p = m['params'];
+    if (p is Map) {
+      params = Map<String, dynamic>.from(p);
+    }
+
+    final occurred = _str(m['occurred_at']);
+    final parsed = occurred == null ? null : DateTime.tryParse(occurred);
+
+    return AppNotification(
+      id: id,
+      title: '',
+      message: '',
+      createdAt: (parsed ?? DateTime.fromMillisecondsSinceEpoch(0)).toLocal(),
+      isRead: _bool(m['is_read']),
+      notificationType: type,
+      category: _str(m['category']),
+      params: params,
+      bookingReference: _str(m['booking_reference']),
+      bookingId: _str(m['booking_id']),
+    );
   }
 
   /// Parses an Odoo notification record. Returns null when the payload has no

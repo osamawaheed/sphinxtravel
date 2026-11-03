@@ -272,14 +272,13 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
     final hasError =
         _state == OtpState.invalid ||
         _state == OtpState.expired ||
         _state == OtpState.tooManyAttempts;
 
     return Scaffold(
-      backgroundColor: AppTheme.mainBackground,
+      backgroundColor: AppTheme.preLoginBackground,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeIn,
@@ -295,14 +294,14 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.cardWhite,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderColor),
+                      boxShadow: AppTheme.softShadow,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 16,
-                      color: AppTheme.primaryText,
+                      color: AppTheme.preLoginText,
                     ),
                   ),
                 ),
@@ -311,8 +310,9 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF25D366).withAlpha(26),
+                    color: const Color(0xFFE9F9EF),
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: AppTheme.softShadow,
                   ),
                   child: const Icon(
                     Icons.chat_bubble_outline_rounded,
@@ -325,7 +325,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                   l10n.verifyPhoneNumber,
                   style: AppTheme.appFont(
                     context,
-                    color: AppTheme.primaryText,
+                    color: AppTheme.preLoginText,
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
@@ -337,7 +337,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                   text: TextSpan(
                     style: AppTheme.appFont(
                       context,
-                      color: AppTheme.secondaryText,
+                      color: AppTheme.preLoginSubtext,
                       fontSize: 14,
                       height: 1.5,
                     ),
@@ -350,7 +350,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                           child: Text(
                             widget.phoneNumber,
                             style: GoogleFonts.inter(
-                              color: AppTheme.primaryText,
+                              color: AppTheme.preLoginText,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
@@ -375,7 +375,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFF8E1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE0B84C)),
+                      boxShadow: AppTheme.softShadow,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,7 +395,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                           child: Text(
                             'Your verification code: $_debugOtp',
                             style: GoogleFonts.inter(
-                              color: AppTheme.primaryText,
+                              color: AppTheme.preLoginText,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -410,9 +410,16 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                   textDirection: TextDirection.ltr,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: List.generate(_length, (i) {
-                    return SizedBox(
+                    final side = hasError
+                        ? const BorderSide(color: AppTheme.errorRed, width: 1.5)
+                        : BorderSide.none;
+                    return Container(
                       width: 46,
                       height: 56,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: AppTheme.softShadow,
+                      ),
                       child: Focus(
                         onKeyEvent: (node, event) => _handleKeyEvent(i, event),
                         child: TextField(
@@ -427,9 +434,9 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                             FilteringTextInputFormatter.digitsOnly,
                           ],
                           onChanged: (v) => _onChanged(i, v),
-                          cursorColor: colorScheme.primary,
+                          cursorColor: AppTheme.brandNavy,
                           style: GoogleFonts.inter(
-                            color: AppTheme.primaryText,
+                            color: AppTheme.preLoginText,
                             fontSize: 22,
                             fontWeight: FontWeight.w700,
                             height: 1.0,
@@ -438,34 +445,24 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                             counterText: '',
                             filled: true,
                             fillColor: hasError
-                                ? AppTheme.errorRed.withAlpha(13)
-                                : AppTheme.cardWhite,
+                                ? const Color(0xFFFDF1F1)
+                                : Colors.white,
                             contentPadding: EdgeInsets.zero,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide(
-                                color: hasError
-                                    ? AppTheme.errorRed
-                                    : colorScheme.outline,
-                                width: 1.5,
-                              ),
+                              borderSide: side,
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide(
-                                color: hasError
-                                    ? AppTheme.errorRed
-                                    : colorScheme.outline,
-                                width: 1.5,
-                              ),
+                              borderSide: side,
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(
                                 color: hasError
                                     ? AppTheme.errorRed
-                                    : colorScheme.primary,
-                                width: 2,
+                                    : AppTheme.brandNavy,
+                                width: 1.5,
                               ),
                             ),
                           ),
@@ -488,34 +485,40 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                 const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _state == OtpState.loading ? null : _verify,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandNavy,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: AppTheme.cardShadow,
                     ),
-                    child: _state == OtpState.loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                    child: ElevatedButton(
+                      onPressed: _state == OtpState.loading ? null : _verify,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.brandNavy,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _state == OtpState.loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              l10n.verify,
+                              style: AppTheme.appFont(
+                                context,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          )
-                        : Text(
-                            l10n.verify,
-                            style: AppTheme.appFont(
-                              context,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -525,7 +528,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                           '${l10n.resendIn} $_countdown${l10n.seconds}',
                           style: AppTheme.appFont(
                             context,
-                            color: AppTheme.secondaryText,
+                            color: AppTheme.preLoginSubtext,
                             fontSize: 14,
                           ),
                         )
@@ -535,7 +538,7 @@ class _CustomerOtpScreenState extends State<CustomerOtpScreen>
                             l10n.resendCode,
                             style: AppTheme.appFont(
                               context,
-                              color: AppTheme.navyText,
+                              color: AppTheme.preLoginText,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
