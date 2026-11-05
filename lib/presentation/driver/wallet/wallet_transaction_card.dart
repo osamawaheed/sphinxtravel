@@ -19,27 +19,12 @@ class WalletTransactionCard extends StatelessWidget {
     required this.isDark,
   });
 
-  static const List<String> _months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
   String _formatDate(DateTime? d) {
     if (d == null) return '';
     final l = d.toLocal();
     final hh = l.hour.toString().padLeft(2, '0');
     final mm = l.minute.toString().padLeft(2, '0');
-    return '${l.day} ${_months[l.month - 1]} ${l.year} • $hh:$mm';
+    return '${l.day} ${strings.shortMonth(l.month)} ${l.year} • $hh:$mm';
   }
 
   static String formatAmount(double v) {

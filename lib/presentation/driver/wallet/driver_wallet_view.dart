@@ -7,6 +7,7 @@ import '../../../services/api_client.dart';
 import '../../../services/driver_wallet_service.dart';
 import '../../../services/localization_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/az_case.dart';
 import './payout_request_screen.dart';
 import './wallet_strings.dart';
 import './wallet_transaction_card.dart';
@@ -190,7 +191,7 @@ class _DriverWalletViewState extends State<DriverWalletView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            s.availableBalance.toUpperCase(),
+            AzCase.upper(s.availableBalance),
             style: GoogleFonts.inter(
               color: Colors.white.withAlpha(179),
               fontSize: 12,

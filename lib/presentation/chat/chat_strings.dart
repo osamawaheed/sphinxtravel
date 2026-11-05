@@ -1,9 +1,18 @@
-/// Smart Chat UI strings (English, Arabic, Russian, Georgian).
+import '../../l10n/az_feature_translations.dart';
+
+/// Smart Chat UI strings (English, Arabic, Russian, Georgian, Azerbaijani).
 class ChatStrings {
   final String locale;
   const ChatStrings(this.locale);
 
-  String _t(Map<String, String> m) => m[locale] ?? m['en'] ?? '';
+  String _t(Map<String, String> m) {
+    if (locale == 'az' && m['az'] == null) {
+      final en = m['en'];
+      final az = en == null ? null : AzFeatureTranslations.lookup(en);
+      if (az != null) return az;
+    }
+    return m[locale] ?? m['en'] ?? '';
+  }
 
   String get currentTrip => _t({
     'en': 'Current Trip',
@@ -80,6 +89,7 @@ class ChatStrings {
     'ar': 'تم تعيين $name لهذه الرحلة',
     'ru': '$name الآن назначен на эту поездку',
     'ka': '$name ახლა დანიშნულია ამ მოგზაურობაზე',
+    'az': '$name artıq bu səfərə təyin edilib',
   });
   String get demoBanner => _t({
     'en':
@@ -464,12 +474,13 @@ class ChatStrings {
     'ka': 'ვიდეოს ჩართვა',
   });
   String get pageWord =>
-      _t({'en': 'Page', 'ar': 'صفحة', 'ru': 'Стр.', 'ka': 'გვ.'});
+      _t({'en': 'Page', 'ar': 'صفحة', 'ru': 'Стр.', 'ka': 'გვ.', 'az': 'Səh.'});
   String pagesCount(int n) => _t({
     'en': '$n pages',
     'ar': '$n صفحات',
     'ru': 'Страниц: $n',
     'ka': '$n გვერდი',
+    'az': '$n səhifə',
   });
   String get docTypeWord => _t({
     'en': 'Word document',
@@ -806,6 +817,7 @@ class ChatStrings {
           'ar': 'الأذربيجانية',
           'ru': 'Азербайджанский',
           'ka': 'აზერბაიჯანული',
+          'az': 'Azərbaycanca',
         });
       case 'ar':
         return _t({

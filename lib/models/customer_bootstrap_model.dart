@@ -2,6 +2,7 @@ import './driver_assignment_model.dart';
 import './extra_service_model.dart';
 import './flight_model.dart';
 import './hotel_model.dart';
+import './hotel_grouping.dart';
 import './transportation_segment_model.dart';
 import './trip_model.dart';
 import './vehicle_model.dart';
@@ -947,6 +948,12 @@ class HomeStayHotel {
   final String googleMapUrl;
   final String address;
 
+  /// Room type of this accommodation record (empty when Odoo sends none).
+  final String roomType;
+
+  /// Grouped room lines (room type + quantity). Empty for ungrouped records.
+  final List<HomeStayRoom> rooms;
+
   const HomeStayHotel({
     this.id = 0,
     required this.name,
@@ -956,6 +963,8 @@ class HomeStayHotel {
     this.phone = '',
     this.googleMapUrl = '',
     this.address = '',
+    this.roomType = '',
+    this.rooms = const [],
   });
 
   factory HomeStayHotel.fromJson(Map<String, dynamic> j) {
@@ -973,8 +982,29 @@ class HomeStayHotel {
       phone: _firstOf(j, _hotelPhoneKeys),
       googleMapUrl: _firstOf(j, _hotelMapKeys),
       address: _s(j['address']).trim(),
+      roomType: _firstOf(j, const [
+        'room_type',
+        'room_type_name',
+        'room_name',
+        'room',
+      ]),
     );
   }
+
+  /// Presentation-layer grouping. Records for the same hotel with the same
+  /// check-in/check-out are merged into ONE stay whose [rooms] carry each room
+  /// type with its quantity. Different hotels or different stay dates stay
+  /// separate. Input records are never mutated; first-seen order is kept.
+  static List<HomeStayHotel> groupStays(Iterable<HomeStayHotel> source) =>
+      HotelGrouping.groupStays(source);
+}
+
+/// A room type with the number of rooms booked of that type.
+class HomeStayRoom {
+  final String type;
+  final int quantity;
+
+  const HomeStayRoom({required this.type, this.quantity = 1});
 }
 
 class HomeCustomer {
@@ -1346,8 +1376,12 @@ class CustomerHomeTrip {
       arrivalFlight: arr != null ? HomeFlight.fromJson(arr) : null,
       departureFlight: dep != null ? HomeFlight.fromJson(dep) : null,
       currentHotel: hotel != null ? HomeHotel.fromJson(hotel) : null,
-      todayPlan: _mapList(t['today_plan']).map(HomePlanItem.fromJson).toList(),
-      tomorrow: tomorrowList.map(HomePlanItem.fromJson).toList(),
+      todayPlan: HotelGrouping.dedupeHotelPlanItems(
+        _mapList(t['today_plan']).map(HomePlanItem.fromJson),
+      ),
+      tomorrow: HotelGrouping.dedupeHotelPlanItems(
+        tomorrowList.map(HomePlanItem.fromJson),
+      ),
       customer: cust != null ? HomeCustomer.fromJson(cust) : null,
       mySegmentIds: segIds is List
           ? segIds.map((e) => _i(e, -1)).where((e) => e >= 0).toList()
@@ -1377,23 +1411,25 @@ class CustomerHomeTrip {
           pickupMapUrl: _sOrNull(m['pickup_map_url']),
         );
       }).toList(),
-      activities: _mapList(t['activities']).map((a) {
-        return HomePlanItem(
-          id: _i(a['id']),
-          time: _s(a['time']),
-          endTime: _s(a['end_time']),
-          title: _s(a['title']),
-          subtitle: _s(a['subtitle']),
-          imageUrl: _s(a['image_url']),
-          type: _sOrNull(a['type']) ?? 'activity',
-          status: _s(a['status']),
-          date: _s(a['date']),
-        );
-      }).toList(),
+      activities: HotelGrouping.dedupeHotelPlanItems(
+        _mapList(t['activities']).map((a) {
+          return HomePlanItem(
+            id: _i(a['id']),
+            time: _s(a['time']),
+            endTime: _s(a['end_time']),
+            title: _s(a['title']),
+            subtitle: _s(a['subtitle']),
+            imageUrl: _s(a['image_url']),
+            type: _sOrNull(a['type']) ?? 'activity',
+            status: _s(a['status']),
+            date: _s(a['date']),
+          );
+        }),
+      ),
       extraServices: _mapList(
         t['extra_services'],
       ).map(HomeExtraService.fromJson).toList(),
-      hotels: hotelStays,
+      hotels: HotelGrouping.groupStays(hotelStays),
       tripStatus: _s(t['status'] ?? t['trip_status'] ?? t['trip_state']),
     );
   }

@@ -25,6 +25,44 @@ class AppNotification {
   final String? bookingReference;
   final String? bookingId;
 
+  /// Odoo trip/booking id (public.app_notifications.trip_id), if present.
+  final String? tripId;
+
+  /// Optional server-rendered text (from the Supabase RPC
+  /// `app_notifications_localized`). Only set for customer notifications
+  /// when the RPC succeeded. Used only when both are nonempty.
+  final String? serverTitle;
+  final String? serverBody;
+
+  /// True when both server-rendered title and body are nonempty.
+  bool get hasServerText =>
+      (serverTitle?.trim().isNotEmpty ?? false) &&
+      (serverBody?.trim().isNotEmpty ?? false);
+
+  /// Prefix that distinguishes campaign notification ids from booking ids.
+  static const String campaignIdPrefix = 'campaign:';
+
+  /// Notification type marker used for campaign notifications.
+  static const String campaignType = 'CAMPAIGN';
+
+  /// True for notifications that come from notification campaigns.
+  bool get isCampaign => id.startsWith(campaignIdPrefix);
+
+  /// Returns the raw campaign uuid for a prefixed campaign id, or null when
+  /// [id] is not a prefixed campaign id or does not hold a valid uuid.
+  static String? campaignUuidFromId(String id) {
+    if (!id.startsWith(campaignIdPrefix)) return null;
+    final raw = id.substring(campaignIdPrefix.length).trim();
+    return isUuid(raw) ? raw : null;
+  }
+
+  static final RegExp _uuidRe = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
+  /// True when [value] is a canonical uuid string.
+  static bool isUuid(String value) => _uuidRe.hasMatch(value);
+
   const AppNotification({
     required this.id,
     required this.title,
@@ -38,6 +76,9 @@ class AppNotification {
     this.params = const {},
     this.bookingReference,
     this.bookingId,
+    this.tripId,
+    this.serverTitle,
+    this.serverBody,
   });
 
   AppNotification copyWith({bool? isRead}) => AppNotification(
@@ -53,6 +94,9 @@ class AppNotification {
     params: params,
     bookingReference: bookingReference,
     bookingId: bookingId,
+    tripId: tripId,
+    serverTitle: serverTitle,
+    serverBody: serverBody,
   );
 
   static bool _bool(dynamic v) {
@@ -97,6 +141,39 @@ class AppNotification {
       params: params,
       bookingReference: _str(m['booking_reference']),
       bookingId: _str(m['booking_id']),
+      tripId: _str(m['trip_id']),
+      serverTitle: _str(m['title']),
+      serverBody: _str(m['body']),
+    );
+  }
+
+  /// Parses a row of notification_campaigns_my_inbox(). The id is prefixed
+  /// with [campaignIdPrefix]. Campaign notifications carry no booking or trip
+  /// reference, so they never navigate. Returns null when the row has no valid
+  /// uuid id or no usable text.
+  static AppNotification? fromCampaignRow(dynamic raw) {
+    if (raw is! Map) return null;
+    final m = Map<String, dynamic>.from(raw);
+    final id = _str(m['id']);
+    if (id == null || !isUuid(id.trim())) return null;
+    final title = _str(m['title'])?.trim();
+    final body = _str(m['body'])?.trim();
+    if (title == null || title.isEmpty || body == null || body.isEmpty) {
+      return null;
+    }
+    final created = _str(m['created_at']);
+    final parsed = created == null ? null : DateTime.tryParse(created);
+
+    return AppNotification(
+      id: '$campaignIdPrefix${id.trim()}',
+      title: title,
+      message: body,
+      createdAt: (parsed ?? DateTime.fromMillisecondsSinceEpoch(0)).toLocal(),
+      isRead: _bool(m['is_read']),
+      notificationType: campaignType,
+      category: _str(m['campaign_type']),
+      serverTitle: title,
+      serverBody: body,
     );
   }
 

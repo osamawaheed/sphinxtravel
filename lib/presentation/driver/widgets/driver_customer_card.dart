@@ -13,6 +13,7 @@ import '../../../services/pdf_file_helper_stub.dart'
     if (dart.library.js_interop) '../../../services/pdf_file_helper_web.dart'
     as pdf_helper;
 import '../../../theme/app_theme.dart';
+import '../../../widgets/az_case.dart';
 
 class DriverCustomerCard extends StatefulWidget {
   final HomeCustomer customer;
@@ -260,7 +261,7 @@ class _DriverCustomerCardState extends State<DriverCustomerCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.customer.toUpperCase(),
+                      AzCase.upper(l10n.customer),
                       style: GoogleFonts.inter(
                         color: AppTheme.luxuryAccent,
                         fontSize: 10,

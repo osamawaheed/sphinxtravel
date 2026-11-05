@@ -293,6 +293,7 @@ class DriverTomorrowCard extends StatelessWidget {
   };
 
   String _formatDate(DateTime d) {
+    if (l10n.locale == 'az') return l10n.dayMonthYear(d);
     final names = _months[l10n.locale] ?? _months['en']!;
     final month = names[d.month - 1];
     return l10n.locale == 'en'
@@ -554,7 +555,10 @@ class _TourEntry extends StatelessWidget {
               if (showStatus && status.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  formatTripStatusDisplay(status),
+                  formatTripStatusDisplay(
+                    status,
+                    localize: l10n.locale == 'az' ? l10n.backendStatus : null,
+                  ),
                   style: GoogleFonts.inter(
                     color: AppTheme.secondaryText,
                     fontSize: 12,

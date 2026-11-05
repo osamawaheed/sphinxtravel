@@ -14,6 +14,7 @@ import '../../routes/app_routes.dart';
 import '../../services/api_client.dart';
 import '../../services/chat/chat_presence_service.dart';
 import '../../services/customer_auth_service.dart';
+import '../../services/customer_language_sync_service.dart';
 import '../../services/flight_visibility.dart';
 import '../../services/localization_service.dart';
 import '../../services/notification_service.dart';
@@ -57,9 +58,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
     _loadData();
     // Authenticated customers read real notifications (read-only).
     if (NotificationService.instance.source is! SupabaseNotificationSource) {
-      NotificationService.instance.source = SupabaseNotificationSource();
+      NotificationService.instance.source = SupabaseNotificationSource(
+        useLocalizedRpc: true,
+      );
     }
     NotificationService.instance.refresh();
+    // Sync the saved customer language to Supabase (no-op if already synced).
+    CustomerLanguageSyncService.instance.sync();
     LocalizationService.instance.addListener(_onLocaleChanged);
     initFlightVisibility();
   }
@@ -73,6 +78,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
 
   void _onLocaleChanged() {
     _loadData();
+    CustomerLanguageSyncService.instance.sync();
   }
 
   /// App-level presence for the signed-in customer. Unique key is

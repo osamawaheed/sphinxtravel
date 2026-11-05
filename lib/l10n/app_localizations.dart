@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../services/localization_service.dart';
+import './az_app_translations.dart';
 
 /// AppLocalizations provides all translated UI strings.
 /// Customer screens use: en, ar
@@ -238,10 +240,10 @@ class AppLocalizations {
     'ka': 'ნახეთ და მართეთ\nმინიჭებული მოგზაურობები.',
   });
   String get copyright => _t({
-    'en': '© 2026 Tour Operations. All rights reserved.',
-    'ar': '© 2026 Tour Operations. جميع الحقوق محفوظة.',
-    'ru': '© 2026 Tour Operations. Все права защищены.',
-    'ka': '© 2026 Tour Operations. ყველა უფლება დაცულია.',
+    'en': '© 2026 Sphinx Travel LLC. All rights reserved.',
+    'ar': '© 2026 Sphinx Travel LLC. جميع الحقوق محفوظة.',
+    'ru': '© 2026 Sphinx Travel LLC. Все права защищены.',
+    'ka': '© 2026 Sphinx Travel LLC. ყველა უფლება დაცულია.',
   });
 
   // ─── Language Selection ────────────────────────────────────────────────────
@@ -653,6 +655,7 @@ class AppLocalizations {
     'ar': 'سائقك يصل خلال $min دقيقة',
     'ru': 'Водитель прибудет через $min мин',
     'ka': 'მძღოლი ჩამოვა $min წუთში',
+    'az': 'Sürücünüz $min dəq. ərzində çatacaq',
   });
   String get tripStatusAssigned => _t({
     'en': 'Ready',
@@ -1778,6 +1781,7 @@ class AppLocalizations {
     'ar': '$n تقييم',
     'ru': '$n оценок',
     'ka': '$n შეფასება',
+    'az': '$n qiymət',
   });
   String get vehicleModelLabel => _t({
     'en': 'Vehicle Model',
@@ -1923,6 +1927,7 @@ class AppLocalizations {
         'en': 'Every Trip Your Excellence.',
         'ru': 'Каждая поездка Ваше мастерство.',
         'ka': 'ყოველი მგზავრობა თქვენი პროფესიონალიზმი.',
+        'az': 'Hər səfər sizin peşəkarlığınızdır.',
       });
     }
     return _t({'en': 'Your Journey Our Care.', 'ar': 'رحلتك تهمنا'});
@@ -2027,6 +2032,9 @@ class AppLocalizations {
       ],
     };
     final lang = weekdays.containsKey(locale) ? locale : 'en';
+    if (locale == 'az') {
+      return '${weekdayName(now.weekday)}, ${now.day} ${monthName(now.month)}';
+    }
     final day = weekdays[lang]![now.weekday - 1];
     final month = months[lang]![now.month - 1];
     final sep = lang == 'ar' ? '،' : ',';
@@ -2138,6 +2146,15 @@ class AppLocalizations {
       'შაბათი',
       'კვირა',
     ],
+    'az': [
+      'Bazar ertəsi',
+      'Çərşənbə axşamı',
+      'Çərşənbə',
+      'Cümə axşamı',
+      'Cümə',
+      'Şənbə',
+      'Bazar',
+    ],
   };
 
   static const Map<String, List<String>> _monthNames = {
@@ -2198,6 +2215,20 @@ class AppLocalizations {
       'ნოემბერი',
       'დეკემბერი',
     ],
+    'az': [
+      'Yanvar',
+      'Fevral',
+      'Mart',
+      'Aprel',
+      'May',
+      'İyun',
+      'İyul',
+      'Avqust',
+      'Sentyabr',
+      'Oktyabr',
+      'Noyabr',
+      'Dekabr',
+    ],
   };
 
   static const Map<String, List<String>> _shortMonthNames = {
@@ -2256,6 +2287,20 @@ class AppLocalizations {
       'ოქტ',
       'ნოე',
       'დეკ',
+    ],
+    'az': [
+      'Yan',
+      'Fev',
+      'Mar',
+      'Apr',
+      'May',
+      'İyn',
+      'İyl',
+      'Avq',
+      'Sen',
+      'Okt',
+      'Noy',
+      'Dek',
     ],
   };
 
@@ -2375,6 +2420,7 @@ class AppLocalizations {
     'ar': '$n ${n == 1 ? 'ضيف' : 'ضيوف'}',
     'ru': '$n ${n == 1 ? 'гость' : (n >= 2 && n <= 4 ? 'гостя' : 'гостей')}',
     'ka': '$n ${n == 1 ? 'სტუმარი' : 'სტუმარი'}',
+    'az': '$n qonaq',
   });
   String get arrivalFlightUnavailable => _t({
     'en': 'Arrival flight details not available',
@@ -2838,8 +2884,66 @@ class AppLocalizations {
       'ka': hasRef
           ? 'თქვენს ჯავშანზე $ref არის განახლება.'
           : 'თქვენს ჯავშანზე არის განახლება.',
+      'az': hasRef
+          ? '$ref rezervasiyası üzrə yenilik var.'
+          : 'Rezervasiyanız üzrə yenilik var.',
     });
   }
+
+  String get notificationTripAssignedTitle => _t({
+    'en': 'Trip assigned',
+    'ar': 'تم تعيين رحلة',
+    'ru': 'Поездка назначена',
+    'ka': 'მგზავრობა მინიჭებულია',
+  });
+  String notificationTripAssignedMessage(String? ref) {
+    final hasRef = ref != null && ref.isNotEmpty;
+    return _t({
+      'en': hasRef
+          ? 'You have been assigned to trip $ref.'
+          : 'You have been assigned to a trip.',
+      'ar': hasRef ? 'تم تعيينك للرحلة $ref.' : 'تم تعيينك لرحلة.',
+      'ru': hasRef ? 'Вам назначена поездка $ref.' : 'Вам назначена поездка.',
+      'ka': hasRef
+          ? 'თქვენ მოგენიშნათ მგზავრობა $ref.'
+          : 'თქვენ მოგენიშნათ მგზავრობა.',
+      'az': hasRef
+          ? 'Sizə $ref səfəri təyin edildi.'
+          : 'Sizə səfər təyin edildi.',
+    });
+  }
+
+  String get notificationTripUnassignedTitle => _t({
+    'en': 'Trip unassigned',
+    'ar': 'تم إلغاء تعيين الرحلة',
+    'ru': 'Назначение отменено',
+    'ka': 'მგზავრობა მოგეხსნათ',
+  });
+  String notificationTripUnassignedMessage(String? ref) {
+    final hasRef = ref != null && ref.isNotEmpty;
+    return _t({
+      'en': hasRef
+          ? 'You are no longer assigned to trip $ref.'
+          : 'You are no longer assigned to a trip.',
+      'ar': hasRef ? 'لم تعد معينًا للرحلة $ref.' : 'لم تعد معينًا لرحلة.',
+      'ru': hasRef
+          ? 'Вы больше не назначены на поездку $ref.'
+          : 'Вы больше не назначены на поездку.',
+      'ka': hasRef
+          ? 'თქვენ აღარ ხართ მინიჭებული მგზავრობაზე $ref.'
+          : 'თქვენ აღარ ხართ მინიჭებული მგზავრობაზე.',
+      'az': hasRef
+          ? 'Siz artıq $ref səfərinə təyin edilməmisiniz.'
+          : 'Siz artıq səfərə təyin edilməmisiniz.',
+    });
+  }
+
+  String get notificationTripUnavailable => _t({
+    'en': 'This trip is no longer available to you.',
+    'ar': 'لم تعد هذه الرحلة متاحة لك.',
+    'ru': 'Эта поездка вам больше недоступна.',
+    'ka': 'ეს მგზავრობა თქვენთვის აღარ არის ხელმისაწვდომი.',
+  });
 
   String get notificationGenericTitle => _t({
     'en': 'New notification',
@@ -2854,6 +2958,7 @@ class AppLocalizations {
       'ar': hasRef ? 'الحجز $ref' : 'لديك إشعار جديد.',
       'ru': hasRef ? 'Бронирование $ref' : 'У вас новое уведомление.',
       'ka': hasRef ? 'ჯავშანი $ref' : 'თქვენ გაქვთ ახალი შეტყობინება.',
+      'az': hasRef ? 'Rezervasiya $ref' : 'Sizin yeni bildirişiniz var.',
     });
   }
 
@@ -2974,8 +3079,13 @@ class AppLocalizations {
     'ru': 'Ориентировочное прибытие',
     'ka': 'სავარაუდო ჩამოსვლა',
   });
-  String trackingEtaMinutes(int m) =>
-      _t({'en': '$m min', 'ar': '$m دقيقة', 'ru': '$m мин', 'ka': '$m წთ'});
+  String trackingEtaMinutes(int m) => _t({
+    'en': '$m min',
+    'ar': '$m دقيقة',
+    'ru': '$m мин',
+    'ka': '$m წთ',
+    'az': '$m dəq.',
+  });
   String get trackingJustNow =>
       _t({'en': 'Just now', 'ar': 'الآن', 'ru': 'Только что', 'ka': 'ახლახან'});
   String trackingSecondsAgo(int s) => _t({
@@ -2983,12 +3093,14 @@ class AppLocalizations {
     'ar': 'منذ $s ثانية',
     'ru': '$s сек назад',
     'ka': '$s წმ-ის წინ',
+    'az': '$s san. əvvəl',
   });
   String trackingMinutesAgo(int m) => _t({
     'en': '$m min ago',
     'ar': 'منذ $m دقيقة',
     'ru': '$m мин назад',
     'ka': '$m წთ-ის წინ',
+    'az': '$m dəq. əvvəl',
   });
   String get trackingNoDriverYet => _t({
     'en': 'Your driver will be assigned soon',
@@ -3093,6 +3205,15 @@ class AppLocalizations {
   // ─── Internal ──────────────────────────────────────────────────────────────
 
   String _t(Map<String, String> map) {
+    if (locale == 'az') {
+      final inline = map['az'];
+      if (inline != null) return inline;
+      final en = map['en'];
+      if (en != null) {
+        final az = AzAppTranslations.lookup(en);
+        if (az != null) return az;
+      }
+    }
     return map[locale] ?? map['en'] ?? '';
   }
 }

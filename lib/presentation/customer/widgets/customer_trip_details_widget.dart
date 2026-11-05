@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/customer_bootstrap_model.dart';
+import '../../../models/hotel_grouping.dart';
 import '../../../theme/app_theme.dart';
 import './day_itinerary_card.dart';
 import './flight_card.dart';
@@ -142,15 +143,12 @@ class CustomerTripDetailsWidget extends StatelessWidget {
     for (final a in trip.activities) {
       final key = '${a.id}|${a.title}|${a.date}';
       if (!seenAct.add(key)) continue;
+      // Hotels are rendered once by the grouped hotel card below.
+      if (HotelGrouping.isHotelItem(a)) continue;
       bucketFor(_parseDate(a.date)).items.add(a);
     }
 
-    final seenHotel = <String>{};
-    final hotels = <HomeStayHotel>[];
-    for (final h in trip.hotels) {
-      final key = '${h.id}|${h.name}|${h.checkIn}|${h.checkOut}';
-      if (seenHotel.add(key)) hotels.add(h);
-    }
+    final hotels = HotelGrouping.groupStays(trip.hotels);
     final far = DateTime(9999);
     hotels.sort((a, b) {
       final c = (_parseDate(a.checkIn) ?? far).compareTo(

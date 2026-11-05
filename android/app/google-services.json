@@ -1,0 +1,29 @@
+{
+    "project_info": {
+        "project_number": "199702985883",
+        "project_id": "tourops-sphinx",
+        "storage_bucket": "tourops-sphinx.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:199702985883:android:8efe403a51c57e87775a3e",
+                "android_client_info": {
+                    "package_name": "com.sphinxtravel.app"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyCNOztl9H2wojs5Dl5jMVhq-SZ6P_BnisE"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}

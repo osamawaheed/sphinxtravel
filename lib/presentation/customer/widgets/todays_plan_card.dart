@@ -6,6 +6,7 @@ import '../../../models/customer_bootstrap_model.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/auth_network_image.dart';
 import '../../driver/models/trip_status_display.dart';
+import '../../../models/hotel_grouping.dart';
 
 /// Premium, expandable "Today's Plan" for the Customer Home.
 ///
@@ -63,7 +64,12 @@ class _TodaysPlanCardState extends State<TodaysPlanCard> {
   }
 
   List<HomePlanItem> get _items {
-    final list = List<HomePlanItem>.of(widget.trip.todayPlan);
+    // A hotel is shown once by the hotel tile; hotel-type plan items for the
+    // same hotel (extra room records, duplicate images) are dropped here.
+    final list = HotelGrouping.withoutHotelNamed(
+      HotelGrouping.dedupeHotelPlanItems(widget.trip.todayPlan),
+      widget.trip.currentHotel?.name,
+    );
     final indexed = list.asMap().entries.toList()
       ..sort((a, b) {
         final c = _minutes(a.value.time).compareTo(_minutes(b.value.time));

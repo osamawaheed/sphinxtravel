@@ -5,6 +5,7 @@ import '../../../models/wallet_models.dart';
 import '../../../services/api_client.dart';
 import '../../../services/driver_wallet_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/az_case.dart';
 import './wallet_strings.dart';
 import './wallet_transaction_card.dart';
 
@@ -224,7 +225,7 @@ class _PayoutRequestScreenState extends State<PayoutRequestScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            s.availableBalance.toUpperCase(),
+                            AzCase.upper(s.availableBalance),
                             style: GoogleFonts.inter(
                               color: Colors.white.withAlpha(179),
                               fontSize: 11.5,

@@ -233,6 +233,30 @@ class _HotelCard extends StatelessWidget {
                       dateLine(l10n.checkIn, hotel.checkIn),
                     if (hotel.checkOut.isNotEmpty)
                       dateLine(l10n.checkOut, hotel.checkOut),
+                    if (hotel.rooms.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          '${l10n.room}:',
+                          style: GoogleFonts.inter(
+                            color: AppTheme.secondaryText,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      for (final r in hotel.rooms)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            '${r.quantity} × ${r.type}',
+                            style: GoogleFonts.inter(
+                              color: AppTheme.primaryText,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),

@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/app_notification_model.dart';
+import '../../routes/app_routes.dart';
+import '../../services/api_client.dart';
+import '../../services/driver_api_service.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -65,6 +68,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _open(AppNotification n) {
+    if (widget.isDriver &&
+        (n.notificationType == 'TRIP_ASSIGNED' ||
+            n.notificationType == 'TRIP_UNASSIGNED')) {
+      _openDriverTripNotification(n);
+      return;
+    }
     if (_service.canMarkRead && !n.isRead && !_service.isMarking) {
       _markRead(n.id);
     }
@@ -74,6 +83,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
     if (route == null) return;
     context.push(route, extra: n.targetExtra);
+  }
+
+  Future<void> _openDriverTripNotification(AppNotification n) async {
+    if (_service.canMarkRead && !n.isRead && !_service.isMarking) {
+      await _markRead(n.id);
+    }
+    // TRIP_UNASSIGNED: only mark as read, never open the trip.
+    if (n.notificationType != 'TRIP_ASSIGNED') return;
+    final tripId = int.tryParse(n.tripId ?? '');
+    if (tripId == null || tripId <= 0) return;
+    try {
+      // Access check: the backend only returns trips assigned to this driver.
+      await DriverApiService(ApiClient()).loadTripDetail(tripId);
+    } catch (_) {
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(l10n.notificationTripUnavailable)),
+        );
+      return;
+    }
+    if (!mounted) return;
+    context.push(AppRoutes.driverTripOverview, extra: {'tripId': tripId});
   }
 
   @override
@@ -154,6 +188,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 notification: items[i],
                                 l10n: l10n,
                                 isDark: isDark,
+                                isDriver: widget.isDriver,
                                 onTap: () => _open(items[i]),
                                 onMarkRead: () => _markRead(items[i].id),
                               ),
@@ -243,6 +278,7 @@ class _NotificationTile extends StatelessWidget {
   final AppNotification notification;
   final AppLocalizations l10n;
   final bool isDark;
+  final bool isDriver;
   final VoidCallback onTap;
   final VoidCallback onMarkRead;
 
@@ -250,6 +286,7 @@ class _NotificationTile extends StatelessWidget {
     required this.notification,
     required this.l10n,
     required this.isDark,
+    required this.isDriver,
     required this.onTap,
     required this.onMarkRead,
   });
@@ -268,9 +305,18 @@ class _NotificationTile extends StatelessWidget {
     if (n.notificationType == null) {
       titleText = n.title;
       messageText = n.message;
+    } else if (n.hasServerText) {
+      titleText = n.serverTitle!.trim();
+      messageText = n.serverBody!.trim();
     } else if (n.notificationType == 'BOOKING_UPDATED') {
       titleText = l10n.notificationBookingUpdatedTitle;
       messageText = l10n.notificationBookingUpdatedMessage(n.bookingReference);
+    } else if (n.notificationType == 'TRIP_ASSIGNED') {
+      titleText = l10n.notificationTripAssignedTitle;
+      messageText = l10n.notificationTripAssignedMessage(n.bookingReference);
+    } else if (n.notificationType == 'TRIP_UNASSIGNED') {
+      titleText = l10n.notificationTripUnassignedTitle;
+      messageText = l10n.notificationTripUnassignedMessage(n.bookingReference);
     } else {
       titleText = l10n.notificationGenericTitle;
       messageText = l10n.notificationGenericMessage(n.bookingReference);
@@ -279,7 +325,7 @@ class _NotificationTile extends StatelessWidget {
     return Material(
       color: cardBg,
       elevation: isDark ? 0 : 3,
-      shadowColor: const Color(0x29123047),
+      shadowColor: const Color(0x29391D71),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),

@@ -5,9 +5,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/mock_api_data_source.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/az_case.dart';
 import '../../models/driver_bootstrap_model.dart';
 import '../../models/customer_bootstrap_model.dart';
 import '../../models/hotel_model.dart';
+import '../../models/hotel_grouping.dart';
 import '../../models/transportation_segment_model.dart';
 import '../../models/trip_model.dart';
 import '../../routes/app_routes.dart';
@@ -19,6 +21,8 @@ import '../../services/driver_passkey_service.dart';
 import '../../services/localization_service.dart';
 import '../../services/flight_visibility.dart';
 import '../../services/notification_service.dart';
+import '../../services/supabase_notification_source.dart';
+import '../../services/customer_language_sync_service.dart';
 import '../../services/theme_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_network_image.dart';
@@ -85,7 +89,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       _driverAuthService = DriverAuthService(ApiClient());
     }
     _loadData();
+    // Authenticated drivers read their own notifications (RLS-scoped).
+    if (NotificationService.instance.source is! SupabaseNotificationSource) {
+      NotificationService.instance.source = SupabaseNotificationSource(
+        useLocalizedRpc: true,
+      );
+    }
     NotificationService.instance.refresh();
+    // Sync the saved driver language to Supabase (no-op if already synced).
+    DriverLanguageSyncService.instance.sync();
     if (!MockApiDataSource.useMock) _loadTrips();
     LocalizationService.instance.addListener(_onLocaleChanged);
     initFlightVisibility();
@@ -158,12 +170,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   void _onLocaleChanged() {
     _loadData();
     if (!MockApiDataSource.useMock) _loadTrips();
+    DriverLanguageSyncService.instance.sync();
   }
 
   String _currentLanguageLabel() {
     final code = LocalizationService.instance.currentLanguage;
     for (final lang in LocalizationService.driverLanguages) {
-      if (lang['code'] == code) return lang['label']!;
+      if (lang['code'] == code) return '${lang['flag']} ${lang['label']}';
     }
     return '';
   }
@@ -561,8 +574,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
             clipBehavior: Clip.none,
             children: [
               GestureDetector(
-                onTap:
-                    () {}, // (driverNotifications route is not defined in AppRoutes)
+                onTap: () => context.push(AppRoutes.driverNotifications),
                 child: Container(
                   width: 48,
                   height: 48,
@@ -922,6 +934,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               checkOut: hotel.checkOut,
               phone: hotel.phone ?? '',
               googleMapUrl: hotel.googleMapUrl ?? '',
+              rooms: HotelGrouping.roomsOf(hotel, trip.hotels),
             ),
             l10n: l10n,
           ),
@@ -1481,7 +1494,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  l10n.walletBalance.toUpperCase(),
+                  AzCase.upper(l10n.walletBalance),
                   style: GoogleFonts.inter(
                     color: Colors.white.withAlpha(179),
                     fontSize: 12,
@@ -4699,7 +4712,7 @@ class _DriverCountdownCardState extends State<_DriverCountdownCard> {
           end: Alignment.bottomRight,
           colors: isUrgent
               ? [const Color(0xFF1A0A00), const Color(0xFF3D1A00)]
-              : [AppTheme.brandNavy, const Color(0xFF1A3D5C)],
+              : [AppTheme.brandNavy, const Color(0xFF4A2A8A)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [

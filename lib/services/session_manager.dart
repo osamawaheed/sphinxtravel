@@ -6,6 +6,7 @@ import '../routes/app_routes.dart';
 import './api_client.dart';
 import './chat/chat_presence_service.dart';
 import './chat/odoo/odoo_chat_token_manager.dart';
+import './customer_language_sync_service.dart';
 import './driver_review_notifications.dart';
 import './driver_tracking_service.dart';
 import './notification_service.dart';
@@ -101,6 +102,8 @@ class SessionManager {
     } catch (_) {}
     DriverReviewNotifications.reset();
     DriverLocationSharingService.instance.reset();
+    CustomerLanguageSyncService.instance.reset();
+    DriverLanguageSyncService.instance.reset();
     NotificationService.instance.reset();
     try {
       await AppRoutes.refreshSessionState();

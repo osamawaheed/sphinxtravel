@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../theme/app_theme.dart';
+import '../../../widgets/az_case.dart';
 
 class TripSectionTitle extends StatelessWidget {
   final String title;
@@ -16,7 +17,7 @@ class TripSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      title.toUpperCase(),
+      AzCase.upper(title),
       style: GoogleFonts.inter(
         color: isDark ? AppTheme.darkSecondaryText : AppTheme.secondaryText,
         fontSize: 11,

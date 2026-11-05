@@ -28,6 +28,8 @@ class LocalizationService extends ChangeNotifier {
         return const Locale('ru', 'RU');
       case 'ka':
         return const Locale('ka', 'GE');
+      case 'az':
+        return const Locale('az', 'AZ');
       default:
         return const Locale('en', 'US');
     }
@@ -61,6 +63,12 @@ class LocalizationService extends ChangeNotifier {
     {'code': 'en', 'label': 'English', 'sublabel': 'English', 'flag': '🇬🇧'},
     {'code': 'ru', 'label': 'Русский', 'sublabel': 'Russian', 'flag': '🇷🇺'},
     {'code': 'ka', 'label': 'ქართული', 'sublabel': 'Georgian', 'flag': '🇬🇪'},
+    {
+      'code': 'az',
+      'label': 'Azərbaycanca',
+      'sublabel': 'Azerbaijani',
+      'flag': '🇦🇿',
+    },
   ];
 
   static List<Map<String, String>> languagesForRole(String role) =>

@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 
+import './az_case.dart';
+
 /// Upper-cases ONLY the first character of a field when it is a lowercase
 /// letter in a script that has letter casing (Latin, Cyrillic, ...).
 ///
@@ -27,7 +29,7 @@ class FirstLetterCapitalizeFormatter extends TextInputFormatter {
     if (index >= text.length) return newValue;
 
     final first = String.fromCharCode(text.substring(index).runes.first);
-    final upper = first.toUpperCase();
+    final upper = AzCase.upper(first);
     if (upper == first || upper.length != first.length) return newValue;
 
     // Same length replacement: selection and composing range stay valid.

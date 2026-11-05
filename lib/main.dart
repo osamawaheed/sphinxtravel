@@ -150,6 +150,7 @@ class _SphinxTravelAppState extends State<SphinxTravelApp>
               Locale('ar', 'AE'),
               Locale('ru', 'RU'),
               Locale('ka', 'GE'),
+              Locale('az', 'AZ'),
             ],
             // 🚨 CRITICAL: NEVER REMOVE OR MODIFY
             builder: (context, child) {

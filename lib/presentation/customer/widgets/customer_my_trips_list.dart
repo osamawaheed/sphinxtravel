@@ -215,6 +215,7 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = _statusLabel();
+    final isDraft = status.trim().toLowerCase() == 'draft';
     final done =
         status.trim().toLowerCase() == 'completed' ||
         status.trim().toLowerCase() == 'done';
@@ -295,18 +296,22 @@ class _TripCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: done
                                   ? const Color(0xFF1565C0)
+                                  : isDraft
+                                  ? Colors.transparent
                                   : AppTheme.luxuryAccent.withAlpha(64),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: done
                                     ? const Color(0xFF1565C0)
+                                    : isDraft
+                                    ? const Color(0xFFFFFFFF)
                                     : AppTheme.luxuryAccent.withAlpha(128),
                               ),
                             ),
                             child: Text(
                               label,
                               style: GoogleFonts.inter(
-                                color: done
+                                color: done || isDraft
                                     ? Colors.white
                                     : AppTheme.luxuryAccent,
                                 fontSize: 11,

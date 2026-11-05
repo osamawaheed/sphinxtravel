@@ -37,6 +37,7 @@ class AppRoutes {
   static const String driverLogin = '/driver/login';
   static const String customerHome = '/customer/home';
   static const String customerNotifications = '/customer/notifications';
+  static const String driverNotifications = '/driver/notifications';
   static const String driverHome = '/driver/home';
   static const String driverTripDetails = '/driver/trip-details';
   static const String driverFullTrip = '/driver/full-trip';
@@ -156,6 +157,11 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.customerNotifications,
       builder: (context, state) => const NotificationsScreen(isDriver: false),
+    ),
+    // Driver notifications (pushed from the driver home bell)
+    GoRoute(
+      path: AppRoutes.driverNotifications,
+      builder: (context, state) => const NotificationsScreen(isDriver: true),
     ),
     // Driver home
     GoRoute(

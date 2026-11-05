@@ -17,6 +17,7 @@ import '../../data/mock_api_data_source.dart';
 import '../../models/driver_bootstrap_model.dart';
 import '../../models/driver_profile_model.dart';
 import '../../widgets/first_letter_capitalize_formatter.dart';
+import '../../widgets/az_case.dart';
 
 class DriverProfileCompletionScreen extends StatefulWidget {
   /// Bootstrap data passed from the profile check screen so we can
@@ -85,13 +86,17 @@ class _DriverProfileCompletionScreenState
   bool get _isDriverNameValid {
     final text = _driverNameController.text.trim();
     if (text.isEmpty) return false;
-    return RegExp(r"^[A-Za-z][A-Za-z ]*$").hasMatch(text);
+    return RegExp(
+      r"^[A-Za-zƏəĞğıİŞşÇçÖöÜü][A-Za-zƏəĞğıİŞşÇçÖöÜü ]*$",
+    ).hasMatch(text);
   }
 
   bool get _isVehicleModelValid {
     final text = _vehicleModelController.text.trim();
     if (text.isEmpty) return false;
-    return RegExp(r"^[A-Za-z0-9][A-Za-z0-9 ]*$").hasMatch(text);
+    return RegExp(
+      r"^[A-Za-z0-9ƏəĞğıİŞşÇçÖöÜü][A-Za-z0-9ƏəĞğıİŞşÇçÖöÜü ]*$",
+    ).hasMatch(text);
   }
 
   bool get _isVehicleColorValid =>
@@ -655,7 +660,9 @@ class _DriverProfileCompletionScreenState
             icon: Icons.person_outline_rounded,
             textCapitalization: TextCapitalization.words,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+              FilteringTextInputFormatter.allow(
+                RegExp(r'[A-Za-zƏəĞğıİŞşÇçÖöÜü ]'),
+              ),
               _TitleCaseFormatter(),
             ],
           ),
@@ -671,7 +678,9 @@ class _DriverProfileCompletionScreenState
             icon: Icons.directions_car_outlined,
             textCapitalization: TextCapitalization.words,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9 ]')),
+              FilteringTextInputFormatter.allow(
+                RegExp(r'[A-Za-z0-9ƏəĞğıİŞşÇçÖöÜü ]'),
+              ),
               _TitleCaseFormatter(),
             ],
           ),
@@ -1033,10 +1042,10 @@ class _TitleCaseFormatter extends TextInputFormatter {
         capitalizeNext = true;
         buffer.write(char);
       } else if (capitalizeNext) {
-        buffer.write(char.toUpperCase());
+        buffer.write(AzCase.upper(char));
         capitalizeNext = false;
       } else {
-        buffer.write(char.toLowerCase());
+        buffer.write(AzCase.lower(char));
       }
     }
 

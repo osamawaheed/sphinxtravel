@@ -1,9 +1,19 @@
-/// Strings for the Driver Messages inbox (English, Arabic, Russian, Georgian).
+import '../../l10n/az_feature_translations.dart';
+
+/// Strings for the Driver Messages inbox (English, Arabic, Russian, Georgian,
+/// Azerbaijani).
 class ChatInboxStrings {
   final String locale;
   const ChatInboxStrings(this.locale);
 
-  String _t(Map<String, String> m) => m[locale] ?? m['en'] ?? '';
+  String _t(Map<String, String> m) {
+    if (locale == 'az' && m['az'] == null) {
+      final en = m['en'];
+      final az = en == null ? null : AzFeatureTranslations.lookup(en);
+      if (az != null) return az;
+    }
+    return m[locale] ?? m['en'] ?? '';
+  }
 
   String get navChat =>
       _t({'en': 'Chat', 'ar': 'الدردشة', 'ru': 'Чат', 'ka': 'ჩატი'});

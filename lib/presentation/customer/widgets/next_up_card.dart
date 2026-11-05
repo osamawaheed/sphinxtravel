@@ -574,7 +574,7 @@ class _NextUpCardState extends State<NextUpCard> with WidgetsBindingObserver {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1B3F5C),
+                          color: const Color(0xFF53328F),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(

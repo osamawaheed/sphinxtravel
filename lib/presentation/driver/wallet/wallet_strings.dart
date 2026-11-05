@@ -1,11 +1,19 @@
+import '../../../l10n/az_feature_translations.dart';
 import '../../../models/wallet_models.dart';
 
-/// Driver Wallet strings (English, Russian, Georgian).
+/// Driver Wallet strings (English, Russian, Georgian, Azerbaijani).
 class WalletStrings {
   final String locale;
   const WalletStrings(this.locale);
 
-  String _t(Map<String, String> m) => m[locale] ?? m['en'] ?? '';
+  String _t(Map<String, String> m) {
+    if (locale == 'az' && m['az'] == null) {
+      final en = m['en'];
+      final az = en == null ? null : AzFeatureTranslations.lookup(en);
+      if (az != null) return az;
+    }
+    return m[locale] ?? m['en'] ?? '';
+  }
 
   String get wallet => _t({'en': 'Wallet', 'ru': 'Кошелёк', 'ka': 'საფულე'});
   String get availableBalance => _t({
@@ -56,14 +64,19 @@ class WalletStrings {
     'ru': 'Не удалось загрузить кошелёк.',
     'ka': 'საფულის ჩატვირთვა ვერ მოხერხდა.',
   });
-  String get retry =>
-      _t({'en': 'Retry', 'ru': 'Повторить', 'ka': 'ხელახლა ცდა'});
+  String get retry => _t({
+    'en': 'Retry',
+    'ru': 'Повторить',
+    'ka': 'ხელახლა ცდა',
+    'az': 'Yenidən cəhd et',
+  });
 
   // Payout screen
   String get payoutTitle => _t({
     'en': 'Request Payout',
     'ru': 'Запрос выплаты',
     'ka': 'გადახდის მოთხოვნა',
+    'az': 'Ödəniş tələbi',
   });
   String get requestedAmount => _t({
     'en': 'Requested Amount',
@@ -86,11 +99,13 @@ class WalletStrings {
     'en': '$ref — $amount $currency available',
     'ru': '$ref — доступно $amount $currency',
     'ka': '$ref — ხელმისაწვდომია $amount $currency',
+    'az': '$ref — $amount $currency əlçatandır',
   });
   String requestSubmittedFor(String ref) => _t({
     'en': 'Payout request submitted for $ref. Status: Pending.',
     'ru': 'Запрос на выплату по $ref отправлен. Статус: В ожидании.',
     'ka': 'გადახდის მოთხოვნა $ref-ისთვის გაიგზავნა. სტატუსი: მოლოდინში.',
+    'az': '$ref üçün ödəniş tələbi göndərildi. Status: Gözləyir.',
   });
   String get bankDetails => _t({
     'en': 'Bank Details',
@@ -118,6 +133,7 @@ class WalletStrings {
     'en': 'Tax Identification Number',
     'ru': 'ИНН',
     'ka': 'საიდენტიფიკაციო ნომერი',
+    'az': 'VÖEN',
   });
   String get confirmRequest => _t({
     'en': 'Confirm Request',
@@ -182,24 +198,28 @@ class WalletStrings {
           'en': 'Payout Request',
           'ru': 'Запрос выплаты',
           'ka': 'გადახდის მოთხოვნა',
+          'az': 'Ödəniş tələbi',
         });
       case WalletTransactionType.payoutApproved:
         return _t({
           'en': 'Payout Approved',
           'ru': 'Выплата одобрена',
           'ka': 'გადახდა დამტკიცებულია',
+          'az': 'Ödəniş təsdiqləndi',
         });
       case WalletTransactionType.payoutPaid:
         return _t({
           'en': 'Payout Paid',
           'ru': 'Выплата произведена',
           'ka': 'გადახდა განხორციელდა',
+          'az': 'Ödəniş edildi',
         });
       case WalletTransactionType.payoutRejected:
         return _t({
           'en': 'Payout Rejected',
           'ru': 'Выплата отклонена',
           'ka': 'გადახდა უარყოფილია',
+          'az': 'Ödəniş rədd edildi',
         });
     }
   }
@@ -207,15 +227,73 @@ class WalletStrings {
   String statusLabel(String status) {
     switch (status) {
       case 'pending':
-        return _t({'en': 'Pending', 'ru': 'В ожидании', 'ka': 'მოლოდინში'});
+        return _t({
+          'en': 'Pending',
+          'ru': 'В ожидании',
+          'ka': 'მოლოდინში',
+          'az': 'Gözləyir',
+        });
       case 'approved':
-        return _t({'en': 'Approved', 'ru': 'Одобрено', 'ka': 'დამტკიცებული'});
+        return _t({
+          'en': 'Approved',
+          'ru': 'Одобрено',
+          'ka': 'დამტკიცებული',
+          'az': 'Təsdiqləndi',
+        });
       case 'paid':
-        return _t({'en': 'Paid', 'ru': 'Выплачено', 'ka': 'გადახდილი'});
+        return _t({
+          'en': 'Paid',
+          'ru': 'Выплачено',
+          'ka': 'გადახდილი',
+          'az': 'Ödənildi',
+        });
       case 'rejected':
-        return _t({'en': 'Rejected', 'ru': 'Отклонено', 'ka': 'უარყოფილი'});
+        return _t({
+          'en': 'Rejected',
+          'ru': 'Отклонено',
+          'ka': 'უარყოფილი',
+          'az': 'Rədd edildi',
+        });
       default:
-        return _t({'en': 'Completed', 'ru': 'Завершено', 'ka': 'დასრულებული'});
+        return _t({
+          'en': 'Completed',
+          'ru': 'Завершено',
+          'ka': 'დასრულებული',
+          'az': 'Tamamlandı',
+        });
     }
+  }
+
+  /// Short month name (1..12) for transaction dates.
+  String shortMonth(int month) {
+    const en = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const az = [
+      'Yan',
+      'Fev',
+      'Mar',
+      'Apr',
+      'May',
+      'İyn',
+      'İyl',
+      'Avq',
+      'Sen',
+      'Okt',
+      'Noy',
+      'Dek',
+    ];
+    return locale == 'az' ? az[month - 1] : en[month - 1];
   }
 }

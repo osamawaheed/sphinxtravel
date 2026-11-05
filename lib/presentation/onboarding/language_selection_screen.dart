@@ -203,6 +203,12 @@ class _DriverLanguageScreenState extends State<DriverLanguageScreen>
     {'code': 'en', 'label': 'English', 'sublabel': 'English', 'flag': '🇬🇧'},
     {'code': 'ru', 'label': 'Русский', 'sublabel': 'Russian', 'flag': '🇷🇺'},
     {'code': 'ka', 'label': 'ქართული', 'sublabel': 'Georgian', 'flag': '🇬🇪'},
+    {
+      'code': 'az',
+      'label': 'Azərbaycanca',
+      'sublabel': 'Azerbaijani',
+      'flag': '🇦🇿',
+    },
   ];
 
   @override

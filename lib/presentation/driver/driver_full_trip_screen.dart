@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import '../../theme/app_theme.dart';
-import '../../l10n/app_localizations.dart';
-import '../../services/localization_service.dart';
-import '../../models/trip_model.dart';
-import '../../models/hotel_model.dart';
-import '../../models/flight_model.dart';
-import '../../models/transportation_segment_model.dart';
-import '../../models/extra_service_model.dart';
-import '../../models/driver_bootstrap_model.dart';
-import '../../services/api_client.dart';
-import '../../services/driver_auth_service.dart';
-import '../../services/driver_api_service.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../../data/mock_api_data_source.dart';
+import '../../l10n/app_localizations.dart';
+import '../../models/customer_bootstrap_model.dart';
+import '../../models/driver_bootstrap_model.dart';
+import '../../models/extra_service_model.dart';
+import '../../models/flight_model.dart';
+import '../../models/hotel_grouping.dart';
+import '../../models/hotel_model.dart';
+import '../../models/transportation_segment_model.dart';
+import '../../models/trip_model.dart';
+import '../../services/api_client.dart';
+import '../../services/driver_api_service.dart';
+import '../../services/driver_auth_service.dart';
+import '../../services/localization_service.dart';
+import '../../theme/app_theme.dart';
 import './hotel_details_screen.dart';
 
 class DriverFullTripScreen extends StatefulWidget {
@@ -209,11 +212,12 @@ class _DriverFullTripScreenState extends State<DriverFullTripScreen> {
                     if (trip.hotels.isNotEmpty) ...[
                       _SectionHeader(title: l10n.hotelsLabel, isDark: isDark),
                       const SizedBox(height: 10),
-                      ...trip.hotels.map(
+                      ...HotelGrouping.groupHotelModels(trip.hotels).map(
                         (h) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _FullHotelCard(
                             hotel: h,
+                            rooms: HotelGrouping.roomsOf(h, trip.hotels),
                             l10n: l10n,
                             isDark: isDark,
                           ),
@@ -365,7 +369,7 @@ class _DriverFullTripScreenState extends State<DriverFullTripScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.brandNavy, const Color(0xFF1A3D5C)],
+          colors: [AppTheme.brandNavy, const Color(0xFF4A2A8A)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
@@ -931,11 +935,13 @@ class _FlightCard extends StatelessWidget {
 
 class _FullHotelCard extends StatelessWidget {
   final HotelModel hotel;
+  final List<HomeStayRoom> rooms;
   final AppLocalizations l10n;
   final bool isDark;
 
   const _FullHotelCard({
     required this.hotel,
+    this.rooms = const [],
     required this.l10n,
     required this.isDark,
   });
@@ -1032,7 +1038,15 @@ class _FullHotelCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (hotel.roomType != null) ...[
+                if (rooms.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  for (final r in rooms)
+                    _DetailRow(
+                      label: l10n.room,
+                      value: '${r.quantity} × ${r.type}',
+                      isDark: isDark,
+                    ),
+                ] else if (hotel.roomType != null) ...[
                   const SizedBox(height: 10),
                   _DetailRow(
                     label: l10n.room,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/customer_bootstrap_model.dart';
+import '../../../models/hotel_grouping.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/auth_network_image.dart';
 import '../../driver/models/trip_status_display.dart';
@@ -35,6 +36,9 @@ class TodayTimelineWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // One row per hotel stay: duplicate hotel records (extra rooms / images)
+    // collapse into the first occurrence; other items are untouched.
+    final items = HotelGrouping.dedupeHotelPlanItems(this.items);
     if (items.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -150,9 +154,9 @@ class _TimelineRow extends StatelessWidget {
     for (final h in hotels) {
       if (h.id != 0 && h.id == item.id) return h;
     }
-    final title = item.title.trim().toLowerCase();
+    final title = HotelGrouping.normName(item.title);
     for (final h in hotels) {
-      final n = h.name.trim().toLowerCase();
+      final n = HotelGrouping.normName(h.name);
       if (n.isNotEmpty && (title == n || title.contains(n))) return h;
     }
     return HomeStayHotel(id: item.id, name: item.title, city: item.subtitle);

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/customer_bootstrap_model.dart';
+import '../../models/hotel_grouping.dart';
 import '../../models/transportation_segment_model.dart';
 import '../../routes/app_routes.dart';
 import 'models/trip_status_display.dart';
@@ -400,16 +401,13 @@ class _DriverTripOverviewScreenState extends State<DriverTripOverviewScreen> {
     for (final a in trip.activities) {
       final key = '${a.id}|${a.title}|${a.date}';
       if (!seenAct.add(key)) continue;
+      // Hotels are rendered once by the grouped hotel card below.
+      if (HotelGrouping.isHotelItem(a)) continue;
       bucketFor(_parseDate(a.date)).activities.add(a);
     }
 
     // Hotels: de-duplicate, sort by check-in then check-out, attach to check-in day.
-    final seenHotel = <String>{};
-    final hotels = <HomeStayHotel>[];
-    for (final h in trip.hotels) {
-      final key = '${h.id}|${h.name}|${h.checkIn}|${h.checkOut}';
-      if (seenHotel.add(key)) hotels.add(h);
-    }
+    final hotels = HotelGrouping.groupStays(trip.hotels);
     final far = DateTime(9999);
     hotels.sort((a, b) {
       final ai = _parseDate(a.checkIn) ?? far;
@@ -700,7 +698,12 @@ class _TransportRow extends StatelessWidget {
                     if (s.status.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(
-                        formatTripStatusDisplay(s.status),
+                        formatTripStatusDisplay(
+                          s.status,
+                          localize: AppLocalizations.of(context).locale == 'az'
+                              ? AppLocalizations.of(context).backendStatus
+                              : null,
+                        ),
                         style: GoogleFonts.inter(color: subColor, fontSize: 12),
                       ),
                     ],
