@@ -832,13 +832,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                 );
               },
             ),
-            // 6. Services (confirmed SIM/eSIM leaves Today; it stays in My Trip)
-            if (home.extraServices.any(
-              (e) =>
-                  !(e.isSimCard &&
-                      (e.isSimConfirmed ||
-                          _deliveredServiceIds.contains(e.id))),
-            )) ...[
+            // 6. Services (Home shows them only on the arrival day; they stay in My Trip)
+            if (home.extraServices.isNotEmpty &&
+                FlightVisibility.isServicesVisible(home.arrivalDate)) ...[
               const SizedBox(height: 28),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -854,12 +850,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              for (final e in home.extraServices.where(
-                (e) =>
-                    !(e.isSimCard &&
-                        (e.isSimConfirmed ||
-                            _deliveredServiceIds.contains(e.id))),
-              )) ...[
+              for (final e in home.extraServices) ...[
                 _HomeServiceRow(
                   service: e,
                   isDark: isDark,
@@ -4712,7 +4703,7 @@ class _DriverCountdownCardState extends State<_DriverCountdownCard> {
           end: Alignment.bottomRight,
           colors: isUrgent
               ? [const Color(0xFF1A0A00), const Color(0xFF3D1A00)]
-              : [AppTheme.brandNavy, const Color(0xFF4A2A8A)],
+              : [AppTheme.brandNavy, const Color(0xFF1B2A66)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [

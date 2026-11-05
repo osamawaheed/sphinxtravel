@@ -215,10 +215,6 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = _statusLabel();
-    final isDraft = status.trim().toLowerCase() == 'draft';
-    final done =
-        status.trim().toLowerCase() == 'completed' ||
-        status.trim().toLowerCase() == 'done';
     final dates = [
       arrival,
       departure,
@@ -273,52 +269,53 @@ class _TripCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(
-                            reference,
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 10,
+                            runSpacing: 6,
+                            children: [
+                              Text(
+                                reference,
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
+                              ),
+                              if (label.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: const Color(0xFFFFFFFF),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    label,
+                                    softWrap: true,
+                                    style: GoogleFonts.inter(
+                                      color: const Color(0xFFFFFFFF),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                        if (label.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: done
-                                  ? const Color(0xFF1565C0)
-                                  : isDraft
-                                  ? Colors.transparent
-                                  : AppTheme.luxuryAccent.withAlpha(64),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: done
-                                    ? const Color(0xFF1565C0)
-                                    : isDraft
-                                    ? const Color(0xFFFFFFFF)
-                                    : AppTheme.luxuryAccent.withAlpha(128),
-                              ),
-                            ),
-                            child: Text(
-                              label,
-                              style: GoogleFonts.inter(
-                                color: done || isDraft
-                                    ? Colors.white
-                                    : AppTheme.luxuryAccent,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                     const Spacer(),

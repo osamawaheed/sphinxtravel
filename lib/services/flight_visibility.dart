@@ -87,6 +87,17 @@ class FlightVisibility {
   static DateTime _addDays(DateTime d, int days) =>
       DateTime(d.year, d.month, d.day + days);
 
+  /// Home "Services" section: shown ONLY on the trip's arrival day, through
+  /// 23:59:59 destination-local time. Hidden from 00:00 the next day onward.
+  /// Service confirmation status never affects this rule. An unparseable or
+  /// missing arrival date keeps the section visible (never hide on bad data).
+  static bool isServicesVisible(String arrivalDate, {DateTime? today}) {
+    final date = parseDate(arrivalDate);
+    if (date == null) return true;
+    final now = today ?? destinationToday();
+    return now.isBefore(_addDays(date, 1));
+  }
+
   /// Arrival card: shown through the end of (arrival date + 1 day).
   /// An unparseable date keeps the card visible (never hide on bad data).
   static bool isArrivalVisible(HomeFlight? flight, {DateTime? today}) {

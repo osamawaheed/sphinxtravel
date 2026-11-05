@@ -325,7 +325,7 @@ class _NotificationTile extends StatelessWidget {
     return Material(
       color: cardBg,
       elevation: isDark ? 0 : 3,
-      shadowColor: const Color(0x29391D71),
+      shadowColor: const Color(0x29091444),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),

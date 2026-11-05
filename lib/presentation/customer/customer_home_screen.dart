@@ -264,9 +264,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen>
   Widget _buildSimSection(CustomerHomeTrip trip, AppLocalizations l10n) {
     final sims = trip.extraServices.where((e) => e.isSimCard).toList();
     if (sims.isEmpty) return const SizedBox.shrink();
-    // Once the customer or driver has confirmed delivery in Odoo, the eSIM
-    // card leaves Today (it stays visible in My Trip).
-    if (sims.every((e) => e.isSimConfirmed)) return const SizedBox.shrink();
+    // Services show on Home only on the arrival day (destination-local);
+    // confirmation status does not affect visibility. They stay in My Trip.
+    if (!FlightVisibility.isServicesVisible(trip.arrivalDate)) {
+      return const SizedBox.shrink();
+    }
     final service = sims.firstWhere(
       (e) => !e.isSimConfirmed,
       orElse: () => sims.first,

@@ -369,7 +369,7 @@ class _DriverFullTripScreenState extends State<DriverFullTripScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.brandNavy, const Color(0xFF4A2A8A)],
+          colors: [AppTheme.brandNavy, const Color(0xFF1B2A66)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [

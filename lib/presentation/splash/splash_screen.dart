@@ -22,9 +22,9 @@ class _SplashScreenState extends State<SplashScreen>
   int _currentPage = 0;
 
   static const List<String> _slideImages = [
-    'assets/images/1-1793459154937.png',
-    'assets/images/2-1793459154925.png',
-    'assets/images/3-1793459154800.png',
+    'assets/images/12242415833_b81c4d2337_k-1793894428459.jpg',
+    'assets/images/knyon_martvli-1793894503709.jpg',
+    'assets/images/kazbegi_mountain_7-1793894594930.jpg',
   ];
 
   List<_OnboardingData> _buildSlides(AppLocalizations l10n) => [
@@ -93,88 +93,63 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final slides = _buildSlides(l10n);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-          child: Column(
-            children: [
-              // Rounded elevated card
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  onPageChanged: _onPageChanged,
-                  itemCount: 3,
-                  clipBehavior: Clip.none,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 12,
-                      ),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x1F000000),
-                              blurRadius: 24,
-                              spreadRadius: 1,
-                              offset: Offset(0, 0),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
-                          clipBehavior: Clip.antiAlias,
-                          child: _OnboardingPage(
-                            data: _buildSlides(l10n)[index],
-                            isActive: index == _currentPage,
-                            fadeIn: _fadeIn,
-                            slideUp: _slideUp,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 28),
-              // Page indicator
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (i) {
-                  final isActive = i == _currentPage;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: isActive ? 34 : 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? AppTheme.brandNavy
-                          : const Color(0xFFBDBDBD),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: _onPageChanged,
+                itemCount: 3,
+                itemBuilder: (context, index) {
+                  return _OnboardingPage(
+                    data: slides[index],
+                    fadeIn: _fadeIn,
+                    slideUp: _slideUp,
                   );
-                }),
+                },
               ),
-              const SizedBox(height: 28),
-              // CTA Button
-              GestureDetector(
+            ),
+            const SizedBox(height: 20),
+            // Page indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(3, (i) {
+                final isActive = i == _currentPage;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: isActive ? 34 : 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? AppTheme.brandNavy
+                        : const Color(0xFFD0D0D8),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 24),
+            // CTA Button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+              child: GestureDetector(
                 onTap: _onButtonTap,
                 child: Container(
                   width: double.infinity,
-                  height: 64,
+                  height: 60,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B2D45),
-                    borderRadius: BorderRadius.circular(32),
+                    color: AppTheme.brandNavy,
+                    borderRadius: BorderRadius.circular(30),
                   ),
                   child: Text(
-                    _buildSlides(l10n)[_currentPage].buttonLabel,
+                    slides[_currentPage].buttonLabel,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontFamily: 'Inter',
@@ -185,8 +160,8 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -209,85 +184,130 @@ class _OnboardingData {
 
 class _OnboardingPage extends StatelessWidget {
   final _OnboardingData data;
-  final bool isActive;
   final Animation<double> fadeIn;
   final Animation<double> slideUp;
 
   const _OnboardingPage({
     required this.data,
-    required this.isActive,
     required this.fadeIn,
     required this.slideUp,
   });
 
+  static String _stripTrailingDash(String text) {
+    return text.replaceAll(RegExp(r'\s*[—–\-]+\s*$'), '').trimRight();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: SizedBox(
-            width: double.infinity,
-            child: ClipRect(
-              child: Transform.scale(
-                scale: 1.12,
-                alignment: Alignment.topCenter,
-                child: Image.asset(
-                  data.image,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double totalHeight = constraints.maxHeight;
+        final double width = constraints.maxWidth;
+        final double imageHeight = totalHeight * 0.66;
+        final double gradientHeight = (imageHeight * 0.45).clamp(120.0, 260.0);
+        final double headlineSize = (width * 0.082).clamp(24.0, 36.0);
+        final double bodySize = (width * 0.04).clamp(14.0, 16.0);
+
+        return Container(
+          color: Colors.white,
+          child: Column(
+            children: [
+              SizedBox(
+                height: imageHeight,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      data.image,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.high,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: -1,
+                      height: gradientHeight + 1,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.white.withAlpha(0),
+                              Colors.white.withAlpha(60),
+                              Colors.white.withAlpha(140),
+                              Colors.white.withAlpha(215),
+                              Colors.white,
+                            ],
+                            stops: const [0.0, 0.3, 0.55, 0.8, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
-        ),
-        Container(
-          width: double.infinity,
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
-          child: FadeTransition(
-            opacity: fadeIn,
-            child: AnimatedBuilder(
-              animation: slideUp,
-              builder: (context, child) => Transform.translate(
-                offset: Offset(0, slideUp.value),
-                child: child,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    data.headline,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      color: Color(0xFF1B2D45),
-                      fontSize: 30,
-                      fontWeight: FontWeight.w600,
-                      height: 1.1,
-                      letterSpacing: -0.8,
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  color: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  alignment: Alignment.center,
+                  child: FadeTransition(
+                    opacity: fadeIn,
+                    child: AnimatedBuilder(
+                      animation: slideUp,
+                      builder: (context, child) => Transform.translate(
+                        offset: Offset(0, slideUp.value),
+                        child: child,
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: SizedBox(
+                          width: width - 48,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                data.headline,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: AppTheme.brandNavy,
+                                  fontSize: headlineSize,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.15,
+                                  letterSpacing: -0.6,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _stripTrailingDash(data.subtitle),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: const Color(0xFF4A5568),
+                                  fontSize: bodySize,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    data.subtitle,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      color: Color(0xFF1B2D45),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

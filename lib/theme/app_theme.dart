@@ -41,7 +41,7 @@ class AppTheme {
   static const Color _lightSoftSurface = Color(0xFFF7F5F0);
   static const Color _lightCardWhite = Color(0xFFFFFFFF);
   static const Color _lightPrimaryText = Color(0xFF172331);
-  static const Color brandNavy = Color(0xFF391D71);
+  static const Color brandNavy = Color(0xFF091444);
   static const Color luxuryAccent = Color(0xFFC6A15B);
   static const Color _lightSoftGoldBg = Color(0xFFF2E8D5);
   static const Color _lightSecondaryText = Color(0xFF68727D);
@@ -100,14 +100,14 @@ class AppTheme {
 
   /// Pre-login screens: always pure white with a soft, diffused shadow.
   static const Color preLoginBackground = Color(0xFFFFFFFF);
-  static const Color preLoginText = Color(0xFF391D71);
+  static const Color preLoginText = Color(0xFF091444);
   static const Color preLoginSubtext = Color(0xFF68727D);
   static const Color preLoginHint = Color(0xFF9AA3AD);
   static const Color preLoginBorder = Color(0xFFE7E3DC);
 
   static List<BoxShadow> get softShadow => const [
     BoxShadow(
-      color: Color(0x14391D71),
+      color: Color(0x14091444),
       blurRadius: 18,
       spreadRadius: 0,
       offset: Offset(0, 6),
@@ -125,7 +125,7 @@ class AppTheme {
         ]
       : const [
           BoxShadow(
-            color: Color(0x14391D71),
+            color: Color(0x14091444),
             blurRadius: 16,
             spreadRadius: 0,
             offset: Offset(0, 4),
@@ -143,7 +143,7 @@ class AppTheme {
         ]
       : const [
           BoxShadow(
-            color: Color(0x12391D71),
+            color: Color(0x12091444),
             blurRadius: 8,
             spreadRadius: 0,
             offset: Offset(0, 2),
@@ -279,7 +279,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: _lightCardWhite,
         elevation: 3,
-        shadowColor: const Color(0x29391D71),
+        shadowColor: const Color(0x29091444),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -298,7 +298,7 @@ class AppTheme {
           backgroundColor: brandNavy,
           foregroundColor: _lightCardWhite,
           elevation: 3,
-          shadowColor: const Color(0x40391D71),
+          shadowColor: const Color(0x40091444),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
