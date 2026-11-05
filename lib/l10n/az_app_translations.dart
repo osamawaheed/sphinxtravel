@@ -367,8 +367,8 @@ class AzAppTranslations {
         'Məkan icazəsi birdəfəlik rədd edilib. Aktiv etmək üçün Parametrləri açın.',
     'Location services are disabled on your device. Please enable them in Settings.':
         'Cihazınızda məkan xidmətləri söndürülüb. Onları Parametrlərdə aktiv edin.',
-    'Location access is required for assigned trips, navigation, pickup tracking and live trip operations.':
-        'Təyin olunmuş səfərlər, naviqasiya, götürülmə nöqtəsinin izlənməsi və canlı səfər əməliyyatları üçün məkana giriş tələb olunur.',
+    'Your location will be shared with Sphinx Travel during your trips, including when the app is in the background.':
+        'Məkanınız səfərləriniz zamanı, o cümlədən tətbiq arxa planda olduqda da Sphinx Travel ilə paylaşılacaq.',
     'Open Location Settings': 'Məkan parametrlərini aç',
     'Assigned trips': 'Təyin olunmuş səfərlər',
     'Navigation': 'Naviqasiya',

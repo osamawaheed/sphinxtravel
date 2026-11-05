@@ -1657,13 +1657,15 @@ class AppLocalizations {
   });
   String get locationPermissionBody => _t({
     'en':
-        'Location access is required for assigned trips, navigation, pickup tracking and live trip operations.',
+        'Your location will be shared with Sphinx Travel during your trips, including when the app is in the background.',
     'ar':
-        'يُعدّ الوصول إلى الموقع ضروريًا للرحلات المخصصة والتنقل وتتبع نقاط الاستقبال وعمليات الرحلة المباشرة.',
+        'ستتم مشاركة موقعك مع Sphinx Travel خلال رحلاتك، بما في ذلك عندما يكون التطبيق في الخلفية.',
     'ru':
-        'Доступ к геолокации необходим для назначенных поездок, навигации, отслеживания точки подачи и операций в реальном времени.',
+        'Ваше местоположение будет передаваться Sphinx Travel во время ваших поездок, в том числе когда приложение работает в фоновом режиме.',
     'ka':
-        'მდებარეობის წვდომა საჭიროა მინიჭებული მოგზაურობებისთვის, ნავიგაციისთვის, გამგზავრების თვალყურის დევნებისა და ცოცხალი ოპერაციებისთვის.',
+        'თქვენი მდებარეობა გაზიარდება Sphinx Travel-თან თქვენი მოგზაურობების დროს, მათ შორის მაშინაც, როცა აპლიკაცია ფონურ რეჟიმშია.',
+    'az':
+        'Məkanınız səfərləriniz zamanı, o cümlədən tətbiq arxa planda olduqda da Sphinx Travel ilə paylaşılacaq.',
   });
   String get openLocationSettings => _t({
     'en': 'Open Location Settings',

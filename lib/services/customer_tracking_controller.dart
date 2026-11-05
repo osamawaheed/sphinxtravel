@@ -101,6 +101,7 @@ class CustomerTrackingController extends ChangeNotifier {
   }
 
   bool get hasDriver => _driverId > 0;
+  bool get locationVisible => _snapshot?.locationVisible ?? false;
   bool get eligible => window?.isEligibleAt(DateTime.now()) ?? false;
 
   TrackingState get state {

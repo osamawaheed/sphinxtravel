@@ -129,7 +129,8 @@ enum StartSharingResult {
 
 /// Driver-side GPS sharing controller.
 ///
-/// - Sharing only starts when the driver taps Start (never automatic).
+/// - Sharing starts automatically once the driver has granted location access
+///   (the home screen calls [start] after each successful data load).
 /// - Real GPS only (geolocator position stream); no simulated coordinates.
 /// - Android runs a foreground service so sharing continues in background;
 ///   iOS uses background location updates during the active session.
@@ -216,7 +217,8 @@ class DriverLocationSharingService extends ChangeNotifier {
     return null;
   }
 
-  /// Starts sharing for [segmentId]. Must be triggered by the driver.
+  /// Starts sharing for [segmentId]. Called automatically by the driver home
+  /// screen when permission is already granted.
   Future<StartSharingResult> start({
     required int segmentId,
     required String notificationTitle,
@@ -291,7 +293,7 @@ class DriverLocationSharingService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Stops sharing (driver tapped Stop, pickup completed, etc.).
+  /// Stops sharing (pickup completed, segment changed, logout, etc.).
   Future<void> stop({bool notifyBackend = true}) async {
     final seg = _segmentId;
     await _sub?.cancel();

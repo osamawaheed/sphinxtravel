@@ -83,7 +83,9 @@ class _TrackYourDriverCardState extends State<TrackYourDriverCard> {
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) {
-        if (!_ctrl.hasDriver) return const SizedBox.shrink();
+        if (!_ctrl.hasDriver || !_ctrl.locationVisible) {
+          return const SizedBox.shrink();
+        }
         final dark = AppTheme.isDarkActive;
         final state = _ctrl.state;
         final loc = _ctrl.location;

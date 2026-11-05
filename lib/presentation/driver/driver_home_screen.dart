@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,6 +20,7 @@ import '../../services/session_manager.dart';
 import '../../services/driver_auth_service.dart';
 import '../../services/driver_api_service.dart';
 import '../../services/driver_passkey_service.dart';
+import '../../services/driver_tracking_service.dart';
 import '../../services/localization_service.dart';
 import '../../services/flight_visibility.dart';
 import '../../services/notification_service.dart';
@@ -44,7 +47,6 @@ import './widgets/driver_tomorrow_card.dart';
 import './widgets/driver_customer_card.dart';
 import './widgets/driver_corner_ribbon.dart';
 import './widgets/driver_trip_hero_card.dart';
-import './widgets/driver_location_sharing_card.dart';
 import './wallet/driver_wallet_view.dart';
 
 class DriverHomeScreen extends StatefulWidget {
@@ -250,6 +252,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         // covers a driver with no trips yet (still Online, no bookings).
         _syncPresence(_myTrips);
         if (_myTrips.isNotEmpty) _loadOtherTripDetails(_myTrips);
+        _syncLocationSharing();
       }
     } catch (e) {
       if (mounted) {
@@ -258,6 +261,37 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           _errorMessage = ApiException.messageOf(e) ?? e.toString();
         });
       }
+    }
+  }
+
+  /// Starts (or stops) live location sharing automatically for the driver's
+  /// current segment. Runs silently after every successful [_loadData]; the
+  /// driver already granted location access on the permission screen.
+  Future<void> _syncLocationSharing() async {
+    if (kIsWeb || !mounted) return;
+    try {
+      final l10n = AppLocalizations.of(context);
+      final svc = DriverLocationSharingService.instance;
+      final segment = _bootstrap?.nextToday;
+      final driverId = _bootstrap?.driver.id ?? 0;
+      if (segment == null || segment.isCompleted || driverId <= 0) {
+        if (svc.isSharing) await svc.stop();
+        return;
+      }
+      final perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        return;
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      if (!mounted) return;
+      await svc.start(
+        segmentId: segment.id,
+        notificationTitle: l10n.sharingBackgroundTitle,
+        notificationText: l10n.sharingBackgroundText,
+      );
+    } catch (_) {
+      // Silent: retried on the next _loadData().
     }
   }
 
@@ -745,16 +779,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
             // 1. Trip card
             DriverTripHeroCard(trip: home, l10n: l10n),
             const SizedBox(height: 20),
-            // 1b. Live location sharing (own pickup segment only)
-            if (_bootstrap?.nextToday != null &&
-                (_bootstrap?.driver.id ?? 0) > 0) ...[
-              DriverLocationSharingCard(
-                segment: _bootstrap!.nextToday!,
-                driverId: _bootstrap!.driver.id,
-                l10n: l10n,
-              ),
-              const SizedBox(height: 20),
-            ],
             // 2. Customer card
             if (hasCustomer) ...[
               Padding(

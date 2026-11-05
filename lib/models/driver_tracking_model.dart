@@ -76,16 +76,30 @@ class DriverTrackingSnapshot {
   final DriverLiveLocation? location;
   final int? etaMinutes;
 
+  /// Odoo-controlled visibility flag (`location_visible`). Defaults to true
+  /// only when the key is missing from the response.
+  final bool locationVisible;
+
   const DriverTrackingSnapshot({
     required this.sessionStatus,
     required this.driverId,
     this.location,
     this.etaMinutes,
+    this.locationVisible = true,
   });
 
   bool get isActive => sessionStatus == 'active';
   bool get isEnded =>
       sessionStatus == 'stopped' || sessionStatus == 'completed';
+
+  static bool _parseVisible(Map<String, dynamic> j) {
+    if (!j.containsKey('location_visible')) return true;
+    final v = j['location_visible'];
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    final s = v?.toString().trim().toLowerCase() ?? '';
+    return s == 'true' || s == '1' || s == 'yes';
+  }
 
   factory DriverTrackingSnapshot.fromJson(Map<String, dynamic> j) {
     final eta = j['eta_minutes'];
@@ -111,6 +125,7 @@ class DriverTrackingSnapshot {
                 : null),
       ),
       etaMinutes: eta is num ? eta.toInt() : int.tryParse('${eta ?? ''}'),
+      locationVisible: _parseVisible(j),
     );
   }
 }
