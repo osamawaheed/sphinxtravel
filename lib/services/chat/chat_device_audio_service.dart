@@ -93,7 +93,7 @@ class DeviceChatAudioService implements ChatAudioService {
     await requestMicrophonePermission();
 
     // Never record while a voice message is playing.
-    await pause();
+    await _releasePlaybackForRecording();
 
     try {
       final String path;

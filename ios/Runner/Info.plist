@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -22,21 +24,31 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>whatsapp</string>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>https</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>TourOps needs your location to navigate assigned trips, track pickups, and support live trip operations.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>TourOps needs your location in the background to continue tracking active trips and provide live navigation.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>TourOps needs your location to support live trip operations and driver tracking.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TourOps needs your location to navigate assigned trips, track pickups, and support live trip operations.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>TourOps needs the microphone to record voice messages in the trip chat.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>TourOps needs access to your photos so you can attach pictures in the trip chat.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>remote-notification</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -55,16 +67,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>whatsapp</string>
-		<string>tel</string>
-		<string>mailto</string>
-		<string>https</string>
-	</array>
+        <key>FirebaseMessagingInstallationIdEnabled</key>
+<true/>
 </dict>
 </plist>

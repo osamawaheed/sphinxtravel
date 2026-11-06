@@ -4,6 +4,7 @@ import './token_manager.dart';
 import './chat/odoo/odoo_chat_secure_session.dart';
 import './driver_review_notifications.dart';
 import './sim_delivery_notifications.dart';
+import './push_device_registration_service.dart';
 
 class CustomerAuthService {
   final ApiClient _apiClient;
@@ -15,6 +16,7 @@ class CustomerAuthService {
       '/api/v1/auth/customer/request-otp',
       data: {'phone': phoneNumber},
     );
+
     return response.data as Map<String, dynamic>;
   }
 
@@ -27,42 +29,54 @@ class CustomerAuthService {
       '/api/v1/auth/customer/verify-otp',
       data: {'phone': phoneNumber, 'request_id': requestId, 'otp': otp},
     );
+
     final data = response.data as Map<String, dynamic>;
+
     if (data['access_token'] != null) {
       await TokenManager.saveTokens(
         accessToken: data['access_token'] as String,
         refreshToken: data['refresh_token'] as String? ?? '',
         role: 'customer',
       );
+
+      // Register Firebase push device after successful login.
+      await PushDeviceRegistrationService.instance.registerAfterLogin();
     }
+
     return data;
   }
 
   Future<CustomerBootstrapModel> loadBootstrap() async {
     final response = await _apiClient.get('/api/v1/customer/bootstrap');
+
     return CustomerBootstrapModel.fromJson(
       response.data as Map<String, dynamic>,
     );
   }
 
-  /// GET /api/v1/customer/trips -> every booking of the customer (past,
-  /// current and future, including completed ones).
+  /// Loads all customer trips.
   Future<List<CustomerTripListItem>> loadTrips() async {
     final response = await _apiClient.get('/api/v1/customer/trips');
+
     return CustomerTripListItem.listFromResponse(response.data);
   }
 
-  /// GET /api/v1/customer/trips/{id} -> full trip (itinerary, hotels,
-  /// transfers, drivers, extra services) at the root or under `trip`.
+  /// Loads complete trip details.
   Future<CustomerHomeTrip> loadTripDetail(int id) async {
     final response = await _apiClient.get('/api/v1/customer/trips/$id');
+
     final data = response.data;
+
     Map<String, dynamic> json = <String, dynamic>{};
+
     if (data is Map) {
       final root = Map<String, dynamic>.from(data);
+
       final inner = root['trip'] ?? root['active_trip'];
+
       json = inner is Map ? Map<String, dynamic>.from(inner) : root;
     }
+
     return CustomerHomeTrip.fromJson(json);
   }
 
@@ -83,13 +97,17 @@ class CustomerAuthService {
           'transportation_id': transportationId,
       },
     );
-    // Only an event actually returned by Odoo after saving is dispatched.
+
+    // Dispatch only an event actually returned by Odoo.
     final data = response.data;
+
     if (data is Map) {
       final raw =
           data['event'] ?? (data['data'] is Map ? data['data']['event'] : null);
+
       return DriverReviewNotifications.dispatch(raw);
     }
+
     return null;
   }
 
@@ -105,12 +123,7 @@ class CustomerAuthService {
     );
   }
 
-  /// Customer confirms SIM receipt. Stored in Odoo as a customer-receipt
-  /// record, separate from the driver's delivery record.
-  ///
-  /// REQUIRES BACKEND: POST /api/v1/customer/trips/{trip_id}/sim-receipt
-  /// Throws if the endpoint is missing or Odoo rejects the request; success
-  /// is never simulated.
+  /// Customer confirms SIM receipt.
   Future<SimDeliveryEvent?> confirmSimReceived({
     required int tripId,
     required int customerId,
@@ -126,14 +139,11 @@ class CustomerAuthService {
         'received_at': DateTime.now().toUtc().toIso8601String(),
       },
     );
+
     return _simEventFrom(response.data);
   }
 
-  /// Customer reports SIM not received. Creates a delivery issue in Odoo.
-  ///
-  /// REQUIRES BACKEND: POST /api/v1/customer/trips/{trip_id}/sim-not-received
-  /// Throws if the endpoint is missing or Odoo rejects the request; success
-  /// is never simulated.
+  /// Customer reports SIM not received.
   Future<SimDeliveryEvent?> reportSimNotReceived({
     required int tripId,
     required int customerId,
@@ -148,23 +158,30 @@ class CustomerAuthService {
         'reported_at': DateTime.now().toUtc().toIso8601String(),
       },
     );
+
     return _simEventFrom(response.data);
   }
 
-  /// Only an event actually returned by Odoo is dispatched.
+  /// Extracts and dispatches SIM delivery events.
   SimDeliveryEvent? _simEventFrom(dynamic data) {
     if (data is Map) {
       final raw =
           data['event'] ?? (data['data'] is Map ? data['data']['event'] : null);
+
       return SimNotifications.dispatch(raw);
     }
+
     return null;
   }
 
+  /// Logs out the customer and clears local session data.
   Future<void> logout() async {
     try {
       await _apiClient.post('/api/v1/auth/logout');
-    } catch (_) {}
+    } catch (_) {
+      // Local logout must continue even if the API is unavailable.
+    }
+
     await ChatSecureSession.clearAll();
     await TokenManager.clearTokens();
   }

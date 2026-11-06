@@ -12,7 +12,7 @@ class OdooChatConfig {
   /// Storage) verifies the Odoo-issued JWT.
   static const bool isEnabled = bool.fromEnvironment(
     'ODOO_CHAT_AUTH_ENABLED',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   /// Odoo endpoints (relative to ApiClient.baseUrl, which has no /api/v1).

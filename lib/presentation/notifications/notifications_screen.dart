@@ -11,7 +11,7 @@ import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
 
 /// Notifications list shared by the Customer and Driver apps.
-/// Data comes only from [NotificationService] (Odoo-ready, no invented data).
+/// Data comes only from NotificationService.
 class NotificationsScreen extends StatefulWidget {
   final bool isDriver;
 
@@ -27,11 +27,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    _service.refresh();
+
+    // Refresh only after the first frame has completed.
+    // This prevents notifyListeners() during widget mounting.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _service.refresh();
+    });
   }
 
   void _showReadOnlyNotice() {
+    if (!mounted) return;
+
     final l10n = AppLocalizations.of(context);
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -41,7 +50,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   void _showMarkFailedNotice() {
     if (!mounted) return;
+
     final l10n = AppLocalizations.of(context);
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(l10n.notificationsMarkReadFailed)));
@@ -52,9 +63,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _showReadOnlyNotice();
       return;
     }
+
     if (_service.isMarking) return;
+
     await _service.markAsRead(id);
-    if (_service.markFailed) _showMarkFailedNotice();
+
+    if (!mounted) return;
+
+    if (_service.markFailed) {
+      _showMarkFailedNotice();
+    }
   }
 
   Future<void> _markAllRead() async {
@@ -62,9 +80,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _showReadOnlyNotice();
       return;
     }
+
     if (_service.isMarking) return;
+
     await _service.markAllAsRead();
-    if (_service.markFailed) _showMarkFailedNotice();
+
+    if (!mounted) return;
+
+    if (_service.markFailed) {
+      _showMarkFailedNotice();
+    }
   }
 
   void _open(AppNotification n) {
@@ -74,14 +99,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _openDriverTripNotification(n);
       return;
     }
+
     if (_service.canMarkRead && !n.isRead && !_service.isMarking) {
       _markRead(n.id);
     }
+
     final route = NotificationService.validRouteFor(
       n,
       isDriver: widget.isDriver,
     );
+
     if (route == null) return;
+
     context.push(route, extra: n.targetExtra);
   }
 
@@ -89,36 +118,50 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_service.canMarkRead && !n.isRead && !_service.isMarking) {
       await _markRead(n.id);
     }
-    // TRIP_UNASSIGNED: only mark as read, never open the trip.
+
+    // An unassigned trip must never be opened.
     if (n.notificationType != 'TRIP_ASSIGNED') return;
+
     final tripId = int.tryParse(n.tripId ?? '');
+
     if (tripId == null || tripId <= 0) return;
+
     try {
-      // Access check: the backend only returns trips assigned to this driver.
+      // Backend verifies that the trip belongs to this driver.
       await DriverApiService(ApiClient()).loadTripDetail(tripId);
     } catch (_) {
       if (!mounted) return;
+
       final l10n = AppLocalizations.of(context);
+
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(content: Text(l10n.notificationTripUnavailable)),
         );
+
       return;
     }
+
     if (!mounted) return;
+
     context.push(AppRoutes.driverTripOverview, extra: {'tripId': tripId});
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final bg = isDark ? AppTheme.darkBackground : AppTheme.mainBackground;
+
     final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
+
     final subColor = isDark
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
+
     final isAr = l10n.locale == 'ar';
 
     return Directionality(
@@ -141,19 +184,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           actions: [
             AnimatedBuilder(
               animation: _service,
-              builder: (context, _) => _service.unreadCount > 0
-                  ? TextButton(
-                      onPressed: _service.isMarking ? null : _markAllRead,
-                      child: Text(
-                        l10n.markAllAsRead,
-                        style: GoogleFonts.inter(
-                          color: AppTheme.luxuryAccent,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+              builder: (context, _) {
+                if (_service.unreadCount == 0) {
+                  return const SizedBox.shrink();
+                }
+
+                return TextButton(
+                  onPressed: _service.isMarking ? null : _markAllRead,
+                  child: Text(
+                    l10n.markAllAsRead,
+                    style: GoogleFonts.inter(
+                      color: AppTheme.luxuryAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -162,6 +209,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             animation: _service,
             builder: (context, _) {
               final items = _service.items;
+
               return Column(
                 children: [
                   if (_service.isLocalDemo)
@@ -184,14 +232,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               itemCount: items.length,
                               separatorBuilder: (_, __) =>
                                   const SizedBox(height: 10),
-                              itemBuilder: (context, i) => _NotificationTile(
-                                notification: items[i],
-                                l10n: l10n,
-                                isDark: isDark,
-                                isDriver: widget.isDriver,
-                                onTap: () => _open(items[i]),
-                                onMarkRead: () => _markRead(items[i].id),
-                              ),
+                              itemBuilder: (context, i) {
+                                return _NotificationTile(
+                                  notification: items[i],
+                                  l10n: l10n,
+                                  isDark: isDark,
+                                  isDriver: widget.isDriver,
+                                  onTap: () => _open(items[i]),
+                                  onMarkRead: () => _markRead(items[i].id),
+                                );
+                              },
                             ),
                           ),
                   ),
@@ -223,53 +273,55 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _empty(AppLocalizations l10n, Color textColor, Color subColor) {
     return LayoutBuilder(
-      builder: (context, c) => RefreshIndicator(
-        color: AppTheme.luxuryAccent,
-        onRefresh: _service.refresh,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: c.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _service.hasError
-                        ? Icons.error_outline
-                        : Icons.notifications_none_rounded,
-                    size: 56,
-                    color: AppTheme.luxuryAccent,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _service.hasError
-                        ? l10n.notificationsLoadError
-                        : l10n.notificationsEmptyTitle,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      color: textColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+      builder: (context, constraints) {
+        return RefreshIndicator(
+          color: AppTheme.luxuryAccent,
+          onRefresh: _service.refresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _service.hasError
+                          ? Icons.error_outline
+                          : Icons.notifications_none_rounded,
+                      size: 56,
+                      color: AppTheme.luxuryAccent,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.notificationsEmptyMessage,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      color: subColor,
-                      fontSize: 14,
-                      height: 1.4,
+                    const SizedBox(height: 16),
+                    Text(
+                      _service.hasError
+                          ? l10n.notificationsLoadError
+                          : l10n.notificationsEmptyTitle,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        color: textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.notificationsEmptyMessage,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        color: subColor,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -294,14 +346,20 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = notification;
+
     final cardBg = isDark ? AppTheme.darkCard : AppTheme.cardWhite;
+
     final border = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+
     final textColor = isDark ? AppTheme.darkPrimaryText : AppTheme.primaryText;
+
     final subColor = isDark
         ? AppTheme.darkSecondaryText
         : AppTheme.secondaryText;
+
     final String titleText;
     final String messageText;
+
     if (n.notificationType == null) {
       titleText = n.title;
       messageText = n.message;
