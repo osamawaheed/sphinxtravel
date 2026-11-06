@@ -49,3 +49,6 @@ android/app/.cxx
 
 # Local environment secrets
 env.json
+
+# Local Supabase configuration
+supabase.local.json
