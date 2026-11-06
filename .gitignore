@@ -46,3 +46,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 android/app/.cxx
+
+# Local environment secrets
+env.json
